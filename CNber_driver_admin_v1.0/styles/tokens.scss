@@ -1,0 +1,44 @@
+// 主色调 
+$color-primary: #FF5722;  // 主色，橙色
+$color-primary-light: rgba(255, 87, 34, 0.1);  // 主色浅色版
+
+// 背景颜色
+$color-background:-webkit-linear-gradient(to right, #FFEB3B, #FF9800)!important; // 从黄色到橙色的渐变背景色
+
+// 文本颜色
+$color-text-light: #757575;  // 辅助文本颜色
+$color-text-dark: #212121;   // 主文本颜色
+
+// 其他常见样式变量
+$secondary-color: #03A9F4; // 辅色，蓝色
+$font-size: 16px;          // 基础字体大小
+$font-family: 'Arial', sans-serif;  // 字体
+
+// 背景图像（确保定义背景图像路径）
+$background-image: url('/static/images/background.jpg'); // 背景图片路径
+
+// 间距
+$padding: 10px;           // 默认内边距
+$margin: 10px;            // 默认外边距
+
+// 按钮样式
+$button-border-radius: 4px;  // 按钮圆角
+$button-padding: 12px 20px;  // 按钮内边距
+$button-font-size: 14px;     // 按钮字体大小
+$button-primary-color: $color-primary; // 按钮主色
+
+// 边框 & 阴影
+$border-radius: 8px;      // 默认圆角
+$box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);  // 阴影效果
+
+// 输入框
+$input-border-color: #ccc;    // 输入框边框颜色
+$input-focus-border-color: $color-primary; // 输入框焦点时边框颜色
+
+// Divider 线条颜色
+$color-divider: #e0e0e0;  // 默认分割线颜色
+
+// 文本颜色
+$color-text-main: #212121;   // 主文本颜色 (新增)
+$color-text-light: #757575;  // 辅助文本颜色
+$color-text-dark: #212121;   // 主文本颜色 (与上面相同，保持兼容)

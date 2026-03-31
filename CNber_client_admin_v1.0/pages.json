@@ -1,0 +1,56 @@
+{
+  "pages": [
+    {
+      "path": "pages/A0001_client_welcome_v01",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+   
+   { "path": "pages/A0002_client_login_v01", "style": { "navigationBarTitleText": "登录页" } },
+   { "path": "pages/A0003_client_register_v01", "style": { "navigationBarTitleText": "注册页" } },
+   
+   { "path": "pages/A0005_client_profile_detail_v01", "style": { "navigationBarTitleText": "账户信息" } },
+    { "path": "pages/A0006_client_profile_complete_v01", "style": { "navigationBarTitleText": "编辑资料" } },
+  
+    { "path": "pages/A0009_client_logout_confirm_v01", "style": { "navigationBarTitleText": "退出确认" } },
+
+   { "path": "pages/A0101_client_order_service_type_v01", "style": { "navigationBarTitleText": "选择服务类型" } },
+    { "path": "pages/A0102_client_order_pickup_v01", "style": { "navigationBarTitleText": "接机订单填写" } },
+    { "path": "pages/A0103_client_order_dropoff_v01", "style": { "navigationBarTitleText": "送机订单填写" } },
+    { "path": "pages/A0104_client_order_point_v01", "style": { "navigationBarTitleText": "打点服务订单" } },
+    { "path": "pages/A0105_client_order_charter_v01", "style": { "navigationBarTitleText": "包车订单" } },
+    { "path": "pages/A0106_client_payment_v01", "style": { "navigationBarTitleText": "支付订单" } },
+    { "path": "pages/A0106a_client_payment_v01", "style": { "navigationBarTitleText": "打赏支付" } },
+    { "path": "pages/A0107_client_wait_driver_v01", "style": { "navigationBarTitleText": "等待司机接单" } },
+    { "path": "pages/A0108_client_edit_order_v01", "style": { "navigationBarTitleText": "修改订单" } },
+    { "path": "pages/A0109_client_driver_info_v01", "style": { "navigationBarTitleText": "司机信息" } },
+    { "path": "pages/A0110_client_in_trip_v01", "style": { "navigationBarTitleText": "行程中" } },
+    { "path": "pages/A0111_client_trip_completed_v01", "style": { "navigationBarTitleText": "行程完成" } },
+   
+   { "path": "pages/A0201_client_rating_v01", "style": { "navigationBarTitleText": "订单评分" } },
+    { "path": "pages/A0202_client_order_history_v01", "style": { "navigationBarTitleText": "历史订单" } },
+   
+   { "path": "pages/A0300_client_main_v01", "style": { "navigationBarTitleText": "中步出行，为您护航！" } },
+    { "path": "pages/A0301_client_customer_service_v01", "style": { "navigationBarTitleText": "联系客服" } },
+    { "path": "pages/A0302_client_points_coupons_membership_center_v01", "style": { "navigationBarTitleText": "会员中心" } },
+   { "path": "pages/A0303_client_change_password_v01", "style": { "navigationBarTitleText": "更改密码" } },
+   { "path": "pages/A0304_client_events_center_v01", "style": { "navigationBarTitleText": "公益中心" } },
+    { "path": "pages/A0305_client_sos_v01", "style": { "navigationBarTitleText": "紧急求助" } },
+    { "path": "pages/A0306_client_privacy_policy_v01", "style": { "navigationBarTitleText": "隐私政策" } },
+    { "path": "pages/A0307_client_terms_of_service_v01", "style": { "navigationBarTitleText": "服务条款" } },
+ 
+ { "path": "pages/A0312_client_payment_center_v01", "style": { "navigationBarTitleText": "支付中心" } },
+   
+   { "path": "pages/A0403_client_help_center_v01", "style": { "navigationBarTitleText": "帮助中心" } },
+    { "path": "pages/A0404_client_404_not_found_v01", "style": { "navigationBarTitleText": "页面不存在" } },
+    { "path": "pages/A0405_client_help_register_v01", "style": { "navigationBarTitleText": "如何注册" } },
+    { "path": "pages/A0406_client_help_login_v01", "style": { "navigationBarTitleText": "如何登录" } },
+    { "path": "pages/A0407_client_help_usage_v01", "style": { "navigationBarTitleText": "服务使用指南" } },
+  
+  { "path": "pages/A0502_client_notifications_v01", "style": { "navigationBarTitleText": "通知中心" } },
+ 
+ { "path": "pages/A0604_client_loading_v01", "style": { "navigationBarTitleText": "加载中" } }
+  ]
+}

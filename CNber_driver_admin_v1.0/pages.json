@@ -1,0 +1,54 @@
+{
+  "pages": [
+    // 欢迎与登录流程
+    { "path": "pages/D0001_driver_welcome", "style": { "navigationBarTitleText": "欢迎" } },
+    { "path": "pages/D0002_driver_login", "style": { "navigationBarTitleText": "司机登录" } },
+    { "path": "pages/D0005_driver_profile_detail", "style": { "navigationBarTitleText": "我的资料" } },
+    { "path": "pages/D0006_driver_profile_complete", "style": { "navigationBarTitleText": "完善资料" } },
+    { "path": "pages/D0010_driver_logout_confirm", "style": { "navigationBarTitleText": "退出确认" } },
+
+    // 首页与主功能入口
+    { "path": "pages/D0300_driver_main", "style": { "navigationBarTitleText": "司机首页" } },
+
+    // 接单与行程
+    { "path": "pages/D0101_driver_order_list", "style": { "navigationBarTitleText": "接单中心" } },
+    { "path": "pages/D0102_driver_order_detail", "style": { "navigationBarTitleText": "订单详情" } },
+    { "path": "pages/D0103_driver_trip_tracking", "style": { "navigationBarTitleText": "行程中" } },
+    { "path": "pages/D0104_driver_trip_complete", "style": { "navigationBarTitleText": "行程完成" } },
+    { "path": "pages/D0105_driver_edit_order", "style": { "navigationBarTitleText": "修改订单" } },
+
+    // 收入与提现
+    { "path": "pages/D0201_driver_income_center", "style": { "navigationBarTitleText": "收入中心" } },
+    { "path": "pages/D0202_driver_withdraw", "style": { "navigationBarTitleText": "提现" } },
+    { "path": "pages/D0203_driver_invoice_history", "style": { "navigationBarTitleText": "发票记录" } },
+    { "path": "pages/D0204_driver_wallet_settings", "style": { "navigationBarTitleText": "提现账户设置" } },
+
+    // 司机评分与历史
+    { "path": "pages/D0302_driver_rating", "style": { "navigationBarTitleText": "乘客评价" } },
+    { "path": "pages/D0303_driver_trip_history", "style": { "navigationBarTitleText": "历史行程" } },
+
+    // 客服与紧急机制
+    { "path": "pages/D0301_driver_customer_service", "style": { "navigationBarTitleText": "客服中心" } },
+    { "path": "pages/D0304_driver_sos", "style": { "navigationBarTitleText": "紧急求助" } },
+
+    // 设置与通知
+    { "path": "pages/D0501_driver_notifications", "style": { "navigationBarTitleText": "通知中心" } },
+    { "path": "pages/D0502_driver_help_center", "style": { "navigationBarTitleText": "帮助中心" } },
+    { "path": "pages/D0503_driver_settings", "style": { "navigationBarTitleText": "设置中心" } },
+    { "path": "pages/D0504_driver_privacy_policy", "style": { "navigationBarTitleText": "隐私政策" } },
+    { "path": "pages/D0505_driver_terms_of_service", "style": { "navigationBarTitleText": "服务条款" } },
+    { "path": "pages/D0506_driver_feedback", "style": { "navigationBarTitleText": "意见反馈" } },
+
+    // 加载/错误页面
+    { "path": "pages/D0601_driver_loading", "style": { "navigationBarTitleText": "加载中" } },
+    { "path": "pages/D0604_driver_404_not_found", "style": { "navigationBarTitleText": "404 页面" } },
+    { "path": "pages/D0605_driver_error", "style": { "navigationBarTitleText": "系统错误" } },
+
+    // 爆军自定义机制页
+    { "path": "pages/D0703_driver_internal_orders", "style": { "navigationBarTitleText": "私单转派" } },
+    { "path": "pages/D0705_driver_vip_membership", "style": { "navigationBarTitleText": "VIP 会员权益" } },
+    { "path": "pages/D0701_driver_training_center", "style": { "navigationBarTitleText": "司机培训中心" } },
+    { "path": "pages/D0702_driver_safety_tips", "style": { "navigationBarTitleText": "安全指南" } },
+    { "path": "pages/D0704_driver_bonus_center", "style": { "navigationBarTitleText": "奖励中心" } }
+  ]
+}

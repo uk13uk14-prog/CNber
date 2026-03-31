@@ -1,0 +1,184 @@
+
+.points-container[data-v-b5c8c138] {
+  min-height: 100vh;
+  padding: 0.625rem;
+  background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
+}
+.points-note[data-v-b5c8c138] {
+  background-color: #ffffff;
+  border-radius: 0.625rem;
+  margin: 1.25rem 0;
+  padding: 0.9375rem;
+  font-size: 0.625rem;
+  color: #444;
+  line-height: 1.8;
+  box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.05);
+}
+.note-title[data-v-b5c8c138] {
+  font-weight: bold;
+  font-size: 0.78125rem;
+  margin-bottom: 0.625rem;
+  display: block;
+}
+.note-line[data-v-b5c8c138] {
+  display: block;
+  margin-bottom: 0.3125rem;
+}
+.tabs[data-v-b5c8c138] {
+  display: flex;
+  background: #e6f3ff;
+  border: 0.03125rem solid #cce6ff;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  margin-bottom: 0.625rem;
+}
+.tab-item[data-v-b5c8c138] {
+  flex: 1;
+  text-align: center;
+  padding: 0.625rem 0;
+  font-size: 0.875rem;
+  color: #333;
+  border-right: 0.03125rem solid #cce6ff;
+  transition: all 0.3s;
+}
+.tab-item[data-v-b5c8c138]:last-child {
+  border-right: none;
+}
+.tab-item.active[data-v-b5c8c138] {
+  font-weight: bold;
+  color: #ff6600;
+  background: #ffffff;
+  border-bottom: 0.125rem solid #ff6600;
+}
+.content[data-v-b5c8c138] {
+  padding: 0.3125rem;
+}
+.content-box[data-v-b5c8c138] {
+  background: #ffffff;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.05);
+  padding: 0.9375rem;
+}
+.section[data-v-b5c8c138] {
+  margin-bottom: 0.9375rem;
+}
+.section-title[data-v-b5c8c138] {
+  font-size: 1.0625rem;
+  font-weight: bold;
+  margin-bottom: 0.625rem;
+  color: #333;
+}
+.points-card[data-v-b5c8c138] {
+  background-color: #ffffff;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
+  text-align: center;
+  box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.625rem;
+}
+.points[data-v-b5c8c138] {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #ff6600;
+}
+.desc[data-v-b5c8c138] {
+  font-size: 0.875rem;
+  margin-top: 0.3125rem;
+  color: #666;
+}
+.record-card[data-v-b5c8c138] {
+  background-color: #ffffff;
+  border-radius: 0.625rem;
+  padding: 0.625rem;
+  margin-bottom: 0.625rem;
+  font-size: 0.875rem;
+  color: #333;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.05);
+}
+.coupon-card[data-v-b5c8c138] {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.625rem;
+  overflow: hidden;
+}
+.coupon-left[data-v-b5c8c138] {
+  background: #ff6600;
+  color: #fff;
+  width: 5.625rem;
+  text-align: center;
+  padding: 0.625rem 0;
+  font-size: 1.125rem;
+  font-weight: bold;
+}
+.coupon-right[data-v-b5c8c138] {
+  flex: 1;
+  padding: 0.625rem;
+}
+.coupon-desc[data-v-b5c8c138] {
+  font-size: 0.875rem;
+  color: #333;
+}
+.coupon-expire[data-v-b5c8c138] {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 0.3125rem;
+}
+.policy-card[data-v-b5c8c138] {
+  background-color: #ffffff;
+  border-radius: 0.625rem;
+  padding: 0.9375rem;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.05);
+  font-size: 0.875rem;
+  color: #333;
+  line-height: 1.8;
+}
+.invite-card[data-v-b5c8c138] {
+  background-color: #ffffff;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
+  text-align: center;
+  box-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.05);
+}
+.invite-code[data-v-b5c8c138] {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #007aff;
+  margin-bottom: 0.625rem;
+}
+.copy-button[data-v-b5c8c138] {
+  margin-top: 0.625rem;
+  background-color: #007aff;
+  color: white;
+  width: 60%;
+  border-radius: 1.5625rem;
+  height: 2.5rem;
+  font-size: 0.875rem;
+}
+.invite-tip[data-v-b5c8c138] {
+  font-size: 0.8125rem;
+  color: #999;
+  margin-top: 0.625rem;
+}
+.return-home-btn[data-v-b5c8c138] {
+  width: 90%;
+  margin: 1.25rem auto 0.625rem auto;
+  padding: 0.8125rem 0;
+  background: linear-gradient(to right, #00c6ff, #0072ff);
+  text-align: center;
+  border-radius: 1.5625rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.footer[data-v-b5c8c138] {
+  text-align: center;
+  font-size: 0.375rem;
+  color: #777;
+  margin-bottom: 0.625rem;
+}

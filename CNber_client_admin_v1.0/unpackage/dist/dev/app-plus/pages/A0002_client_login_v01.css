@@ -1,0 +1,104 @@
+
+.container[data-v-00b814b3] {
+  min-height: 100vh;
+  padding: 1.25rem 0.625rem;
+  background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
+}
+.page-title[data-v-00b814b3] {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  color: #000;
+  margin-bottom: 1rem;
+}
+.card[data-v-00b814b3] {
+  background: #ffffff;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
+  box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.05);
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.input-group[data-v-00b814b3] {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.9375rem;
+  width: 100%;
+}
+.input-picker[data-v-00b814b3] {
+  width: 6.25rem;
+  font-size: 0.875rem;
+}
+.input[data-v-00b814b3] {
+  flex: 1;
+  background: #f6f6f6;
+  border-radius: 0.375rem;
+  padding: 0.9375rem;
+  font-size: 1rem;
+}
+.captcha-wrapper[data-v-00b814b3] {
+  display: flex;
+  align-items: center;
+  margin-left: 0.625rem;
+}
+.captcha-img[data-v-00b814b3] {
+  width: 3.75rem;
+  height: 1.5625rem;
+  border-radius: 0.1875rem;
+  object-fit: contain;
+}
+.captcha-text[data-v-00b814b3] {
+  font-size: 1rem;
+  margin-left: 0.3125rem;
+  color: #007aff;
+}
+.login-btn[data-v-00b814b3] {
+  background: linear-gradient(to right, #00c6ff, #0072ff);
+  color: #fff !important;
+  padding: 0.75rem;
+  border-radius: 1.5625rem;
+  font-size: 1.4375rem;
+  text-align: center;
+  margin: 0.625rem 0;
+  width: 100%;
+  border: none;
+}
+.agreement[data-v-00b814b3] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 1.25rem;
+  margin-top: 0.9375rem;
+  color: #666;
+}
+.agreement-text[data-v-00b814b3] {
+  margin: 0 0.25rem;
+}
+.link[data-v-00b814b3] {
+  color: #409eff;
+}
+.divider[data-v-00b814b3] {
+  margin: 0 0.3125rem;
+  color: #aaa;
+}
+.third-login[data-v-00b814b3] {
+  text-align: center;
+  margin-top: 1.875rem;
+}
+.third-title[data-v-00b814b3] {
+  color: #555;
+  font-size: 1.4375rem;
+  margin-bottom: 0.625rem;
+}
+.third-icons[data-v-00b814b3] {
+  display: flex;
+  justify-content: center;
+  gap: 3.125rem;
+}
+.icon[data-v-00b814b3] {
+  width: 3.125rem;
+  height: 3.125rem;
+  border-radius: 1.875rem;
+}
