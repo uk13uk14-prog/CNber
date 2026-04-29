@@ -8,13 +8,23 @@
     
     <view class="form-card">
       <!-- 出发地址 -->
-      <view class="row-full">
-        <input v-model="form.pickupAddress" type="text" placeholder="请输入出发地址" class="pickup-address" />
+      <view class="address-block">
+        <view class="label">起点</view>
+        <input v-model="pickupAddress.postcode" type="text" placeholder="Postcode (e.g. SW1A 1AA)" class="pickup-address" @input="onPickupPostcodeInput" />
+        <view class="location-hint" v-if="pickupLookupHint">📍 已识别：{{ pickupLookupHint }}</view>
+        <view class="lookup-error" v-if="pickupLookupError">{{ pickupLookupError }}</view>
+        <input v-model="pickupAddress.address" type="text" placeholder="Street / Area" class="pickup-address" />
+        <input v-model="pickupAddress.detail" type="text" placeholder="Flat / Door / Note" class="pickup-address" />
       </view>
 
       <!-- 目的地址 -->
-      <view class="row-full">
-        <input v-model="form.dropoffAddress" type="text" placeholder="请输入目的地地址" class="dropoff-address" />
+      <view class="address-block">
+        <view class="label">终点</view>
+        <input v-model="dropoffAddress.postcode" type="text" placeholder="Postcode (e.g. E14 5AB)" class="dropoff-address" @input="onDropoffPostcodeInput" />
+        <view class="location-hint" v-if="dropoffLookupHint">📍 已识别：{{ dropoffLookupHint }}</view>
+        <view class="lookup-error" v-if="dropoffLookupError">{{ dropoffLookupError }}</view>
+        <input v-model="dropoffAddress.address" type="text" placeholder="Street / Area" class="dropoff-address" />
+        <input v-model="dropoffAddress.detail" type="text" placeholder="Flat / Door / Note" class="dropoff-address" />
       </view>
 
       <!-- 出发日期 + 出发时间 -->
@@ -70,17 +80,43 @@
 
     <!-- 底部固定 -->
     <view class="footer">
-      <view class="price">预计价格：£{{ estimatedPrice }}</view>
+      <view class="price">待后台报价</view>
       <button class="submit-btn" @click="submitOrder">提交订单</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
+import { createRideOrder } from '../utils/orderApi.js'
+import { lookupAddressByPostcode } from '../utils/addressApi.js'
 
 const vehicleList = ['5座', '7座', '8座', '9座']
-const estimatedPrice = ref('0')
+const pickupAddress = ref({
+  postcode: '',
+  address: '',
+  detail: '',
+  longitude: null,
+  latitude: null
+})
+const dropoffAddress = ref({
+  postcode: '',
+  address: '',
+  detail: '',
+  longitude: null,
+  latitude: null
+})
+const pickupLookupLoading = ref(false)
+const dropoffLookupLoading = ref(false)
+const pickupLookupHint = ref('')
+const dropoffLookupHint = ref('')
+const pickupLookupError = ref('')
+const dropoffLookupError = ref('')
+let pickupPostcodeTimer = null
+let dropoffPostcodeTimer = null
+
+const POSTCODE_DEBOUNCE_MS = 800
+const MIN_POSTCODE_LENGTH = 5
 
 // 设置最小日期为明天
 const today = new Date()
@@ -89,8 +125,6 @@ tomorrow.setDate(today.getDate() + 1)
 const minDate = tomorrow.toISOString().split('T')[0]
 
 const form = ref({
-  pickupAddress: '',
-  dropoffAddress: '',
   pickupDate: '',
   pickupTime: '',
   flightNumber: '',
@@ -113,30 +147,140 @@ function filterNumber(field) {
   form.value[field] = form.value[field].replace(/\D/g, '')
 }
 
-function submitOrder() {
+function normalizeLookupData(res) {
+  return res?.data || res || {}
+}
+
+function buildAreaText(data) {
+  return `${data?.city || ''}${data?.region ? ' / ' + data.region : ''}`
+}
+
+function normalizePostcodeInput(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+function clearPostcodeTimer(timerName) {
+  if (timerName === 'pickup' && pickupPostcodeTimer) {
+    clearTimeout(pickupPostcodeTimer)
+    pickupPostcodeTimer = null
+  }
+  if (timerName === 'dropoff' && dropoffPostcodeTimer) {
+    clearTimeout(dropoffPostcodeTimer)
+    dropoffPostcodeTimer = null
+  }
+}
+
+function resetLookupState(targetRef, hintRef, errorRef) {
+  hintRef.value = ''
+  errorRef.value = ''
+  targetRef.value.longitude = null
+  targetRef.value.latitude = null
+}
+
+function schedulePostcodeLookup(targetRef, loadingRef, hintRef, errorRef, timerName) {
+  resetLookupState(targetRef, hintRef, errorRef)
+  clearPostcodeTimer(timerName)
+
+  if (normalizePostcodeInput(targetRef.value.postcode).length < MIN_POSTCODE_LENGTH) return
+
+  const timer = setTimeout(() => {
+    lookupPostcode(targetRef, loadingRef, hintRef, errorRef)
+  }, POSTCODE_DEBOUNCE_MS)
+
+  if (timerName === 'pickup') {
+    pickupPostcodeTimer = timer
+  } else {
+    dropoffPostcodeTimer = timer
+  }
+}
+
+async function lookupPostcode(targetRef, loadingRef, hintRef, errorRef) {
+  const postcode = normalizePostcodeInput(targetRef.value.postcode)
+  if (!postcode) return
+
+  loadingRef.value = true
+  hintRef.value = ''
+  errorRef.value = ''
+  try {
+    const res = await lookupAddressByPostcode(postcode, { showErrorToast: false })
+    const data = normalizeLookupData(res)
+    const recognizedArea = buildAreaText(data)
+
+    targetRef.value.postcode = data?.postcode || targetRef.value.postcode
+    targetRef.value.address = recognizedArea
+    targetRef.value.longitude = data?.longitude ?? null
+    targetRef.value.latitude = data?.latitude ?? null
+    hintRef.value = recognizedArea
+  } catch (e) {
+    errorRef.value = '邮编不存在，请检查后重新输入'
+  } finally {
+    loadingRef.value = false
+  }
+}
+
+function onPickupPostcodeInput() {
+  schedulePostcodeLookup(
+    pickupAddress,
+    pickupLookupLoading,
+    pickupLookupHint,
+    pickupLookupError,
+    'pickup'
+  )
+}
+
+function onDropoffPostcodeInput() {
+  schedulePostcodeLookup(
+    dropoffAddress,
+    dropoffLookupLoading,
+    dropoffLookupHint,
+    dropoffLookupError,
+    'dropoff'
+  )
+}
+
+async function submitOrder() {
+  if (!uni.getStorageSync('token')) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
   if (!form.value.pickupDate) return uni.showToast({ title: '请选择出发日期', icon: 'none' })
   if (!form.value.pickupTime) return uni.showToast({ title: '请选择出发时间', icon: 'none' })
-  if (!form.value.pickupAddress) return uni.showToast({ title: '请输入出发地址', icon: 'none' })
-  if (!form.value.dropoffAddress) return uni.showToast({ title: '请输入目的地地址', icon: 'none' })
+  if (!pickupAddress.value.postcode || !pickupAddress.value.address) {
+    return uni.showToast({ title: '请输入完整地址（邮编 + 地址）', icon: 'none' })
+  }
+  if (!dropoffAddress.value.postcode || !dropoffAddress.value.address) {
+    return uni.showToast({ title: '请输入完整地址（邮编 + 地址）', icon: 'none' })
+  }
   if (!form.value.vehicle) return uni.showToast({ title: '请选择车型', icon: 'none' })
   if (!form.value.phone) return uni.showToast({ title: '请输入电话', icon: 'none' })
 
-  console.log('提交订单：', form.value)
-  uni.showToast({
-    title: '订单已提交',
-    icon: 'success'
-  })
+  const pickup = pickupAddress.value.address.trim()
+  const destination = dropoffAddress.value.address.trim()
 
-  setTimeout(() => {
-    uni.navigateTo({
-      url: '/pages/A0106_client_payment_v01'
+  try {
+    await createRideOrder(pickup, destination, 'charter', {
+      pickupPostcode: pickupAddress.value.postcode.trim(),
+      dropoffPostcode: dropoffAddress.value.postcode.trim(),
+      pickupDetail: `${pickupAddress.value.detail.trim()} | ${form.value.pickupDate} ${form.value.pickupTime} | ${form.value.vehicle} | 电话${form.value.phone}`.trim(),
+      dropoffDetail: dropoffAddress.value.detail.trim()
     })
-  }, 800)
+    uni.showToast({ title: '下单成功', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+    }, 600)
+  } catch (e) {
+    /* request 内已 toast */
+  }
 }
 
 function goBack() {
   uni.navigateBack()
 }
+
+onUnmounted(() => {
+  clearPostcodeTimer('pickup')
+  clearPostcodeTimer('dropoff')
+})
 </script>
 
 <style scoped>
@@ -182,6 +326,26 @@ function goBack() {
 .row-3 > * { flex: 1; }
 .row-2 > * { flex: 1; }
 .row-full > * { width: 94%; }
+.address-block {
+  margin-bottom: 20rpx;
+}
+.address-block .label {
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+.address-block input + input {
+  margin-top: 10rpx;
+}
+.location-hint {
+  font-size: 24rpx;
+  color: #666;
+  margin: 10rpx 0;
+}
+.lookup-error {
+  font-size: 24rpx;
+  color: #d93025;
+  margin: 10rpx 0;
+}
 .picker, input, textarea {
   width: 100%;
   padding: 20rpx;

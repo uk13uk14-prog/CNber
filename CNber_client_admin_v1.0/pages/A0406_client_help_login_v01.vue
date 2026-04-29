@@ -2,9 +2,9 @@
   <view class="container">
     <view class="title"></view>
     <view class="content">
-      <text>1️⃣ 打开应用后点击“注册”按钮。</text>
-      <text>2️⃣ 填写手机号、验证码和密码。</text>
-      <text>3️⃣ 点击确认注册，即可进入首页。</text>
+      <text>1. 打开应用后进入登录页。</text>
+      <text>2. 填写手机号和密码。</text>
+      <text>3. 阅读并同意协议后点击登录。</text>
     </view>
   
   </view>

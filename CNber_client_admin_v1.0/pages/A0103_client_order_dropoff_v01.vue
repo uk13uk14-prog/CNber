@@ -8,8 +8,13 @@
 
     <view class="form-card">
       <!-- 出发地址 -->
-      <view class="row-full">
-        <input v-model="form.dropoffAddress" type="text" placeholder="请输入出发地址" class="dropoff-address" />
+      <view class="address-block">
+        <view class="label">起点</view>
+        <input v-model="pickupAddress.postcode" type="text" placeholder="Postcode (e.g. SW1A 1AA)" class="dropoff-address" @input="onPickupPostcodeInput" />
+        <view class="location-hint" v-if="pickupLookupHint">📍 已识别：{{ pickupLookupHint }}</view>
+        <view class="lookup-error" v-if="pickupLookupError">{{ pickupLookupError }}</view>
+        <input v-model="pickupAddress.address" type="text" placeholder="Street / Area" class="dropoff-address" />
+        <input v-model="pickupAddress.detail" type="text" placeholder="Flat / Door / Note" class="dropoff-address" />
       </view>
 
       <!-- 送机日期 + 送机时间 -->
@@ -76,14 +81,16 @@
     </view>
 
     <view class="footer">
-      <view class="price">预计价格：£{{ estimatedPrice }}</view>
+      <view class="price">待后台报价</view>
       <button class="submit-btn" @click="submitOrder">提交订单</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
+import { createRideOrder } from '../utils/orderApi.js'
+import { lookupAddressByPostcode } from '../utils/addressApi.js'
 
 const airportList = [
   { zh: '希思罗机场', terminals: ['T2', 'T3', 'T4', 'T5'] },
@@ -98,13 +105,41 @@ const airportList = [
   { zh: '贝尔法斯特国际机场', terminals: [] },
   { zh: '爱尔兰机场', terminals: [] }
 ]
+const airportCodeMap = {
+  希思罗机场: 'LHR',
+  盖特威克机场: 'LGW',
+  伦敦城市机场: 'LCY',
+  卢顿机场: 'LTN',
+  曼城机场: 'MAN',
+  爱丁堡机场: 'EDI',
+  贝尔法斯特机场: 'BHD',
+  贝尔法斯特国际机场: 'BFS'
+}
 const airportDisplayList = computed(() => airportList.map(item => item.zh))
 const vehicleList = ['5座', '7座', '8座', '9座']
 
 const selectedAirport = ref('')
 const terminalOptions = ref([])
 const selectedTerminal = ref('')
-const estimatedPrice = ref('0')
+const pickupAddress = ref({
+  postcode: '',
+  address: '',
+  detail: '',
+  longitude: null,
+  latitude: null
+})
+const dropoffAddress = ref({
+  postcode: '',
+  address: '',
+  detail: ''
+})
+const pickupLookupLoading = ref(false)
+const pickupLookupHint = ref('')
+const pickupLookupError = ref('')
+let pickupPostcodeTimer = null
+
+const POSTCODE_DEBOUNCE_MS = 800
+const MIN_POSTCODE_LENGTH = 5
 
 const minDate = ref('')
 const today = new Date()
@@ -112,7 +147,6 @@ today.setDate(today.getDate() + 1)
 minDate.value = today.toISOString().split('T')[0]
 
 const form = ref({
-  dropoffAddress: '',
   pickupDate: '',
   pickupTime: '',
   flightNumber: '',
@@ -145,12 +179,80 @@ function filterNumber(field) {
   form.value[field] = form.value[field].replace(/\D/g, '')
 }
 
-function submitOrder() {
-  if (!form.value.dropoffAddress) return uni.showToast({ title: '请输入出发地址', icon: 'none' })
+function normalizeLookupData(res) {
+  return res?.data || res || {}
+}
+
+function buildAreaText(data) {
+  return `${data?.city || ''}${data?.region ? ' / ' + data.region : ''}`
+}
+
+function normalizePostcodeInput(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+function clearPickupPostcodeTimer() {
+  if (pickupPostcodeTimer) {
+    clearTimeout(pickupPostcodeTimer)
+    pickupPostcodeTimer = null
+  }
+}
+
+function resetPickupLookupState() {
+  pickupLookupHint.value = ''
+  pickupLookupError.value = ''
+  pickupAddress.value.longitude = null
+  pickupAddress.value.latitude = null
+}
+
+function onPickupPostcodeInput(e) {
+  pickupAddress.value.postcode = e?.detail?.value || e?.target?.value || pickupAddress.value.postcode
+  resetPickupLookupState()
+  clearPickupPostcodeTimer()
+
+  if (normalizePostcodeInput(pickupAddress.value.postcode).length < MIN_POSTCODE_LENGTH) return
+
+  pickupPostcodeTimer = setTimeout(() => {
+    lookupPickupPostcode()
+  }, POSTCODE_DEBOUNCE_MS)
+}
+
+async function lookupPickupPostcode() {
+  const postcode = normalizePostcodeInput(pickupAddress.value.postcode)
+  if (!postcode) return
+
+  pickupLookupLoading.value = true
+  pickupLookupHint.value = ''
+  pickupLookupError.value = ''
+  try {
+    const res = await lookupAddressByPostcode(postcode, { showErrorToast: false })
+    const data = normalizeLookupData(res)
+    const recognizedArea = buildAreaText(data)
+
+    pickupAddress.value.postcode = data?.postcode || pickupAddress.value.postcode
+    pickupAddress.value.address = recognizedArea
+    pickupAddress.value.longitude = data?.longitude ?? null
+    pickupAddress.value.latitude = data?.latitude ?? null
+    pickupLookupHint.value = recognizedArea
+  } catch (e) {
+    pickupLookupError.value = '邮编不存在，请检查后重新输入'
+  } finally {
+    pickupLookupLoading.value = false
+  }
+}
+
+async function submitOrder() {
+  if (!uni.getStorageSync('token')) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  if (!pickupAddress.value.postcode || !pickupAddress.value.address) {
+    return uni.showToast({ title: '请输入完整地址（邮编 + 地址）', icon: 'none' })
+  }
   if (!form.value.pickupDate) return uni.showToast({ title: '请选择送机日期', icon: 'none' })
   if (!form.value.pickupTime) return uni.showToast({ title: '请选择送机时间', icon: 'none' })
   if (!selectedAirport.value) return uni.showToast({ title: '请选择送达机场', icon: 'none' })
-  
+
   const matched = airportList.find(item => item.zh === selectedAirport.value)
   if (matched?.terminals?.length > 0 && !selectedTerminal.value) {
     return uni.showToast({ title: '请选择航站楼', icon: 'none' })
@@ -160,24 +262,41 @@ function submitOrder() {
   if (!form.value.vehicle) return uni.showToast({ title: '请选择车型', icon: 'none' })
   if (!form.value.phone) return uni.showToast({ title: '请输入电话', icon: 'none' })
 
-  console.log('提交送机订单：', {
-    ...form.value,
-    airport: selectedAirport.value,
-    terminal: selectedTerminal.value
-  })
+  const term = selectedTerminal.value ? ` ${selectedTerminal.value}` : ''
+  const airportCode = airportCodeMap[selectedAirport.value] || selectedAirport.value
+  dropoffAddress.value = {
+    postcode: airportCode,
+    address: selectedAirport.value,
+    detail: `${term} 航班${form.value.flightNumber}`.trim()
+  }
+  const pickup = pickupAddress.value.address.trim()
+  const destination = dropoffAddress.value.address
 
-  uni.showToast({ title: '订单已提交', icon: 'success' })
-
-  setTimeout(() => {
-    uni.navigateTo({
-      url: '/pages/A0106_client_payment_v01'
+  try {
+    await createRideOrder(pickup, destination, 'dropoff', {
+      airport: airportCode,
+      dropoffAirport: airportCode,
+      pickupPostcode: pickupAddress.value.postcode.trim(),
+      dropoffPostcode: dropoffAddress.value.postcode,
+      pickupDetail: pickupAddress.value.detail.trim(),
+      dropoffDetail: dropoffAddress.value.detail
     })
-  }, 800)
+    uni.showToast({ title: '下单成功', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+    }, 600)
+  } catch (e) {
+    /* request 内已 toast */
+  }
 }
 
 function goBack() {
   uni.navigateBack()
 }
+
+onUnmounted(() => {
+  clearPickupPostcodeTimer()
+})
 </script>
 
 <style scoped>
@@ -222,6 +341,26 @@ function goBack() {
 .row-3 > * { flex: 1; }
 .row-2 > * { flex: 1; }
 .row-full > * { width: 94%; }
+.address-block {
+  margin-bottom: 20rpx;
+}
+.address-block .label {
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+.address-block input + input {
+  margin-top: 10rpx;
+}
+.location-hint {
+  font-size: 24rpx;
+  color: #666;
+  margin: 10rpx 0;
+}
+.lookup-error {
+  font-size: 24rpx;
+  color: #d93025;
+  margin: 10rpx 0;
+}
 .picker, input, textarea {
   width: 100%;
   padding: 20rpx;

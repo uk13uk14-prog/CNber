@@ -14,8 +14,8 @@
       <view class="card grid-item lilac" @tap="goSOS">🚨 SOS帮助</view>
       <view class="card grid-item blush" @tap="goService">💳 支付中心</view>
       <view class="card grid-item gemstone" @tap="goRating">⭐ 订单评价</view>
-      <view class="card grid-item cream" @tap="goPoints">🎁 会员中心</view>
-      <view class="card grid-item soft-purple" @tap="goActivity">🍦 公益中心</view>
+      <view v-if="false" class="card grid-item cream" @tap="goPoints">🎁 会员中心</view>
+      <view v-if="false" class="card grid-item soft-purple" @tap="goActivity">🍦 公益中心</view>
       <view class="card grid-item baby-blue" @tap="goProfile">👤 账户信息</view>
       <view class="card grid-item mango" @tap="goNotifications">🔔 消息通知</view>
       <view class="card grid-item sand" @tap="goHelp">❓ 帮助中心</view>

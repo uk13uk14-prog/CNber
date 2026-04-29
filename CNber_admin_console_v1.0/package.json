@@ -1,0 +1,6 @@
+{
+  "name": "cnber-admin-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CNber 运营调度控制台（uni-app）"
+}

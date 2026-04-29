@@ -10,20 +10,58 @@
       <view class="field">
         <text class="label">起点</text>
         <input
-          v-model="pickup"
+          v-model="pickupAddress.postcode"
           type="text"
-          placeholder="请输入起点"
-          class="input"
+          placeholder="Postcode (e.g. SW1A 1AA)"
+          class="address-input"
+          @input="onPickupPostcodeInput"
+        />
+        <view class="location-hint" v-if="pickupLookupHint">
+          📍 已识别：{{ pickupLookupHint }}
+        </view>
+        <view class="lookup-error" v-if="pickupLookupError">
+          {{ pickupLookupError }}
+        </view>
+        <input
+          v-model="pickupAddress.address"
+          type="text"
+          placeholder="Street / Area"
+          class="address-input"
+        />
+        <input
+          v-model="pickupAddress.detail"
+          type="text"
+          placeholder="Flat / Door / Note"
+          class="address-input"
         />
       </view>
 
       <view class="field">
         <text class="label">终点</text>
         <input
-          v-model="destination"
+          v-model="dropoffAddress.postcode"
           type="text"
-          placeholder="请输入终点"
-          class="input"
+          placeholder="Postcode (e.g. E14 5AB)"
+          class="address-input"
+          @input="onDropoffPostcodeInput"
+        />
+        <view class="location-hint" v-if="dropoffLookupHint">
+          📍 已识别：{{ dropoffLookupHint }}
+        </view>
+        <view class="lookup-error" v-if="dropoffLookupError">
+          {{ dropoffLookupError }}
+        </view>
+        <input
+          v-model="dropoffAddress.address"
+          type="text"
+          placeholder="Street / Area"
+          class="address-input"
+        />
+        <input
+          v-model="dropoffAddress.detail"
+          type="text"
+          placeholder="Flat / Door / Note"
+          class="address-input"
         />
       </view>
 
@@ -35,12 +73,135 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { BASE_URL } from '../config/api.js'
+import { onUnmounted, reactive, ref } from 'vue'
+import { lookupAddressByPostcode } from '../utils/addressApi.js'
+import { createRideOrder } from '../utils/orderApi.js'
 
-const pickup = ref('')
-const destination = ref('')
+const pickupAddress = reactive({
+  postcode: '',
+  address: '',
+  detail: '',
+  longitude: null,
+  latitude: null
+})
+const dropoffAddress = reactive({
+  postcode: '',
+  address: '',
+  detail: '',
+  longitude: null,
+  latitude: null
+})
 const submitting = ref(false)
+const pickupLookupLoading = ref(false)
+const dropoffLookupLoading = ref(false)
+const pickupLookupHint = ref('')
+const dropoffLookupHint = ref('')
+const pickupLookupError = ref('')
+const dropoffLookupError = ref('')
+let pickupPostcodeTimer = null
+let dropoffPostcodeTimer = null
+
+const POSTCODE_DEBOUNCE_MS = 800
+const MIN_POSTCODE_LENGTH = 5
+
+function normalizeLookupData(res) {
+  return res?.data || res || {}
+}
+
+function buildAreaText(data) {
+  return `${data?.city || ''}${data?.region ? ' / ' + data.region : ''}`
+}
+
+function normalizePostcodeInput(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+function resetLookupState(target, hintRef, errorRef) {
+  hintRef.value = ''
+  errorRef.value = ''
+  target.longitude = null
+  target.latitude = null
+}
+
+function clearPostcodeTimer(timerName) {
+  if (timerName === 'pickup' && pickupPostcodeTimer) {
+    clearTimeout(pickupPostcodeTimer)
+    pickupPostcodeTimer = null
+  }
+  if (timerName === 'dropoff' && dropoffPostcodeTimer) {
+    clearTimeout(dropoffPostcodeTimer)
+    dropoffPostcodeTimer = null
+  }
+}
+
+function schedulePostcodeLookup(target, loadingRef, hintRef, errorRef, timerName) {
+  resetLookupState(target, hintRef, errorRef)
+  clearPostcodeTimer(timerName)
+
+  if (normalizePostcodeInput(target.postcode).length < MIN_POSTCODE_LENGTH) return
+
+  const timer = setTimeout(() => {
+    lookupPostcode(target, loadingRef, hintRef, errorRef, { showToast: false })
+  }, POSTCODE_DEBOUNCE_MS)
+
+  if (timerName === 'pickup') {
+    pickupPostcodeTimer = timer
+  } else {
+    dropoffPostcodeTimer = timer
+  }
+}
+
+async function lookupPostcode(target, loadingRef, hintRef, errorRef, options = {}) {
+  const postcode = normalizePostcodeInput(target.postcode)
+  if (!postcode) {
+    uni.showToast({ title: '请输入邮编', icon: 'none' })
+    return
+  }
+
+  loadingRef.value = true
+  hintRef.value = ''
+  errorRef.value = ''
+  try {
+    const res = await lookupAddressByPostcode(postcode, {
+      showErrorToast: options.showToast !== false
+    })
+    const data = normalizeLookupData(res)
+    const recognizedArea = buildAreaText(data)
+
+    target.postcode = data?.postcode || target.postcode
+    target.address = recognizedArea
+    target.longitude = data?.longitude ?? null
+    target.latitude = data?.latitude ?? null
+    hintRef.value = recognizedArea
+  } catch (e) {
+    errorRef.value = '邮编不存在，请检查后重新输入'
+    if (options.showToast !== false) {
+      uni.showToast({ title: '邮编不存在，请检查后重新输入', icon: 'none' })
+    }
+  } finally {
+    loadingRef.value = false
+  }
+}
+
+function onPickupPostcodeInput() {
+  schedulePostcodeLookup(
+    pickupAddress,
+    pickupLookupLoading,
+    pickupLookupHint,
+    pickupLookupError,
+    'pickup'
+  )
+}
+
+function onDropoffPostcodeInput() {
+  schedulePostcodeLookup(
+    dropoffAddress,
+    dropoffLookupLoading,
+    dropoffLookupHint,
+    dropoffLookupError,
+    'dropoff'
+  )
+}
 
 const submitOrder = async () => {
   const token = uni.getStorageSync('token')
@@ -50,48 +211,39 @@ const submitOrder = async () => {
     return
   }
 
-  if (!pickup.value.trim()) {
-    uni.showToast({ title: '请输入起点', icon: 'none' })
+  if (!pickupAddress.postcode || !pickupAddress.address) {
+    uni.showToast({ title: '请输入完整地址（邮编 + 地址）', icon: 'none' })
     return
   }
 
-  if (!destination.value.trim()) {
-    uni.showToast({ title: '请输入终点', icon: 'none' })
+  if (!dropoffAddress.postcode || !dropoffAddress.address) {
+    uni.showToast({ title: '请输入完整地址（邮编 + 地址）', icon: 'none' })
     return
   }
 
   submitting.value = true
 
   try {
-    const [error, res] = await uni.request({
-      url: `${BASE_URL}/order/create`,
-      method: 'POST',
-      header: {
-        Authorization: `Bearer ${token}`
-      },
-      data: {
-        pickup: pickup.value.trim(),
-        destination: destination.value.trim()
+    await createRideOrder(
+      pickupAddress.address,
+      dropoffAddress.address,
+      'point',
+      {
+        pickupPostcode: pickupAddress.postcode.trim(),
+        dropoffPostcode: dropoffAddress.postcode.trim(),
+        pickupDetail: pickupAddress.detail.trim(),
+        dropoffDetail: dropoffAddress.detail.trim()
       }
-    })
+    )
 
-    if (error) {
-      throw error
-    }
-
-    if (res.statusCode === 201 || res.statusCode === 200) {
-      uni.showToast({ title: '下单成功', icon: 'success' })
-      setTimeout(() => {
-        uni.navigateTo({
-          url: '/pages/A0107_client_wait_driver_v01'
-        })
-      }, 800)
-      return
-    }
-
-    uni.showToast({ title: res.data?.message || '下单失败', icon: 'none' })
+    uni.showToast({ title: '下单成功', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateTo({
+        url: '/pages/A0107_client_wait_driver_v01'
+      })
+    }, 800)
   } catch (error) {
-    uni.showToast({ title: '下单失败', icon: 'none' })
+    /* 封装内已提示 */
   } finally {
     submitting.value = false
   }
@@ -100,6 +252,11 @@ const submitOrder = async () => {
 const goBack = () => {
   uni.navigateBack()
 }
+
+onUnmounted(() => {
+  clearPostcodeTimer('pickup')
+  clearPostcodeTimer('dropoff')
+})
 </script>
 
 <style scoped>
@@ -150,15 +307,30 @@ const goBack = () => {
   font-weight: 600;
 }
 
-.input {
+.address-input {
   width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
   box-sizing: border-box;
   background: #f7f8fa;
   border: 2rpx solid #e5e7eb;
   border-radius: 16rpx;
-  padding: 24rpx;
+  padding: 0 24rpx;
   font-size: 30rpx;
   color: #111;
+}
+.address-input + .address-input {
+  margin-top: 16rpx;
+}
+.location-hint {
+  font-size: 24rpx;
+  color: #666;
+  margin-top: 10rpx;
+}
+.lookup-error {
+  font-size: 24rpx;
+  color: #d93025;
+  margin-top: 10rpx;
 }
 
 .submit-btn {

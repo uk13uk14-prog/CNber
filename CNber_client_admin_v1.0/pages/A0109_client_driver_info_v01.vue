@@ -41,6 +41,27 @@
       <br />如有问题请及时联系客服。
     </view>
 
+    <view v-if="order" class="payment-card">
+      <view>{{ priceLine }}</view>
+      <view>{{ paymentLine }}</view>
+      <button
+        v-if="canConfirmPrice"
+        class="pay-action"
+        :disabled="priceActing"
+        @click="confirmPrice"
+      >
+        确认价格
+      </button>
+      <button
+        v-else-if="canMockPay"
+        class="pay-action"
+        :disabled="priceActing"
+        @click="mockPay"
+      >
+        模拟支付
+      </button>
+    </view>
+
     <!-- 操作按钮 -->
     <view class="action-buttons">
       <button class="contact-driver" @click="callDriver">
@@ -58,55 +79,45 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { BASE_URL } from '../config/api.js'
+import { confirmOrderPrice, fetchOrderList, payOrderMock } from '../utils/orderApi.js'
+import { clientDriverInfoNotice } from '../utils/orderStatus.js'
+import { pickActiveOrder, driverDisplayFromOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
 
-const driver = ref({
-  name: '张师傅',
-  phone: '138-0000-0000',
-  rating: 4.8,
-  avatar: '/static/driver_avatar.png',
-  vehicle: '丰田 Camry 2023款 2.5L 豪华版',
-  plateNumber: '粤B·12345'
-})
+const driver = ref(driverDisplayFromOrder(null))
 const order = ref(null)
-const lastNavigatedStatus = ref('')
+const lastFlowSlot = ref('')
+const priceActing = ref(false)
 let pollingTimer = null
 
-const statusRouteMap = {
-  pending: '/pages/A0107_client_wait_driver_v01',
-  accepted: '/pages/A0109_client_driver_info_v01',
-  ongoing: '/pages/A0110_client_in_trip_v01',
-  completed: '/pages/A0111_client_trip_completed_v01'
-}
-
-const noticeText = computed(() => {
-  if (order.value?.status === 'accepted') {
-    return '司机已接单，请保持手机畅通，司机将在预计时间内到达上车地点。'
-  }
-  return '请保持手机畅通，如有问题请及时联系客服。'
+const noticeText = computed(() => clientDriverInfoNotice(order.value?.status))
+const amountLine = computed(() => {
+  const amount = order.value?.amount
+  if (amount == null || amount === '') return '—'
+  const n = Number(amount)
+  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
 })
-
-const handleStatusNavigation = (status) => {
-  if (!status || lastNavigatedStatus.value === status) {
-    return
+const priceLine = computed(() => {
+  const status = order.value?.priceStatus || 'pending'
+  if (status === 'quoted' && order.value?.quoteSource === 'matrix') {
+    return `机场固定价：${amountLine.value}`
   }
-
-  const targetUrl = statusRouteMap[status]
-  if (!targetUrl) {
-    return
+  if (status === 'quoted') return `报价：${amountLine.value}`
+  if (status === 'confirmed') return `价格已确认：${amountLine.value}`
+  return '等待后台报价'
+})
+const paymentLine = computed(() => {
+  const map = {
+    unpaid: '未支付',
+    pending: '待支付',
+    paid: '已支付，等待司机服务',
+    refunded: '已退款'
   }
-
-  const currentRoute = getCurrentPages().slice(-1)[0]?.route
-  const currentPath = currentRoute ? `/${currentRoute}` : ''
-
-  if (currentPath === targetUrl) {
-    lastNavigatedStatus.value = status
-    return
-  }
-
-  lastNavigatedStatus.value = status
-  uni.redirectTo({ url: targetUrl })
-}
+  return map[order.value?.paymentStatus || 'unpaid'] || order.value?.paymentStatus
+})
+const canConfirmPrice = computed(() => order.value?.priceStatus === 'quoted')
+const canMockPay = computed(() =>
+  order.value?.priceStatus === 'confirmed' && order.value?.paymentStatus !== 'paid'
+)
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')
@@ -117,21 +128,12 @@ const fetchOrders = async () => {
   }
 
   try {
-    const [error, res] = await uni.request({
-      url: `${BASE_URL}/order/list`,
-      method: 'GET',
-      header: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const data = await fetchOrderList()
 
-    if (error) {
-      throw error
-    }
-
-    const orders = Array.isArray(res.data?.orders) ? res.data.orders : []
-    order.value = orders.length > 0 ? orders[0] : null
-    handleStatusNavigation(order.value?.status)
+    const orders = Array.isArray(data?.orders) ? data.orders : []
+    order.value = pickActiveOrder(orders)
+    driver.value = driverDisplayFromOrder(order.value)
+    applyClientOrderRoute(order.value, lastFlowSlot)
   } catch (error) {
     uni.showToast({ title: '获取订单失败', icon: 'none' })
   }
@@ -146,15 +148,46 @@ const startPolling = () => {
 }
 
 const callDriver = () => {
-  uni.makePhoneCall({
-    phoneNumber: driver.value.phone
-  })
+  const num = String(driver.value.phone || '').replace(/\s/g, '')
+  if (!num || num === '—') {
+    uni.showToast({ title: '暂无司机电话', icon: 'none' })
+    return
+  }
+  uni.makePhoneCall({ phoneNumber: num })
 }
 
 const callService = () => {
   uni.makePhoneCall({
     phoneNumber: '400-800-8888'
   })
+}
+
+async function confirmPrice() {
+  if (!order.value?._id) return
+  priceActing.value = true
+  try {
+    await confirmOrderPrice(order.value._id)
+    uni.showToast({ title: '价格已确认', icon: 'success' })
+    await fetchOrders()
+  } catch (e) {
+    /* request 已提示 */
+  } finally {
+    priceActing.value = false
+  }
+}
+
+async function mockPay() {
+  if (!order.value?._id) return
+  priceActing.value = true
+  try {
+    await payOrderMock(order.value._id)
+    uni.showToast({ title: '支付成功（测试）', icon: 'success' })
+    await fetchOrders()
+  } catch (e) {
+    /* request 已提示 */
+  } finally {
+    priceActing.value = false
+  }
 }
 
 const goBack = () => {
@@ -278,6 +311,25 @@ onUnmounted(() => {
   line-height: 1.6;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 12px;
+}
+
+.payment-card {
+  text-align: center;
+  font-size: 18px;
+  color: #555;
+  margin: 20px 0;
+  padding: 15px;
+  line-height: 1.8;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+}
+
+.pay-action {
+  margin-top: 12px;
+  background-color: #ff9800;
+  color: #fff;
+  border-radius: 50px;
+  font-size: 16px;
 }
 
 .action-buttons {

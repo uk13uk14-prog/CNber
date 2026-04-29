@@ -26,6 +26,14 @@
         <view class="label">完成订单</view>
         <view class="number">{{ stats.completed }}</view>
       </view>
+      <view class="stat-item">
+        <view class="label">可提现余额</view>
+        <view class="number">£{{ stats.availableBalance }}</view>
+      </view>
+      <view class="stat-item">
+        <view class="label">已提现</view>
+        <view class="number">£{{ stats.withdrawnAmount }}</view>
+      </view>
     </view>
 
     <view class="btn-box">
@@ -35,26 +43,58 @@
 </template>
 
 <script>
+import { request } from '../utils/request.js'
+
 export default {
   name: 'D0201_driver_income_center',
   data() {
     return {
       income: {
-        today: 120,
-        week: 890,
-        month: 3120
+        today: 0,
+        week: 0,
+        month: 0
       },
       stats: {
-        total: 48,
-        completed: 45
+        total: 0,
+        completed: 0,
+        availableBalance: 0,
+        withdrawnAmount: 0
       }
     }
   },
+  onShow() {
+    this.fetchIncomeSummary()
+  },
   methods: {
+    normalizeAmount(value) {
+      const n = Number(value)
+      return Number.isFinite(n) ? n : 0
+    },
+    async fetchIncomeSummary() {
+      try {
+        const data = await request({
+          url: '/driver/income/summary',
+          method: 'GET'
+        })
+        this.income = {
+          today: this.normalizeAmount(data.todayIncome ?? data.today),
+          week: this.normalizeAmount(data.weekIncome ?? data.week),
+          month: this.normalizeAmount(data.monthIncome ?? data.month)
+        }
+        this.stats = {
+          total: this.normalizeAmount(data.totalOrders ?? data.total),
+          completed: this.normalizeAmount(data.totalCompletedOrders ?? data.completed),
+          availableBalance: this.normalizeAmount(data.availableBalance),
+          withdrawnAmount: this.normalizeAmount(data.withdrawnAmount)
+        }
+      } catch (error) {
+        /* request 已统一提示 */
+      }
+    },
     goWithdraw() {
       uni.navigateTo({
         url: '/pages/D0202_driver_withdraw'
-      });
+      })
     }
   }
 }
@@ -106,11 +146,13 @@ export default {
 
   .order-stat {
     display: flex;
+    flex-wrap: wrap;
+    gap: 24rpx;
     justify-content: space-between;
     margin-bottom: 40rpx;
 
     .stat-item {
-      width: 48%;
+      width: calc(50% - 12rpx);
       background-color: white;
       border-radius: 16rpx;
       padding: 24rpx;

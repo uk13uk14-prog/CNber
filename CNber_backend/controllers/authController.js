@@ -5,7 +5,7 @@ const User = require('../models/User')
 const signToken = (user) => {
   return jwt.sign(
     {
-      userId: user._id,
+      userId: user._id.toString(),
       phone: user.phone,
       role: user.role
     },
@@ -14,72 +14,81 @@ const signToken = (user) => {
   )
 }
 
-exports.register = async (req, res, next) => {
-  try {
-    const { phone, password, role = 'user' } = req.body
+exports.register = async (req, res) => {
+  const { phone, password } = req.body
+  const role = req.body.role === 'driver' ? 'driver' : 'user'
 
-    if (!phone || !password) {
-      return res.status(400).json({ message: '手机号和密码不能为空' })
-    }
+  if (!phone || !password) {
+    const e = new Error('手机号和密码不能为空')
+    e.code = 400
+    throw e
+  }
 
-    const existingUser = await User.findOne({ phone })
-    if (existingUser) {
-      return res.status(409).json({ message: '该手机号已注册' })
-    }
+  const existingUser = await User.findOne({ phone })
+  if (existingUser) {
+    const e = new Error('该手机号已注册')
+    e.code = 409
+    throw e
+  }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const user = await User.create({
-      phone,
-      password: hashedPassword,
-      role
-    })
+  const hashedPassword = await bcrypt.hash(password, 10)
+  const user = await User.create({
+    phone,
+    password: hashedPassword,
+    role
+  })
 
-    const token = signToken(user)
+  const token = signToken(user)
 
-    res.status(201).json({
-      message: '注册成功',
+  res.status(201).json({
+    code: 0,
+    message: 'success',
+    data: {
       token,
       user: {
         _id: user._id,
         phone: user.phone,
         role: user.role
       }
-    })
-  } catch (error) {
-    next(error)
-  }
+    }
+  })
 }
 
-exports.login = async (req, res, next) => {
-  try {
-    const { phone, password } = req.body
+exports.login = async (req, res) => {
+  const { phone, password } = req.body
 
-    if (!phone || !password) {
-      return res.status(400).json({ message: '手机号和密码不能为空' })
-    }
+  if (!phone || !password) {
+    const e = new Error('手机号和密码不能为空')
+    e.code = 400
+    throw e
+  }
 
-    const user = await User.findOne({ phone })
-    if (!user) {
-      return res.status(401).json({ message: '用户不存在' })
-    }
+  const user = await User.findOne({ phone }).select('+password')
+  if (!user) {
+    const e = new Error('用户不存在')
+    e.code = 401
+    throw e
+  }
 
-    const match = await bcrypt.compare(password, user.password || '')
-    if (!match) {
-      return res.status(401).json({ message: '密码错误' })
-    }
+  const match = await bcrypt.compare(password, user.password || '')
+  if (!match) {
+    const e = new Error('密码错误')
+    e.code = 401
+    throw e
+  }
 
-    const token = signToken(user)
+  const token = signToken(user)
 
-    res.json({
-      message: '登录成功',
+  res.json({
+    code: 0,
+    message: 'success',
+    data: {
       token,
       user: {
         _id: user._id,
         phone: user.phone,
         role: user.role
       }
-    })
-  } catch (error) {
-    next(error)
-  }
+    }
+  })
 }

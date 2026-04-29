@@ -1,12 +1,12 @@
 <template>
   <view class="invoice-page">
-    <view class="title">发票记录</view>
+    <view class="title">提现记录</view>
 
-    <view v-if="invoices.length > 0">
-      <view v-for="(item, index) in invoices" :key="index" class="invoice-card">
+    <view v-if="withdrawals.length > 0">
+      <view v-for="item in withdrawals" :key="item._id" class="invoice-card">
         <view class="row">
-          <text class="label">结算时间：</text>
-          <text>{{ item.date }}</text>
+          <text class="label">申请时间：</text>
+          <text>{{ formatTime(item.createdAt) }}</text>
         </view>
         <view class="row">
           <text class="label">金额：</text>
@@ -19,29 +19,46 @@
       </view>
     </view>
 
-    <view v-else class="empty">暂无发票记录</view>
+    <view v-else class="empty">暂无提现记录</view>
   </view>
 </template>
 
 <script>
+import { request } from '../utils/request.js'
+
 export default {
   name: 'D0203_driver_invoice_history',
   data() {
     return {
-      invoices: [
-        { date: '2025-05-15', amount: 260, status: 'success' },
-        { date: '2025-04-30', amount: 440, status: 'pending' },
-        { date: '2025-04-15', amount: 310, status: 'rejected' }
-      ]
-    };
+      withdrawals: []
+    }
+  },
+  onShow() {
+    this.fetchWithdrawals()
   },
   methods: {
+    async fetchWithdrawals() {
+      try {
+        const data = await request({
+          url: '/driver/withdrawals',
+          method: 'GET'
+        })
+        this.withdrawals = Array.isArray(data?.withdrawals) ? data.withdrawals : []
+      } catch (error) {
+        /* request 已统一提示 */
+      }
+    },
+    formatTime(value) {
+      if (!value) return '—'
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('zh-CN')
+    },
     getStatusText(status) {
       switch (status) {
-        case 'success': return '已开票';
-        case 'pending': return '待审核';
-        case 'rejected': return '已驳回';
-        default: return '未知状态';
+        case 'pending': return '审核中'
+        case 'approved': return '已到账'
+        case 'rejected': return '已拒绝'
+        default: return '未知状态'
       }
     }
   }
@@ -96,6 +113,10 @@ export default {
 
         &.pending {
           color: #faad14;
+        }
+
+        &.approved {
+          color: #52c41a;
         }
 
         &.rejected {

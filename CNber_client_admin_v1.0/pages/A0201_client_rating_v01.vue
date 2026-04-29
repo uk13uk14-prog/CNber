@@ -1,5 +1,21 @@
 <template>
   <view class="container">
+    <view class="api-tip">
+      说明：乘客评价需后端提供接口。当前未开通时不会冒充提交成功；接入后请在
+      <text class="mono">utils/orderApi.js</text>
+      将 ORDER_RATING_API_ENABLED 设为 true 并实现 POST /order/rating。
+    </view>
+
+    <view v-if="loadError" class="err-box">
+      <text>{{ loadError }}</text>
+    </view>
+
+    <view v-else-if="orderDetail" class="order-head">
+      <text class="oh-title">评价订单</text>
+      <text class="oh-line">订单号：{{ orderIdShort }}</text>
+      <text class="oh-line">行程：{{ orderDetail.pickup || '—' }} → {{ orderDetail.destination || '—' }}</text>
+    </view>
+
     <!-- 星级评分 -->
     <view class="rating">
       <text>综合评分：</text>
@@ -7,7 +23,7 @@
         <text
           v-for="n in 5"
           :key="n"
-          @tap="rating = n"
+          @tap="onStarTap(n)"
           class="star"
           :class="{ active: n <= rating }"
         >★</text>
@@ -31,14 +47,18 @@
     <!-- 建议填写 -->
     <view class="textarea-section">
       <text class="label">建议反馈（选填）</text>
-      <textarea v-model="suggestion" placeholder="欢迎告诉我们您的建议..." />
+      <textarea
+        v-model="suggestion"
+        :disabled="!!loadError || !orderDetail"
+        placeholder="欢迎告诉我们您的建议..."
+      />
     </view>
 
-    <!-- 打赏功能 -->
+    <!-- 打赏功能（链尾未接支付，仅 UI） -->
     <view class="tip-section">
-      <text class="tip-title">打赏司机（选填）</text>
+      <text class="tip-title">打赏司机（选填，支付链未接入）</text>
       <view class="tip-options">
-        <view 
+        <view
           v-for="option in tipOptions"
           :key="option.amount"
           class="tip-option"
@@ -46,45 +66,90 @@
           @tap="selectTip(option.amount)"
         >
           <text class="tip-emoji">{{ option.emoji }}</text>
-          <text class="tip-amount">£{{ option.amount }}</text>
+          <text class="tip-amount">¥{{ option.amount }}</text>
         </view>
       </view>
     </view>
 
     <!-- 提交按钮 -->
-    <button class="submit-btn" @tap="submitRating">
-      {{ selectedTip ? `⭐ 提交评价并打赏£${selectedTip}` : '⭐ 提交评价' }}
+    <button class="submit-btn" :disabled="!!loadError || !orderDetail" @tap="submitRating">
+      {{ submitLabel }}
     </button>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import {
+  fetchOrderDetail,
+  submitOrderRating,
+  ORDER_RATING_API_ENABLED
+} from '../utils/orderApi.js'
+import { normalizeOrderStatus } from '../utils/orderStatus.js'
 
-const rating = ref(0) // 评分（必选）
+const rating = ref(0)
 const tagOptions = ['准时', '车干净', '服务好', '态度好', '价格合理']
-const selectedTags = ref([]) // 评价标签（可选）
-const suggestion = ref('') // 建议（可选）
-const selectedTip = ref(null) // 打赏金额（可选）
-const currentOrderId = ref('') // 当前订单ID
+const selectedTags = ref([])
+const suggestion = ref('')
+const selectedTip = ref(null)
+const orderId = ref('')
+const orderDetail = ref(null)
+const loadError = ref('')
 
-// 打赏选项
 const tipOptions = [
   { amount: 2, emoji: '🥤' },
   { amount: 5, emoji: '🍱' },
-  { amount: 10, emoji: '💷' }
+  { amount: 10, emoji: '☕' }
 ]
 
-// 获取订单ID
-onMounted(() => {
-  const pages = getCurrentPages()
-  if (pages.length > 0) {
-    currentOrderId.value = pages[pages.length - 1].options.orderId || ''
-  }
+const orderIdShort = computed(() => {
+  const id = orderId.value
+  if (!id) return '—'
+  return id.length > 14 ? `${id.slice(0, 10)}…` : id
 })
 
-// 切换标签选择
+const submitLabel = computed(() => {
+  if (!ORDER_RATING_API_ENABLED) return '提交评价（待接口接入）'
+  return selectedTip.value ? `提交评价（¥${selectedTip.value} 打赏）` : '提交评价'
+})
+
+function onStarTap(n) {
+  if (loadError.value || !orderDetail.value) return
+  rating.value = n
+}
+
+async function loadOrder() {
+  loadError.value = ''
+  orderDetail.value = null
+  if (!orderId.value) {
+    loadError.value = '缺少参数 orderId，请从「行程完成」页进入评价'
+    return
+  }
+  try {
+    const data = await fetchOrderDetail(orderId.value)
+    const o = data && data.order
+    if (!o) {
+      loadError.value = '无法加载订单'
+      return
+    }
+    if (normalizeOrderStatus(o.status) !== 'completed') {
+      loadError.value = '仅「已完成」订单可评价；已取消或其它状态请查看订单历史。'
+      return
+    }
+    orderDetail.value = o
+  } catch {
+    loadError.value = '加载订单失败，请检查网络或重新登录'
+  }
+}
+
+onLoad((query) => {
+  orderId.value = (query && query.orderId ? String(query.orderId) : '').trim()
+  loadOrder()
+})
+
 function toggleTag(tag) {
+  if (loadError.value || !orderDetail.value) return
   const index = selectedTags.value.indexOf(tag)
   if (index > -1) {
     selectedTags.value.splice(index, 1)
@@ -93,52 +158,107 @@ function toggleTag(tag) {
   }
 }
 
-// 选择打赏金额
 function selectTip(amount) {
+  if (loadError.value || !orderDetail.value) return
   selectedTip.value = selectedTip.value === amount ? null : amount
 }
 
-// 提交评价（一定会成功）
 async function submitRating() {
+  if (!orderDetail.value || loadError.value) return
   if (rating.value === 0) {
     uni.showToast({ title: '请先评分', icon: 'none' })
     return
   }
-
-  uni.showLoading({ title: '提交中...' })
-  
-  // 模拟评价提交（实际使用时应替换为真实API）
-  console.log('评价提交成功：', {
-    orderId: currentOrderId.value,
-    rating: rating.value,
-    tags: selectedTags.value,
-    suggestion: suggestion.value
-  })
-  
-  // 延迟让加载动画显示一会儿
-  await new Promise(resolve => setTimeout(resolve, 800))
-  
-  uni.hideLoading()
-  
-  if (selectedTip.value) {
-    // 有打赏 -> 跳转支付页面
-    uni.navigateTo({
-      url: `/pages/A0106a_client_payment_v01?amount=${selectedTip.value}&orderId=${currentOrderId.value}&paymentType=tip`
+  if (selectedTip.value != null) {
+    uni.showModal({
+      title: '打赏未接入',
+      content: '打赏与支付尚未接入，无法随评价发起真实扣款。请先取消打赏选项；仅评价将在接口就绪后提交。',
+      showCancel: false
     })
-  } else {
-    // 无打赏 -> 直接返回主页
-    uni.showToast({ title: '评价成功', icon: 'success' })
+    return
+  }
+
+  uni.showLoading({ title: '处理中…' })
+  try {
+    await submitOrderRating({
+      orderId: orderId.value,
+      stars: rating.value,
+      tags: [...selectedTags.value],
+      comment: String(suggestion.value || '').trim()
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '评价已提交', icon: 'success' })
     setTimeout(() => {
-      uni.redirectTo({ url: '/pages/A0300_client_main_v01' })
-    }, 1500)
+      uni.redirectTo({ url: '/pages/A0202_client_order_history_v01' })
+    }, 1200)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.message) || String(e || '')
+    if (msg.includes('RATING_API_NOT_IMPLEMENTED') || msg.includes('RATING_API')) {
+      uni.showModal({
+        title: '评价接口未开通',
+        content:
+          '后端尚未提供乘客评价写入接口，本次不会保存任何评价数据，也不会提示虚假成功。验收通过后请在 CNber_backend 增加评价 API，并把 orderApi.js 中 ORDER_RATING_API_ENABLED 改为 true。',
+        showCancel: false
+      })
+      return
+    }
+    uni.showToast({ title: msg || '提交失败', icon: 'none' })
   }
 }
 </script>
+
 <style scoped>
 .container {
   background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
   min-height: 100vh;
   padding: 40rpx 30rpx;
+}
+
+.api-tip {
+  font-size: 24rpx;
+  color: #444;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 24rpx;
+  line-height: 1.55;
+}
+
+.mono {
+  font-family: monospace;
+}
+
+.err-box {
+  background: #ffe8e8;
+  color: #a40000;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
+  font-size: 28rpx;
+}
+
+.order-head {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 28rpx;
+}
+
+.oh-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: bold;
+  margin-bottom: 16rpx;
+  color: #222;
+}
+
+.oh-line {
+  display: block;
+  font-size: 26rpx;
+  color: #555;
+  margin-bottom: 8rpx;
+  line-height: 1.45;
 }
 
 /* 星级评分 */
@@ -174,7 +294,7 @@ async function submitRating() {
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 17rpx; /* ✅ 控制标签间距的地方 */
+  gap: 17rpx;
 }
 
 .tag {
@@ -222,7 +342,7 @@ textarea {
 }
 .tip-title {
   display: block;
-  font-size: 38rpx;
+  font-size: 32rpx;
   font-weight: bold;
   margin-bottom: 30rpx;
 }
@@ -271,5 +391,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
 }
 </style>

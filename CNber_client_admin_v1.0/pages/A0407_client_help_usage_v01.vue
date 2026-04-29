@@ -2,9 +2,9 @@
   <view class="container">
     <view class="title"></view>
     <view class="content">
-      <text>1️⃣ 打开应用后点击“注册”按钮。</text>
-      <text>2️⃣ 填写手机号、验证码和密码。</text>
-      <text>3️⃣ 点击确认注册，即可进入首页。</text>
+      <text>1. 注册或登录账号。</text>
+      <text>2. 选择用车服务并填写行程信息。</text>
+      <text>3. 提交订单后等待司机接单。</text>
     </view>
   
   </view>

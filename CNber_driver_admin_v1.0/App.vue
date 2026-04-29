@@ -13,5 +13,12 @@
 </script>
 
 <style>
-	/*每个页面公共css */
+	/* 司机端统一底色：沿用欢迎页深蓝基调，页面内容仍用白色卡片承载 */
+	page {
+		background-color: #16324f;
+	}
+
+	.title {
+		color: #ffffff;
+	}
 </style>

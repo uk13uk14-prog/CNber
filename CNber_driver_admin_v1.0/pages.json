@@ -3,6 +3,7 @@
     // 欢迎与登录流程
     { "path": "pages/D0001_driver_welcome", "style": { "navigationBarTitleText": "欢迎" } },
     { "path": "pages/D0002_driver_login", "style": { "navigationBarTitleText": "司机登录" } },
+    { "path": "pages/D0003_driver_register", "style": { "navigationBarTitleText": "司机注册" } },
     { "path": "pages/D0005_driver_profile_detail", "style": { "navigationBarTitleText": "我的资料" } },
     { "path": "pages/D0006_driver_profile_complete", "style": { "navigationBarTitleText": "完善资料" } },
     { "path": "pages/D0010_driver_logout_confirm", "style": { "navigationBarTitleText": "退出确认" } },
@@ -20,7 +21,7 @@
     // 收入与提现
     { "path": "pages/D0201_driver_income_center", "style": { "navigationBarTitleText": "收入中心" } },
     { "path": "pages/D0202_driver_withdraw", "style": { "navigationBarTitleText": "提现" } },
-    { "path": "pages/D0203_driver_invoice_history", "style": { "navigationBarTitleText": "发票记录" } },
+    { "path": "pages/D0203_driver_invoice_history", "style": { "navigationBarTitleText": "提现记录" } },
     { "path": "pages/D0204_driver_wallet_settings", "style": { "navigationBarTitleText": "提现账户设置" } },
 
     // 司机评分与历史

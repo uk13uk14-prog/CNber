@@ -1,0 +1,121 @@
+{
+  "pages": [
+    {
+      "path": "pages/B0001_admin_login",
+      "style": {
+        "navigationBarTitleText": "后台登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/B0300_admin_dashboard",
+      "style": {
+        "navigationBarTitleText": "工作台"
+      }
+    },
+    {
+      "path": "pages/B0101_admin_order_list",
+      "style": {
+        "navigationBarTitleText": "订单"
+      }
+    },
+    {
+      "path": "pages/B0201_admin_driver_list",
+      "style": {
+        "navigationBarTitleText": "司机"
+      }
+    },
+    {
+      "path": "pages/B0202_admin_customer_list",
+      "style": {
+        "navigationBarTitleText": "客户"
+      }
+    },
+    {
+      "path": "pages/B0501_admin_settings",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/B0102_admin_order_detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/B0105_admin_order_readonly_detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/B0103_admin_dispatch",
+      "style": {
+        "navigationBarTitleText": "指派司机"
+      }
+    },
+    {
+      "path": "pages/B0104_admin_followup",
+      "style": {
+        "navigationBarTitleText": "跟进备注"
+      }
+    },
+    {
+      "path": "pages/B0203_admin_driver_detail",
+      "style": {
+        "navigationBarTitleText": "司机详情"
+      }
+    },
+    {
+      "path": "pages/B0204_admin_customer_detail",
+      "style": {
+        "navigationBarTitleText": "客户详情"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "CNber 控制台",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f7f8fa"
+  },
+  "tabBar": {
+    "color": "#667085",
+    "selectedColor": "#1677ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/B0300_admin_dashboard",
+        "text": "工作台",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/B0101_admin_order_list",
+        "text": "订单",
+        "iconPath": "static/tab/order.png",
+        "selectedIconPath": "static/tab/order-active.png"
+      },
+      {
+        "pagePath": "pages/B0201_admin_driver_list",
+        "text": "司机",
+        "iconPath": "static/tab/driver.png",
+        "selectedIconPath": "static/tab/driver-active.png"
+      },
+      {
+        "pagePath": "pages/B0202_admin_customer_list",
+        "text": "客户",
+        "iconPath": "static/tab/user.png",
+        "selectedIconPath": "static/tab/user-active.png"
+      },
+      {
+        "pagePath": "pages/B0501_admin_settings",
+        "text": "设置",
+        "iconPath": "static/tab/settings.png",
+        "selectedIconPath": "static/tab/settings-active.png"
+      }
+    ]
+  }
+}

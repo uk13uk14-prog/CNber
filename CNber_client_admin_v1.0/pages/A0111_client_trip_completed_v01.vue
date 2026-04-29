@@ -5,14 +5,33 @@
 
     <!-- 文案 -->
     <text class="title"></text>
-    <text class="desc">感谢您使用</text>
-        <text class="desc">中步出行</text>
-          <text class="desc">订单已完成</text>
-          <text class="desc">我们下次再约！</text>
+    <template v-if="isCompletedOrder">
+      <text class="desc">感谢您使用</text>
+      <text class="desc">中步出行</text>
+      <text class="desc">订单已完成</text>
+      <text class="desc">我们下次再约！</text>
+    </template>
+    <template v-else>
+      <text class="desc muted-strong">正在同步订单状态…</text>
+    </template>
+
+    <view v-if="order" class="order-brief">
+      <text class="brief-line">状态：{{ statusLabel }}</text>
+      <text class="brief-line">出发：{{ order.pickup || '—' }}</text>
+      <text class="brief-line">到达：{{ order.destination || '—' }}</text>
+    </view>
+
     <!-- 按钮组 -->
     <view class="button-group">
       <button class="btn btn-home" @click="goHome">返回首页</button>
-      <button class="btn btn-rate" @click="goRating">评价司机</button>
+      <button
+        class="btn btn-rate"
+        :disabled="!canGoRating"
+        @click="goRating"
+      >
+        评价司机
+      </button>
+      <button class="btn btn-history" @click="goOrderHistory">订单历史</button>
     </view>
 
     <!-- 捐赠提示 -->
@@ -27,41 +46,24 @@
 
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
-import { BASE_URL } from '../config/api.js'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { fetchOrderList } from '../utils/orderApi.js'
+import { clientOrderStatusLabel, normalizeOrderStatus } from '../utils/orderStatus.js'
+import { pickActiveOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
 
 const order = ref(null)
-const lastNavigatedStatus = ref('')
+const lastFlowSlot = ref('')
 let pollingTimer = null
 
-const statusRouteMap = {
-  pending: '/pages/A0107_client_wait_driver_v01',
-  accepted: '/pages/A0109_client_driver_info_v01',
-  ongoing: '/pages/A0110_client_in_trip_v01',
-  completed: '/pages/A0111_client_trip_completed_v01'
-}
+const statusLabel = computed(() => clientOrderStatusLabel(order.value?.status))
 
-const handleStatusNavigation = (status) => {
-  if (!status || lastNavigatedStatus.value === status) {
-    return
-  }
+const isCompletedOrder = computed(
+  () => normalizeOrderStatus(order.value?.status) === 'completed'
+)
 
-  const targetUrl = statusRouteMap[status]
-  if (!targetUrl) {
-    return
-  }
-
-  const currentRoute = getCurrentPages().slice(-1)[0]?.route
-  const currentPath = currentRoute ? `/${currentRoute}` : ''
-
-  if (currentPath === targetUrl) {
-    lastNavigatedStatus.value = status
-    return
-  }
-
-  lastNavigatedStatus.value = status
-  uni.redirectTo({ url: targetUrl })
-}
+const canGoRating = computed(
+  () => !!(order.value && order.value._id && isCompletedOrder.value)
+)
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')
@@ -72,21 +74,11 @@ const fetchOrders = async () => {
   }
 
   try {
-    const [error, res] = await uni.request({
-      url: `${BASE_URL}/order/list`,
-      method: 'GET',
-      header: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const data = await fetchOrderList()
 
-    if (error) {
-      throw error
-    }
-
-    const orders = Array.isArray(res.data?.orders) ? res.data.orders : []
-    order.value = orders.length > 0 ? orders[0] : null
-    handleStatusNavigation(order.value?.status)
+    const orders = Array.isArray(data?.orders) ? data.orders : []
+    order.value = pickActiveOrder(orders)
+    applyClientOrderRoute(order.value, lastFlowSlot)
   } catch (error) {
     uni.showToast({ title: '获取订单失败', icon: 'none' })
   }
@@ -107,8 +99,19 @@ const goHome = () => {
 }
 
 const goRating = () => {
+  if (!canGoRating.value) {
+    uni.showToast({ title: '仅已完成订单可评价', icon: 'none' })
+    return
+  }
+  const id = String(order.value._id)
   uni.navigateTo({
-    url: '/pages/A0201_client_rating_v01'
+    url: `/pages/A0201_client_rating_v01?orderId=${encodeURIComponent(id)}`
+  })
+}
+
+const goOrderHistory = () => {
+  uni.navigateTo({
+    url: '/pages/A0202_client_order_history_v01'
   })
 }
 
@@ -134,7 +137,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 0px20px 20px 20px; /* 减少顶部间距 */
+  padding: 0 20px 20px;
   background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
   min-height: 100vh;
   box-sizing: border-box;
@@ -151,8 +154,33 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 
+.muted-strong {
+  color: #888;
+  font-size: 28rpx;
+}
+
+.order-brief {
+  width: 100%;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.brief-line {
+  display: block;
+  font-size: 26rpx;
+  color: #444;
+  margin-bottom: 10rpx;
+  line-height: 1.5;
+}
+
 .button-group {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -172,6 +200,16 @@ onUnmounted(() => {
   background-color: #f2c94c;
   color: #007aff;
   border: 1px solid #007aff;
+}
+
+.btn-rate:disabled {
+  opacity: 0.45;
+}
+
+.btn-history {
+  background-color: #ffffff;
+  color: #0072ff;
+  border: 1px solid #0072ff;
 }
 
 .donate-box {

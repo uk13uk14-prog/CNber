@@ -11,7 +11,7 @@
 
     <!-- 行程状态 -->
     <view class="trip-status">
-      <view class="status-detail">司机正在前往目的地...</view>
+      <view class="status-detail">{{ tripHeadline }}</view>
     </view>
 
     <!-- 司机和车辆信息 -->
@@ -64,49 +64,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { BASE_URL } from '../config/api.js'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { fetchOrderList } from '../utils/orderApi.js'
+import { clientInTripHeadline } from '../utils/orderStatus.js'
+import { pickActiveOrder, driverDisplayFromOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
 
-// 模拟司机信息
-const driver = ref({
-  name: '李师傅',
-  phone: '138-1111-2222',
-  avatar: '/static/driver_avatar.png',
-  plateNumber: '粤B·54321'
-})
+const driver = ref(driverDisplayFromOrder(null))
 const order = ref(null)
-const lastNavigatedStatus = ref('')
+const lastFlowSlot = ref('')
 let pollingTimer = null
 
-const statusRouteMap = {
-  pending: '/pages/A0107_client_wait_driver_v01',
-  accepted: '/pages/A0109_client_driver_info_v01',
-  ongoing: '/pages/A0110_client_in_trip_v01',
-  completed: '/pages/A0111_client_trip_completed_v01'
-}
-
-const handleStatusNavigation = (status) => {
-  if (!status || lastNavigatedStatus.value === status) {
-    return
-  }
-
-  const targetUrl = statusRouteMap[status]
-  if (!targetUrl) {
-    return
-  }
-
-  const currentRoute = getCurrentPages().slice(-1)[0]?.route
-  const currentPath = currentRoute ? `/${currentRoute}` : ''
-
-  if (currentPath === targetUrl) {
-    lastNavigatedStatus.value = status
-    return
-  }
-
-  lastNavigatedStatus.value = status
-  uni.redirectTo({ url: targetUrl })
-}
+const tripHeadline = computed(() => clientInTripHeadline(order.value?.status))
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')
@@ -117,21 +85,12 @@ const fetchOrders = async () => {
   }
 
   try {
-    const [error, res] = await uni.request({
-      url: `${BASE_URL}/order/list`,
-      method: 'GET',
-      header: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const data = await fetchOrderList()
 
-    if (error) {
-      throw error
-    }
-
-    const orders = Array.isArray(res.data?.orders) ? res.data.orders : []
-    order.value = orders.length > 0 ? orders[0] : null
-    handleStatusNavigation(order.value?.status)
+    const orders = Array.isArray(data?.orders) ? data.orders : []
+    order.value = pickActiveOrder(orders)
+    driver.value = driverDisplayFromOrder(order.value)
+    applyClientOrderRoute(order.value, lastFlowSlot)
   } catch (error) {
     uni.showToast({ title: '获取订单失败', icon: 'none' })
   }
@@ -145,18 +104,8 @@ const startPolling = () => {
   }, 5000)
 }
 
-// 页面加载时确认进入成功
-onLoad(() => {
-  console.log('✅ 已进入 A0110_client_in_trip_v01 页面')
-})
-
-// 页面挂载后提示
 onMounted(() => {
   startPolling()
-  uni.showToast({
-    title: '行程已开始',
-    icon: 'success'
-  })
 })
 
 // 紧急求助

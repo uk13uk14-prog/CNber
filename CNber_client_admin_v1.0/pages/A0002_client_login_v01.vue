@@ -1,7 +1,13 @@
 <template>
   <view class="container">
-    <view class="page-title">您好！</view>
+    <view class="brand">
+      <text class="brand-logo">CNber</text>
+      <text class="brand-name">中步出行</text>
+      <text class="brand-desc">英国华人用车服务</text>
+    </view>
+
     <view class="card">
+      <view class="card-title">手机号登录</view>
       <view class="input-group">
         <picker @change="selectCountry" :range="countryList" range-key="zh">
           <view class="input-picker">{{ selectedCountry }}</view>
@@ -10,15 +16,18 @@
       </view>
 
       <view class="input-group">
-        <input class="input" v-model="captchaCode" placeholder="输入图形验证码" />
-        <view class="captcha-wrapper" @click="refreshCaptcha">
-          <image :src="captchaUrl" class="captcha-img" />
-          <text class="captcha-text">换一张</text>
-        </view>
+        <input class="input" v-model="password" placeholder="请输入密码" password />
       </view>
 
-      <view class="input-group">
-        <input class="input" v-model="password" placeholder="请输入密码" password />
+      <view class="remember-box">
+        <checkbox-group @change="onRememberChange">
+          <label>
+            <checkbox value="account" :checked="rememberAccount" /> 记住账号
+          </label>
+          <label>
+            <checkbox value="password" :checked="rememberPassword" /> 记住密码
+          </label>
+        </checkbox-group>
       </view>
 
       <!-- 协议勾选 -->
@@ -37,19 +46,9 @@
       </button>
       
       <!-- 底部链接 -->
-      <view class="agreement">
-        <navigator url="/pages/A0003_client_register_v01" class="link">《注册账号》</navigator>
-        <text class="divider">|</text>
-        <navigator url="/pages/A0303_client_change_password_v01" class="link">《忘记密码》</navigator>
-      </view>
-    </view>
-
-    <view class="third-login">
-      <text class="third-title">快捷登录入口</text>
-      <view class="third-icons">
-        <image src="/static/icons/wechat.png" class="icon" @click="loginWithWechat" />
-        <image src="/static/icons/alipay.png" class="icon" @click="loginWithAlipay" />
-        <image src="/static/icons/apple.png" class="icon" @click="loginWithApple" />
+      <view class="footer-links">
+        <text class="footer-text">还没有账号？</text>
+        <navigator url="/pages/A0003_client_register_v01" class="link">注册账号</navigator>
       </view>
     </view>
   </view>
@@ -57,14 +56,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { BASE_URL } from '../config/api.js'
+import { request } from '../utils/request.js'
 
 const phone = ref('')
-const captchaCode = ref('')
 const password = ref('')
-const captchaUrl = ref('/static/icons/captcha1.png')
 const isChecked = ref(false)
 const isLoading = ref(false)
+const REMEMBER_LOGIN_KEY = 'clientRememberLogin'
+const rememberAccount = ref(true)
+const rememberPassword = ref(false)
 
 const countryList = ref([
   { code: '+86', zh: '中国' },
@@ -83,13 +83,42 @@ const selectCountry = (e) => {
   selectedCountry.value = `${item.code} ${item.zh}`
 }
 
-const refreshCaptcha = () => {
-  const index = Math.floor(Math.random() * 3) + 1
-  captchaUrl.value = `/static/icons/captcha${index}.png`
-}
-
 const toggleCheck = () => {
   isChecked.value = !isChecked.value
+}
+
+const onRememberChange = (e) => {
+  const values = e.detail.value || []
+  rememberPassword.value = values.includes('password')
+  rememberAccount.value = values.includes('account') || rememberPassword.value
+}
+
+const loadRememberedLogin = () => {
+  try {
+    const saved = uni.getStorageSync(REMEMBER_LOGIN_KEY)
+    if (!saved) return
+
+    rememberAccount.value = saved.rememberAccount !== false
+    rememberPassword.value = saved.rememberPassword === true
+    if (rememberAccount.value && saved.phone) {
+      phone.value = saved.phone
+    }
+    if (rememberPassword.value && saved.password) {
+      password.value = saved.password
+    }
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+const saveRememberedLogin = () => {
+  const payload = {
+    rememberAccount: rememberAccount.value,
+    rememberPassword: rememberPassword.value,
+    phone: rememberAccount.value ? phone.value : '',
+    password: rememberPassword.value ? password.value : ''
+  }
+  uni.setStorageSync(REMEMBER_LOGIN_KEY, payload)
 }
 
 const login = async () => {
@@ -97,132 +126,165 @@ const login = async () => {
     uni.showToast({ title: '请先同意协议', icon: 'none' })
     return
   }
-  if (!phone.value || !password.value || !captchaCode.value) {
-    uni.showToast({ title: '请填写完整信息', icon: 'none' })
+  if (!phone.value) {
+    uni.showToast({ title: '请输入手机号', icon: 'none' })
+    return
+  }
+  if (!password.value) {
+    uni.showToast({ title: '请输入密码', icon: 'none' })
     return
   }
   
   isLoading.value = true
   try {
-    const [error, res] = await uni.request({
-      url: `${BASE_URL}/auth/login`,
+    const data = await request({
+      url: '/auth/login',
       method: 'POST',
+      skipAuth: true,
       data: {
         phone: phone.value,
         password: password.value
       }
     })
 
-    if (error) {
-      throw error
-    }
-
-    if (res.data && res.data.user) {
-      uni.setStorageSync('token', res.data.token || '')
-      uni.setStorageSync('user', res.data.user)
+    if (data?.user) {
+      if (data.user.role === 'driver') {
+        uni.showToast({
+          title: '当前为乘客端，请使用司机端 App 登录',
+          icon: 'none',
+          duration: 3000
+        })
+        return
+      }
+      saveRememberedLogin()
+      uni.setStorageSync('token', data.token || '')
+      uni.setStorageSync('user', data.user)
       uni.redirectTo({ url: '/pages/A0300_client_main_v01' })
       return
     }
 
-    uni.showToast({ title: res.data?.message || '登录失败', icon: 'none' })
+    uni.showToast({ title: '登录失败', icon: 'none' })
   } catch (error) {
-    uni.showToast({ title: '请求失败', icon: 'none' })
+    /* 封装内已提示 */
   } finally {
     isLoading.value = false
   }
 }
 
-const loginWithWechat = () => {
-  uni.showToast({ title: '微信登录开发中', icon: 'none' })
-}
-
-const loginWithAlipay = () => {
-  uni.showToast({ title: '支付宝登录开发中', icon: 'none' })
-}
-
-const loginWithApple = () => {
-  uni.showToast({ title: 'Apple 登录开发中', icon: 'none' })
-}
-
 onMounted(() => {
   selectedCountry.value = `${countryList.value[0].code} ${countryList.value[0].zh}`
+  loadRememberedLogin()
 })
 </script>
 
 <style scoped>
 .container {
   min-height: 100vh;
-  padding: 40rpx 20rpx;
-  background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
+  padding: 80rpx 32rpx 48rpx;
+  background: #f5f7fb;
+  box-sizing: border-box;
 }
 
-.page-title {
-  font-size: 48rpx;
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 56rpx;
+}
+
+.brand-logo {
+  font-size: 60rpx;
   font-weight: bold;
-  text-align: center;
-  color: #000;
-  margin-bottom: 32rpx;
+  color: #111827;
+  letter-spacing: 2rpx;
+}
+
+.brand-name {
+  margin-top: 12rpx;
+  font-size: 34rpx;
+  color: #1f2937;
+}
+
+.brand-desc {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  color: #6b7280;
 }
 
 .card {
   background: #ffffff;
-  border-radius: 20rpx;
-  padding: 40rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+  border-radius: 28rpx;
+  padding: 44rpx 36rpx;
+  box-shadow: 0 16rpx 40rpx rgba(15, 23, 42, 0.06);
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
 }
 
+.card-title {
+  margin-bottom: 32rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
 .input-group {
   display: flex;
   align-items: center;
-  margin-bottom: 30rpx;
+  margin-bottom: 24rpx;
   width: 100%;
+  min-height: 96rpx;
+  background: #f8fafc;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 16rpx;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .input-picker {
-  width: 200rpx;
+  width: 188rpx;
+  padding-left: 24rpx;
   font-size: 28rpx;
+  color: #374151;
 }
 
 .input {
   flex: 1;
-  background: #f6f6f6;
-  border-radius: 12rpx;
-  padding: 30rpx;
-  font-size: 32rpx;
-}
-
-.captcha-wrapper {
-  display: flex;
-  align-items: center;
-  margin-left: 20rpx;
-}
-
-.captcha-img {
-  width: 120rpx;
-  height: 50rpx;
-  border-radius: 6rpx;
-  object-fit: contain;
-}
-
-.captcha-text {
-  font-size: 32rpx;
-  margin-left: 10rpx;
-  color: #007aff;
+  height: 96rpx;
+  padding: 0 24rpx;
+  font-size: 30rpx;
+  color: #111827;
+  background: transparent;
 }
 
 .login-btn {
-  background: linear-gradient(to right, #00c6ff, #0072ff);
+  background: linear-gradient(to right, #1677ff, #0f62fe);
   color: #fff !important;
-  padding: 24rpx;
-  border-radius: 50rpx;
-  font-size: 46rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  font-size: 34rpx;
   text-align: center;
-  margin: 20rpx 0;
+  margin: 36rpx 0 0;
   width: 100%;
   border: none;
+  line-height: 96rpx;
+}
+
+.remember-box {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+
+.remember-box checkbox-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remember-box label {
+  display: flex;
+  align-items: center;
 }
 
 .agreement {
@@ -230,8 +292,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  font-size: 40rpx;
-  margin-top: 30rpx;
+  font-size: 26rpx;
+  margin-top: 24rpx;
   color: #666;
 }
 
@@ -240,7 +302,7 @@ onMounted(() => {
 }
 
 .link {
-  color: #409eff;
+  color: #1677ff;
 }
 
 .divider {
@@ -248,26 +310,15 @@ onMounted(() => {
   color: #aaa;
 }
 
-.third-login {
-  text-align: center;
-  margin-top: 60rpx;
-}
-
-.third-title {
-  color: #555;
-  font-size: 46rpx;
-  margin-bottom: 20rpx;
-}
-
-.third-icons {
+.footer-links {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 100rpx;
+  margin-top: 28rpx;
+  font-size: 28rpx;
 }
 
-.icon {
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 60rpx;
+.footer-text {
+  color: #6b7280;
 }
 </style>

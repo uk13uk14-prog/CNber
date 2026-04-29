@@ -63,6 +63,8 @@ const assertOk = (result, fallbackMessage) => {
   }
 }
 
+const unwrapData = (res) => res.data?.data
+
 async function main() {
   const userPhone = randomPhone()
   const driverPhone = randomPhone()
@@ -90,13 +92,13 @@ async function main() {
       }
     })
     assertOk(loginUserRes, '用户登录失败')
-    userToken = loginUserRes.data?.token || ''
+    userToken = unwrapData(loginUserRes)?.token || ''
     if (!userToken) {
       throw new Error('用户登录成功但未返回 token')
     }
     printSuccess('用户登录成功', {
       token: userToken,
-      user: loginUserRes.data?.user
+      user: unwrapData(loginUserRes)?.user
     })
 
     printStep(3, '创建订单')
@@ -108,7 +110,7 @@ async function main() {
       }
     })
     assertOk(createOrderRes, '创建订单失败')
-    createdOrderId = createOrderRes.data?.order?._id || ''
+    createdOrderId = unwrapData(createOrderRes)?.order?._id || ''
     if (!createdOrderId) {
       throw new Error('创建订单成功但未返回 orderId')
     }
@@ -140,13 +142,13 @@ async function main() {
       }
     })
     assertOk(loginDriverRes, '司机登录失败')
-    driverToken = loginDriverRes.data?.token || ''
+    driverToken = unwrapData(loginDriverRes)?.token || ''
     if (!driverToken) {
       throw new Error('司机登录成功但未返回 token')
     }
     printSuccess('司机登录成功', {
       token: driverToken,
-      user: loginDriverRes.data?.user
+      user: unwrapData(loginDriverRes)?.user
     })
 
     printStep(7, '司机获取订单列表')
@@ -156,9 +158,9 @@ async function main() {
     assertOk(driverOrderListRes, '司机获取订单列表失败')
     printSuccess('司机订单列表获取成功', driverOrderListRes.data)
 
-    const driverVisibleOrder = (driverOrderListRes.data?.orders || []).find(
-      (order) => order._id === createdOrderId
-    )
+    const driverVisibleOrder = (
+      unwrapData(driverOrderListRes)?.orders || []
+    ).find((order) => order._id === createdOrderId)
     if (!driverVisibleOrder) {
       throw new Error('司机订单列表中未找到刚创建的订单')
     }
@@ -200,7 +202,7 @@ async function main() {
     })
     assertOk(finalUserOrdersRes, '用户再次获取订单列表失败')
 
-    const finalOrder = (finalUserOrdersRes.data?.orders || []).find(
+    const finalOrder = (unwrapData(finalUserOrdersRes)?.orders || []).find(
       (order) => order._id === createdOrderId
     )
 

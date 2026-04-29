@@ -4,49 +4,130 @@
 
     <view class="info-section">
       <view class="row"><text class="label">起点：</text>{{ order.pickup }}</view>
-      <view class="row"><text class="label">终点：</text>{{ order.dropoff }}</view>
-      <view class="row"><text class="label">时间：</text>{{ order.time }}</view>
+      <view class="row"><text class="label">终点：</text>{{ order.destination }}</view>
+      <view class="row"><text class="label">乘客电话：</text>{{ passengerPhone }}</view>
+      <view class="row"><text class="label">当前状态：</text>{{ formatStatus(order.status) }}</view>
+      <view class="row"><text class="label">订单金额：</text>{{ formatAmount(order.amount) }}</view>
+      <view class="row"><text class="label">支付状态：</text>{{ formatPaymentStatus(order.paymentStatus) }}</view>
     </view>
 
     <view class="action-buttons">
-      <button v-if="step === 0" class="btn" @click="arrive">我已到达上车点</button>
-      <button v-else-if="step === 1" class="btn" @click="start">开始行程</button>
-      <button v-else class="btn-primary" @click="complete">完成行程</button>
+      <button class="btn-primary" :disabled="completing" @click="complete">完成行程</button>
     </view>
   </view>
 </template>
 
 <script>
+import { request } from '../utils/request.js'
+import { formatDriverOrderStatus } from '../utils/orderStatus.js'
+
 export default {
   name: 'D0103_driver_trip_tracking',
   data() {
     return {
-      order: {
-        id: 1,
-        pickup: '伦敦国王十字',
-        dropoff: '剑桥大学',
-        time: '今天 14:00'
-      },
-      step: 0 // 0：未到达，1：已到达准备出发，2：行程中
+      orderId: '',
+      order: {},
+      completing: false,
+      pollingTimer: null
+    }
+  },
+  computed: {
+    passengerPhone() {
+      const user = this.order.userId
+      if (user && typeof user === 'object' && user.phone) return user.phone
+      return '—'
     }
   },
   onLoad(query) {
-    // TODO: 从 query.id 请求详情
-    this.order.id = query.id || 1;
+    this.orderId = String(query.orderId || query.id || '')
+    if (this.orderId) this.fetchOrderDetail()
+  },
+  onShow() {
+    if (this.orderId) {
+      this.fetchOrderDetail()
+      this.startPolling()
+    }
+  },
+  mounted() {
+    this.startPolling()
+  },
+  onHide() {
+    this.stopPolling()
+  },
+  onUnload() {
+    this.stopPolling()
   },
   methods: {
-    arrive() {
-      this.step = 1;
-      uni.showToast({ title: '已到达上车点', icon: 'success' });
+    async fetchOrderDetail() {
+      if (!this.orderId) {
+        uni.showToast({ title: '缺少订单ID', icon: 'none' })
+        return
+      }
+
+      try {
+        const data = await request({
+          url: `/order/detail/${this.orderId}`,
+          method: 'GET'
+        })
+        this.order = data.order || {}
+      } catch (error) {
+        /* request 已统一提示 */
+      }
     },
-    start() {
-      this.step = 2;
-      uni.showToast({ title: '行程开始', icon: 'success' });
+    formatStatus(status) {
+      return formatDriverOrderStatus(status)
     },
-    complete() {
-      uni.navigateTo({
-        url: `/pages/D0104_driver_trip_complete?id=${this.order.id}`
-      });
+    formatAmount(amount) {
+      if (amount == null || amount === '') return '—'
+      const n = Number(amount)
+      return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
+    },
+    formatPaymentStatus(status) {
+      const map = {
+        unpaid: '未支付',
+        pending: '待支付',
+        paid: '已支付',
+        refunded: '已退款'
+      }
+      return map[status || 'unpaid'] || status
+    },
+    startPolling() {
+      if (!this.orderId) return
+      this.stopPolling()
+      this.pollingTimer = setInterval(() => {
+        this.fetchOrderDetail()
+      }, 5000)
+    },
+    stopPolling() {
+      if (this.pollingTimer) {
+        clearInterval(this.pollingTimer)
+        this.pollingTimer = null
+      }
+    },
+    async complete() {
+      if (!this.orderId) {
+        uni.showToast({ title: '缺少订单ID', icon: 'none' })
+        return
+      }
+
+      this.completing = true
+      try {
+        await request({
+          url: '/order/complete',
+          method: 'POST',
+          data: {
+            orderId: this.orderId
+          }
+        })
+        uni.showToast({ title: '订单已完成', icon: 'success' })
+        uni.navigateTo({
+          url: `/pages/D0104_driver_trip_complete?id=${this.orderId}`
+        })
+      } catch (error) {
+        /* request 已统一提示 */
+      } finally {
+        this.completing = false
+      }
     }
   }
 }

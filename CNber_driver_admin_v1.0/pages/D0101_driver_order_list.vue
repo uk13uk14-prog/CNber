@@ -2,62 +2,142 @@
   <view class="order-list-page">
     <view class="title">订单列表</view>
 
-    <view v-for="order in orders" :key="order._id" class="order-card" @click="goDetail(order._id)">
-      <view class="location">
-        <text class="label">出发：</text>
-        <text>{{ order.pickup }}</text>
+    <view class="filter-tabs">
+      <button
+        v-for="tab in filterTabs"
+        :key="tab.value"
+        class="filter-tab"
+        :class="{ active: currentFilter === tab.value }"
+        @click="currentFilter = tab.value"
+      >
+        {{ tab.label }}
+      </button>
+    </view>
+
+    <view
+      v-for="order in filteredOrders"
+      :key="order._id"
+      class="order-card"
+      :class="{ pinned: isCurrentTask(order) }"
+    >
+      <view v-if="isCurrentTask(order)" class="pin-banner">当前任务</view>
+      <view class="card-head">
+        <text class="status-tag" :class="statusTagClass(order.status)">
+          {{ statusTagLabel(order.status) }}
+        </text>
+        <text class="payment-tag" :class="{ paid: order.paymentStatus === 'paid' }">
+          {{ formatPaymentStatus(order.paymentStatus) }}
+        </text>
       </view>
-      <view class="location">
-        <text class="label">目的：</text>
-        <text>{{ order.destination }}</text>
+      <view class="route-line">
+        <text>{{ order.pickup || '—' }}</text>
+        <text class="arrow">→</text>
+        <text>{{ order.destination || '—' }}</text>
       </view>
-      <view class="status-row">
-        <text class="label">状态：</text>
-        <text class="status">{{ formatStatus(order.status) }}</text>
+      <view class="amount-line">{{ formatAmount(order.amount) }}</view>
+      <view v-if="order.paymentStatus !== 'paid'" class="unpaid-tip">未支付</view>
+      <view class="meta-row">
+        <text>状态：{{ formatStatus(order.status) }}</text>
+        <text>订单：#{{ shortId(order._id) }}</text>
       </view>
-      <view class="actions">
+      <view v-if="primaryAction(order)" class="actions">
         <button
-          v-if="order.status === 'pending'"
-          class="action-btn accept-btn"
-          @click.stop="acceptOrder(order._id)"
+          class="action-btn"
+          :class="primaryAction(order).className"
+          :disabled="actionDisabled(order)"
+          @click="runPrimaryAction(order)"
         >
-          接单
+          {{ primaryAction(order).label }}
         </button>
         <button
-          v-else-if="order.status === 'accepted'"
-          class="action-btn start-btn"
-          @click.stop="startOrder(order._id)"
+          v-if="canReject(order)"
+          class="action-btn reject-btn"
+          @click="rejectAssigned(order._id)"
         >
-          开始行程
-        </button>
-        <button
-          v-else-if="order.status === 'ongoing'"
-          class="action-btn complete-btn"
-          @click.stop="completeOrder(order._id)"
-        >
-          完成订单
+          拒绝
         </button>
       </view>
     </view>
 
-    <view v-if="orders.length === 0" class="empty">暂无可接订单</view>
+    <view v-if="filteredOrders.length === 0" class="empty">暂无相关订单</view>
   </view>
 </template>
 
 <script>
-import { BASE_URL } from '../config/api.js'
+import { request } from '../utils/request.js'
+import {
+  acceptAssignedOrder,
+  getDriverOrders,
+  rejectAssignedOrder
+} from '../utils/driverApi.js'
+import { formatDriverOrderStatus } from '../utils/orderStatus.js'
 
 export default {
   name: 'D0101_driver_order_list',
   data() {
     return {
-      orders: []
+      orders: [],
+      myUserId: '',
+      currentFilter: 'assigned',
+      pollingTimer: null,
+      filterTabs: [
+        { value: 'assigned', label: '指派给我' },
+        { value: 'active', label: '行程中' },
+        { value: 'history', label: '历史订单' }
+      ]
+    }
+  },
+  computed: {
+    filteredOrders() {
+      const list = this.orders.filter((order) => {
+        const status = this.normalizeStatus(order.status)
+        if (this.currentFilter === 'assigned') {
+          return this.isAssignedToMe(order)
+        }
+        if (this.currentFilter === 'active') {
+          return status === 'accepted' || status === 'started'
+        }
+        if (this.currentFilter === 'history') {
+          return status === 'completed' || status === 'cancelled'
+        }
+        return true
+      })
+      return list.sort((a, b) => this.taskPriority(b) - this.taskPriority(a))
     }
   },
   onShow() {
+    this.readMyId()
     this.fetchOrders()
+    this.startPolling()
+  },
+  onHide() {
+    this.stopPolling()
+  },
+  onUnload() {
+    this.stopPolling()
   },
   methods: {
+    readMyId() {
+      try {
+        const u = uni.getStorageSync('user')
+        if (u && u._id) this.myUserId = String(u._id)
+      } catch (e) {
+        this.myUserId = ''
+      }
+    },
+    normalizeStatus(status) {
+      const s = String(status || '').trim()
+      if (s === 'ongoing' || s === 'in_progress') return 'started'
+      return s
+    },
+    isAssignedToMe(order) {
+      const status = this.normalizeStatus(order.dispatchStatus || order.status)
+      if (status !== 'assigned' || !this.myUserId) return false
+      const d = order.assignedDriver || order.driverId
+      if (!d) return false
+      const id = typeof d === 'object' && d._id != null ? String(d._id) : String(d)
+      return id === this.myUserId
+    },
     async fetchOrders() {
       const token = uni.getStorageSync('token')
 
@@ -67,42 +147,138 @@ export default {
       }
 
       try {
-        const [error, res] = await uni.request({
-          url: `${BASE_URL}/order/list`,
-          method: 'GET',
-          header: {
-            Authorization: `Bearer ${token}`
-          }
-        })
-
-        if (error) {
-          throw error
-        }
-
-        this.orders = Array.isArray(res.data?.orders) ? res.data.orders : []
+        const data = await getDriverOrders()
+        this.orders = Array.isArray(data?.orders) ? data.orders : []
       } catch (error) {
-        uni.showToast({ title: '获取订单失败', icon: 'none' })
+        /* 封装内已提示 */
+      }
+    },
+    startPolling() {
+      this.stopPolling()
+      this.pollingTimer = setInterval(() => {
+        this.fetchOrders()
+      }, 5000)
+    },
+    stopPolling() {
+      if (this.pollingTimer) {
+        clearInterval(this.pollingTimer)
+        this.pollingTimer = null
       }
     },
     formatStatus(status) {
-      const statusMap = {
-        pending: '待接单',
-        accepted: '已接单',
-        ongoing: '进行中',
-        completed: '已完成'
+      return formatDriverOrderStatus(status)
+    },
+    formatAmount(amount) {
+      if (amount == null || amount === '') return '—'
+      const n = Number(amount)
+      return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
+    },
+    formatPaymentStatus(status) {
+      const map = {
+        unpaid: '未支付',
+        pending: '待支付',
+        paid: '已支付',
+        refunded: '已退款'
       }
-      return statusMap[status] || status || '未知状态'
+      return map[status || 'unpaid'] || status
+    },
+    shortId(id) {
+      if (!id) return '--'
+      return String(id).slice(-6)
+    },
+    taskPriority(order) {
+      const status = this.normalizeStatus(order.status)
+      if (status === 'started') return 2
+      if (status === 'accepted') return 1
+      return 0
+    },
+    isCurrentTask(order) {
+      const status = this.normalizeStatus(order.status)
+      return status === 'accepted' || status === 'started'
+    },
+    statusTagLabel(status) {
+      const map = {
+        pending: '待指派',
+        assigned: '已指派',
+        accepted: '已接单',
+        started: '行程中',
+        completed: '已完成',
+        cancelled: '已取消'
+      }
+      const normalized = this.normalizeStatus(status)
+      return map[normalized] || this.formatStatus(status)
+    },
+    statusTagClass(status) {
+      const map = {
+        assigned: 'assigned',
+        accepted: 'accepted',
+        started: 'started',
+        completed: 'completed',
+        cancelled: 'cancelled'
+      }
+      return map[this.normalizeStatus(status)] || 'default'
+    },
+    canReject(order) {
+      return this.isAssignedToMe(order)
+    },
+    actionDisabled(order) {
+      return !this.isAssignedToMe(order) && order.paymentStatus !== 'paid'
+    },
+    primaryAction(order) {
+      const status = this.normalizeStatus(order.status)
+      if (this.isAssignedToMe(order)) {
+        return { label: '确认接单', action: 'accept', className: 'confirm-btn' }
+      }
+      if (status === 'accepted') {
+        return { label: '开始行程', action: 'start', className: 'start-btn' }
+      }
+      if (status === 'started') {
+        return { label: '完成订单', action: 'complete', className: 'complete-btn' }
+      }
+      return null
+    },
+    runPrimaryAction(order) {
+      if (!this.isAssignedToMe(order) && order.paymentStatus !== 'paid') {
+        uni.showToast({ title: '用户未支付，不能操作', icon: 'none' })
+        return
+      }
+      const action = this.primaryAction(order)
+      if (!action) return
+      if (action.action === 'accept') this.acceptOrder(order._id)
+      if (action.action === 'start') this.startOrder(order._id)
+      if (action.action === 'complete') this.completeOrder(order._id)
     },
     async acceptOrder(orderId) {
-      this.updateOrderStatus('/order/accept', orderId, '接单成功', '接单失败')
+      try {
+        await acceptAssignedOrder(orderId)
+        uni.showToast({ title: '接单成功', icon: 'success' })
+        this.currentFilter = 'active'
+        this.fetchOrders()
+      } catch (error) {
+        /* 封装内已提示 */
+      }
+    },
+    async rejectAssigned(orderId) {
+      try {
+        await rejectAssignedOrder(orderId)
+        uni.showToast({ title: '已拒绝派单', icon: 'none' })
+        this.fetchOrders()
+      } catch (error) {
+        /* 封装内已提示 */
+      }
     },
     async startOrder(orderId) {
-      this.updateOrderStatus('/order/start', orderId, '行程已开始', '开始行程失败')
+      const order = this.orders.find((item) => String(item._id) === String(orderId))
+      if (order && order.paymentStatus !== 'paid') {
+        uni.showToast({ title: '用户未支付，不能开始行程', icon: 'none' })
+        return
+      }
+      this.updateOrderStatus('/order/start', orderId, '行程已开始')
     },
     async completeOrder(orderId) {
-      this.updateOrderStatus('/order/complete', orderId, '订单已完成', '完成订单失败')
+      this.updateOrderStatus('/order/complete', orderId, '订单已完成')
     },
-    async updateOrderStatus(path, orderId, successText, failText) {
+    async updateOrderStatus(path, orderId, successText) {
       const token = uni.getStorageSync('token')
 
       if (!token) {
@@ -111,36 +287,19 @@ export default {
       }
 
       try {
-        const [error, res] = await uni.request({
-          url: `${BASE_URL}${path}`,
+        await request({
+          url: path,
           method: 'POST',
-          header: {
-            Authorization: `Bearer ${token}`
-          },
           data: {
-            orderId
+            orderId: orderId != null ? String(orderId) : ''
           }
         })
-
-        if (error) {
-          throw error
-        }
-
-        if (res.statusCode === 200) {
-          uni.showToast({ title: successText, icon: 'success' })
-          this.fetchOrders()
-          return
-        }
-
-        uni.showToast({ title: res.data?.message || failText, icon: 'none' })
+        uni.showToast({ title: successText, icon: 'success' })
+        if (path === '/order/complete') this.currentFilter = 'history'
+        this.fetchOrders()
       } catch (error) {
-        uni.showToast({ title: failText, icon: 'none' })
+        /* 封装内已提示 */
       }
-    },
-    goDetail(id) {
-      uni.navigateTo({
-        url: `/pages/D0102_driver_order_detail?id=${id}`
-      })
     }
   }
 }
@@ -148,16 +307,38 @@ export default {
 
 <style lang="scss" scoped>
 .order-list-page {
-  background: -webkit-linear-gradient(to right, #FFEB3B, #FF9800);
-  background: linear-gradient(to right, #FFEB3B, #FF9800);
+  background: #16324f;
   min-height: 100vh;
   padding: 30rpx;
 
   .title {
     font-size: 36rpx;
     font-weight: bold;
-    color: #FF5722;  // 主色
+    color: #ffffff;
     margin-bottom: 30rpx;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 16rpx;
+    margin-bottom: 24rpx;
+
+    .filter-tab {
+      flex: 1;
+      background-color: rgba(255, 255, 255, 0.85);
+      color: #f97316;
+      border: 1rpx solid #fed7aa;
+      border-radius: 40rpx;
+      font-size: 26rpx;
+      line-height: 64rpx;
+      padding: 0;
+
+      &.active {
+        background-color: #f97316;
+        color: #fff;
+        border-color: #f97316;
+      }
+    }
   }
 
   .order-card {
@@ -166,34 +347,120 @@ export default {
     padding: 30rpx;
     margin-bottom: 24rpx;
     box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
-    border: 1rpx solid #e0e0e0;  // 分割线颜色
+    border: 1rpx solid #e0e0e0;
 
-    .location {
-      font-size: 28rpx;
-      margin-bottom: 12rpx;
-      color: #212121;  // 主文本颜色
-
-      .label {
-        font-weight: bold;
-        color: #FF5722;  // 主色
-      }
+    &.pinned {
+      border-color: #007aff;
+      box-shadow: 0 8rpx 18rpx rgba(0, 122, 255, 0.16);
     }
 
-    .status-row {
-      margin-top: 10rpx;
-      font-size: 26rpx;
-      color: #757575;  // 辅助文本颜色
+    .pin-banner {
+      background: #e3f2fd;
+      color: #0d47a1;
+      font-size: 24rpx;
+      font-weight: bold;
+      padding: 10rpx 14rpx;
+      border-radius: 8rpx;
+      margin-bottom: 16rpx;
+      display: inline-block;
+    }
 
-      .status {
-        font-weight: bold;
-        color: #FF5722;  // 主色
-      }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12rpx;
+      margin-bottom: 18rpx;
+    }
+
+    .status-tag,
+    .payment-tag {
+      border-radius: 999rpx;
+      padding: 8rpx 18rpx;
+      font-size: 24rpx;
+      font-weight: bold;
+    }
+
+    .status-tag.assigned {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .status-tag.accepted {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .status-tag.started {
+      background: #dbeafe;
+      color: #1e3a8a;
+    }
+
+    .status-tag.completed {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-tag.cancelled,
+    .status-tag.default {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
+    .payment-tag {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .payment-tag.paid {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .route-line {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+      font-size: 34rpx;
+      font-weight: bold;
+      color: #212121;
+      line-height: 1.45;
+      margin-bottom: 16rpx;
+    }
+
+    .arrow {
+      color: #f97316;
+    }
+
+    .amount-line {
+      font-size: 40rpx;
+      font-weight: bold;
+      color: #f97316;
+      margin-bottom: 12rpx;
+    }
+
+    .unpaid-tip {
+      color: #b91c1c;
+      background: #fee2e2;
+      border-radius: 8rpx;
+      padding: 10rpx 14rpx;
+      font-size: 24rpx;
+      margin-bottom: 12rpx;
+      display: inline-block;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16rpx;
+      color: #757575;
+      font-size: 24rpx;
     }
 
     .actions {
       margin-top: 24rpx;
       display: flex;
-      justify-content: flex-end;
+      justify-content: stretch;
       gap: 16rpx;
     }
 
@@ -204,10 +471,19 @@ export default {
       font-size: 26rpx;
       padding: 0 32rpx;
       line-height: 72rpx;
+      width: 100%;
+
+      &[disabled] {
+        opacity: 0.5;
+      }
     }
 
     .accept-btn {
-      background-color: #FF5722;
+      background-color: #f97316;
+    }
+
+    .confirm-btn {
+      background-color: #f59e0b;
     }
 
     .start-btn {
@@ -221,7 +497,7 @@ export default {
 
   .empty {
     text-align: center;
-    color: #757575;  // 辅助文本颜色
+    color: rgba(255, 255, 255, 0.72);
     margin-top: 100rpx;
     font-size: 30rpx;
   }

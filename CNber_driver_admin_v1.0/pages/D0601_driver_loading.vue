@@ -1,6 +1,6 @@
 <template>
   <view class="loading-page">
-    <image src="@/static/icons/loading.gif" class="loading-img" mode="aspectFit" />
+    <image src="/static/icons/loading.gif" class="loading-img" mode="aspectFit" />
     <text class="text">加载中，请稍候...</text>
   </view>
 </template>

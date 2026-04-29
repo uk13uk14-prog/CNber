@@ -1,134 +1,126 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
 const Order = require('../models/Order')
+const ORDER_STATUS = Order.ORDER_STATUS
+const asyncHandler = require('../utils/asyncHandler')
 const orderController = require('../controllers/orderController')
 
-const parseAuthToken = (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization || ''
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : authHeader
+router.get('/detail/:id', asyncHandler(orderController.getOrderById))
+router.post('/quote', asyncHandler(orderController.quoteOrder))
+router.post('/auto-quote', asyncHandler(orderController.autoQuoteOrder))
+router.post('/confirm-price', asyncHandler(orderController.confirmPrice))
+router.post('/pay', asyncHandler(orderController.payOrder))
 
-    if (!token) {
-      return res.status(401).json({ message: '未提供 token' })
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cnber-secret')
-    req.auth = decoded
-
+router.post(
+  '/create',
+  (req, res, next) => {
+    req.body.userId = req.user.userId
+    // 创建订单强制为待接单，禁止客户端篡改状态绕过状态机
+    req.body.status = ORDER_STATUS.PENDING
     next()
-  } catch (error) {
-    return res.status(401).json({ message: 'token 无效或已过期' })
-  }
-}
+  },
+  asyncHandler(orderController.createOrder)
+)
 
-router.post('/create', parseAuthToken, (req, res, next) => {
-  req.body.userId = req.auth.userId
-  req.body.status = req.body.status || 'pending'
-  next()
-}, orderController.createOrder)
-
-router.get('/list', parseAuthToken, (req, res, next) => {
-  if (req.auth.role === 'user') {
-    req.orderQuery = { userId: req.auth.userId }
-    return next()
-  }
-
-  if (req.auth.role === 'driver') {
-    req.orderQuery = {
-      $or: [
-        { status: 'pending' },
-        { driverId: req.auth.userId, status: 'accepted' },
-        { driverId: req.auth.userId, status: 'ongoing' }
-      ]
-    }
-    return next()
-  }
-
-  return res.status(403).json({ message: '无权限查看订单' })
-}, orderController.listOrders)
-
-router.post('/accept', parseAuthToken, async (req, res, next) => {
-  try {
-    if (req.auth.role !== 'driver') {
-      return res.status(403).json({ message: '只有司机可以接单' })
+router.get(
+  '/list',
+  (req, res, next) => {
+    if (req.user.role === 'user') {
+      req.orderQuery = { userId: req.user.userId }
+      return next()
     }
 
-    const { orderId } = req.body
-    if (!orderId) {
-      return res.status(400).json({ message: '缺少 orderId' })
+    if (req.user.role === 'driver') {
+      // 后台派单模式：司机端只看已指派给自己的订单，不再暴露 pending 抢单池
+      req.orderQuery = { driverId: req.user.userId }
+      return next()
     }
 
-    const order = await Order.findOneAndUpdate(
-      { _id: orderId, status: 'pending' },
-      { driverId: req.auth.userId, status: 'accepted' },
-      { new: true }
-    )
-
-    if (!order) {
-      return res.status(404).json({ message: '订单不存在或不可接单' })
+    if (req.user.role === 'admin') {
+      req.orderQuery = {}
+      return next()
     }
 
-    res.json({ message: '接单成功', order })
-  } catch (error) {
-    next(error)
-  }
-})
+    const e = new Error('无权限查看订单')
+    e.code = 403
+    return next(e)
+  },
+  asyncHandler(orderController.listOrders)
+)
 
-router.post('/start', parseAuthToken, async (req, res, next) => {
-  try {
-    if (req.auth.role !== 'driver') {
-      return res.status(403).json({ message: '只有司机可以开始行程' })
+/**
+ * 接单：
+ * 1) pending 池：抢单 → accepted，写入 driverId
+ * 2) assigned 且 driverId 为本人：确认指派 → accepted（司机端 CNber_driver_admin_v1.0 已对接）
+ */
+router.post(
+  '/accept',
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'driver') {
+      throw { code: 403, message: 'Forbidden' }
     }
 
     const { orderId } = req.body
     if (!orderId) {
-      return res.status(400).json({ message: '缺少 orderId' })
+      throw { code: 400, message: '缺少 orderId' }
     }
 
-    const order = await Order.findOneAndUpdate(
-      { _id: orderId, driverId: req.auth.userId, status: 'accepted' },
-      { status: 'ongoing' },
+    let order = await Order.findOneAndUpdate(
+      {
+        _id: orderId,
+        status: ORDER_STATUS.ASSIGNED,
+        driverId: req.user.userId
+      },
+      { $set: { status: ORDER_STATUS.ACCEPTED, updatedAt: new Date() } },
       { new: true }
     )
 
     if (!order) {
-      return res.status(404).json({ message: '订单不存在或无权限开始行程' })
+      order = await Order.findOneAndUpdate(
+        { _id: orderId, status: ORDER_STATUS.PENDING },
+        {
+          $set: {
+            driverId: req.user.userId,
+            status: ORDER_STATUS.ACCEPTED,
+            updatedAt: new Date()
+          }
+        },
+        { new: true }
+      )
     }
-
-    res.json({ message: '行程已开始', order })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.post('/complete', parseAuthToken, async (req, res, next) => {
-  try {
-    if (req.auth.role !== 'driver') {
-      return res.status(403).json({ message: '只有司机可以完成行程' })
-    }
-
-    const { orderId } = req.body
-    if (!orderId) {
-      return res.status(400).json({ message: '缺少 orderId' })
-    }
-
-    const order = await Order.findOneAndUpdate(
-      { _id: orderId, driverId: req.auth.userId, status: 'ongoing' },
-      { status: 'completed' },
-      { new: true }
-    )
 
     if (!order) {
-      return res.status(404).json({ message: '订单不存在或无权限完成行程' })
+      throw { code: 400, message: 'Order already taken' }
     }
 
-    res.json({ message: '行程已完成', order })
-  } catch (error) {
-    next(error)
-  }
-})
+    res.json({
+      code: 0,
+      message: 'success',
+      data: { order }
+    })
+  })
+)
+
+/**
+ * 开始行程：仅 accepted → started，且必须当前司机
+ */
+router.post('/start', asyncHandler(orderController.startOrder))
+
+/**
+ * 完成订单：仅 started → completed，且必须当前司机
+ */
+router.post('/complete', asyncHandler(orderController.completeOrder))
+
+/**
+ * 拒单：仅 assigned 且指派给当前司机，回到 pending 池并清空 driverId
+ */
+router.post('/reject', asyncHandler(orderController.rejectOrder))
+
+/**
+ * 取消订单：仅 accepted / started，且必须当前司机
+ */
+router.post('/cancel', asyncHandler(orderController.cancelOrder))
+
+router.post('/passenger-cancel', asyncHandler(orderController.cancelPassengerOrder))
 
 module.exports = router

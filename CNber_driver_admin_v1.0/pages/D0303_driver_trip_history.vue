@@ -3,7 +3,7 @@
     <view class="title">历史行程</view>
 
     <view v-if="trips.length > 0">
-      <view v-for="(trip, index) in trips" :key="index" class="trip-card" @click="goDetail(trip.id)">
+      <view v-for="trip in trips" :key="trip.id" class="trip-card" @click="goDetail(trip.id)">
         <view class="location">
           <text class="label">出发：</text>{{ trip.pickup }}
         </view>
@@ -22,29 +22,51 @@
 </template>
 
 <script>
+import { request } from '../utils/request.js'
+
 export default {
   name: 'D0303_driver_trip_history',
   data() {
     return {
-      trips: [
-        {
-          id: 101,
-          pickup: '牛津大学',
-          dropoff: '伦敦市中心',
-          time: '2025-05-01 10:00',
-          price: 85
-        },
-        {
-          id: 102,
-          pickup: '剑桥火车站',
-          dropoff: '希思罗机场',
-          time: '2025-04-28 14:30',
-          price: 95
-        }
-      ]
+      trips: []
     }
   },
+  onShow() {
+    this.fetchTripHistory()
+  },
   methods: {
+    async fetchTripHistory() {
+      try {
+        const data = await request({
+          url: '/driver/orders',
+          method: 'GET'
+        })
+        const orders = Array.isArray(data?.orders) ? data.orders : []
+        this.trips = orders
+          .filter((order) => ['completed', 'cancelled'].includes(order.status))
+          .map((order) => this.mapOrderToTrip(order))
+      } catch (error) {
+        /* request 已统一提示 */
+      }
+    },
+    mapOrderToTrip(order) {
+      return {
+        id: order._id || order.id,
+        pickup: order.pickup || '—',
+        dropoff: order.destination || order.dropoff || '—',
+        time: this.formatTime(order.completedAt || order.updatedAt || order.createdAt),
+        price: this.formatAmount(order.amount)
+      }
+    },
+    formatTime(value) {
+      if (!value) return '—'
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('zh-CN')
+    },
+    formatAmount(value) {
+      const n = Number(value)
+      return Number.isFinite(n) ? n : 0
+    },
     goDetail(id) {
       uni.navigateTo({
         url: `/pages/D0102_driver_order_detail?id=${id}`
