@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 
+const JWT_SECRET = process.env.JWT_SECRET
+
 const signToken = (user) => {
   return jwt.sign(
     {
@@ -9,7 +11,7 @@ const signToken = (user) => {
       phone: user.phone,
       role: user.role
     },
-    process.env.JWT_SECRET || 'cnber-secret',
+    JWT_SECRET,
     { expiresIn: '7d' }
   )
 }
@@ -75,6 +77,12 @@ exports.login = async (req, res) => {
     const e = new Error('密码错误')
     e.code = 401
     throw e
+  }
+
+  if (user.role === 'user') {
+    await User.findByIdAndUpdate(user._id, {
+      'passengerProfile.lastLoginAt': new Date()
+    })
   }
 
   const token = signToken(user)

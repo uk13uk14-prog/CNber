@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken')
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cnber-secret'
+const JWT_SECRET = process.env.JWT_SECRET
 
 const verifyToken = (req, res, next) => {
   try {
@@ -13,7 +13,7 @@ const verifyToken = (req, res, next) => {
     }
 
     if (!token) {
-      const e = new Error('Unauthorized')
+      const e = new Error('无效登录')
       e.code = 401
       return next(e)
     }
@@ -22,7 +22,7 @@ const verifyToken = (req, res, next) => {
     req.user = decoded
     next()
   } catch (error) {
-    const e = new Error('Unauthorized')
+    const e = new Error('无效登录')
     e.code = 401
     next(e)
   }
@@ -31,7 +31,7 @@ const verifyToken = (req, res, next) => {
 const checkRole = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      const e = new Error('Unauthorized')
+      const e = new Error('无效登录')
       e.code = 401
       return next(e)
     }

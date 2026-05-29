@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { TOKEN_KEY, USER_KEY } from '@/config/authConstants'
 
-const baseURL = import.meta.env.VITE_API_BASE || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export const http = axios.create({
   baseURL,
@@ -31,7 +31,7 @@ http.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+        window.location.href = '/admin/login'
       }
     }
     const msg =

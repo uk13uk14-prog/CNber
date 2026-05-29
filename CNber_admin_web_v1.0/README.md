@@ -16,7 +16,7 @@ npm run dev
 4. 浏览器打开终端提示的地址（一般为 `http://localhost:5173`）。  
    API 通过开发代理访问 `/api` → 后端 `3100`。
 
-生产构建可将 `VITE_API_BASE` 设为完整后端地址，并自行配置 nginx 反代。
+生产构建可将 `VITE_API_BASE_URL` 设为完整后端地址，并自行配置 nginx 反代。
 
 ## 验收闭环
 

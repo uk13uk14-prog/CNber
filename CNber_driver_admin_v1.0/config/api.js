@@ -2,12 +2,21 @@
  * 后端 API 根路径
  *
  * ⚠️ 真机、模拟器、小程序上「localhost / 127.0.0.1」指向设备自身，无法访问你电脑上的 Node。
- * 请把 API_HOST 改为你电脑的局域网 IPv4（与手机同一 WiFi），例如 192.168.1.8。
+ * 真机调试请通过 UNI_APP_API_BASE_URL 覆盖为电脑局域网 IPv4，例如 http://192.168.1.8:3100/api。
  */
-const API_HOST = '192.168.1.187'
-const API_PORT = '3100'
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:3100/api'
 
-export const BASE_URL = `http://${API_HOST}:${API_PORT}/api`
+function getEnvApiBaseUrl() {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env.UNI_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.UNI_APP_API_BASE_URL || process.env.VITE_API_BASE_URL
+  }
+  return ''
+}
+
+export const BASE_URL = (getEnvApiBaseUrl() || DEFAULT_API_BASE_URL).replace(/\/$/, '')
 
 /** 开发环境打印 API 根路径，生产构建不执行 */
 if (
