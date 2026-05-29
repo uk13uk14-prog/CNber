@@ -23,7 +23,6 @@ router.post('/send-code', limiter, async (req, res) => {
 
   try {
     await sendSMS(phoneNumber, code);
-    console.log(`验证码 ${code} 已发送至 ${phoneNumber}`); // 服务端记录日志
     res.status(200).json({ message: '验证码已发送' }); // 生产环境不返回 code
   } catch (error) {
     console.error('短信发送失败:', error);

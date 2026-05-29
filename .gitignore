@@ -31,10 +31,12 @@ logs/
 
 # IDE and local tooling
 .vscode/
+.idea/
 .hbuilderx/
 .DS_Store
 *.local
 **/.vscode/**
+**/.idea/**
 **/.hbuilderx/**
 **/.DS_Store
 **/*.local
@@ -43,6 +45,7 @@ logs/
 tree.txt
 123tree.txt
 structure.txt
+cnber客服后台登陆.txt
 **/tree.txt
 **/123tree.txt
 **/structure.txt
