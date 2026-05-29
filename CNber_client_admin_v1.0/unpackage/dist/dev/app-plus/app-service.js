@@ -38,7 +38,7 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const _sfc_main$B = {
+  const _sfc_main$C = {
     __name: "A0001_client_welcome_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -62,9 +62,8 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$A(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$B(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" ✅ 主体内容自动居中显示 "),
       vue.createElementVNode("view", { class: "main" }, [
         vue.createElementVNode("image", {
           class: "logo",
@@ -80,24 +79,169 @@ if (uni.restoreGlobal) {
           onClick: $setup.goLogin
         }, "立即进入")
       ]),
-      vue.createCommentVNode(" ✅ 底部版权区域始终固定 "),
       vue.createElementVNode("view", { class: "footer" }, "@2025 中步出行 版权所有")
     ]);
   }
-  const PagesA0001ClientWelcomeV01 = /* @__PURE__ */ _export_sfc(_sfc_main$B, [["render", _sfc_render$A], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0001_client_welcome_v01.vue"]]);
-  const _imports_0$3 = "/static/icons/wechat.png";
-  const _imports_1 = "/static/icons/alipay.png";
-  const _imports_2 = "/static/icons/apple.png";
-  const _sfc_main$A = {
+  const PagesA0001ClientWelcomeV01 = /* @__PURE__ */ _export_sfc(_sfc_main$C, [["render", _sfc_render$B], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0001_client_welcome_v01.vue"]]);
+  const ON_SHOW = "onShow";
+  const ON_LOAD = "onLoad";
+  function formatAppLog(type, filename, ...args) {
+    if (uni.__log__) {
+      uni.__log__(type, filename, ...args);
+    } else {
+      console[type].apply(console, [...args, filename]);
+    }
+  }
+  const createLifeCycleHook = (lifecycle, flag = 0) => (hook, target = vue.getCurrentInstance()) => {
+    !vue.isInSSRComponentSetup && vue.injectHook(lifecycle, hook, target);
+  };
+  const onShow = /* @__PURE__ */ createLifeCycleHook(
+    ON_SHOW,
+    1 | 2
+    /* HookFlags.PAGE */
+  );
+  const onLoad = /* @__PURE__ */ createLifeCycleHook(
+    ON_LOAD,
+    2
+    /* HookFlags.PAGE */
+  );
+  const API_HOST = "192.168.1.187";
+  const API_PORT = "3100";
+  const BASE_URL = `http://${API_HOST}:${API_PORT}/api`;
+  {
+    formatAppLog("log", "at config/api.js:19", "[API BASE URL]", BASE_URL);
+  }
+  const LOGIN_PATH = "/pages/A0002_client_login_v01";
+  const SUCCESS_CODE = 0;
+  function normalizeReject(code, message, data = null) {
+    return { code, message: message || "请求失败", data };
+  }
+  function clearSession() {
+    try {
+      uni.removeStorageSync("token");
+      uni.removeStorageSync("user");
+    } catch (e) {
+    }
+  }
+  function relaunchLogin(toastTitle) {
+    clearSession();
+    uni.showToast({ title: toastTitle, icon: "none" });
+    uni.reLaunch({ url: LOGIN_PATH });
+  }
+  function parseBody(raw) {
+    if (raw == null)
+      return { ok: false, body: null };
+    if (typeof raw === "object") {
+      return { ok: true, body: raw };
+    }
+    if (typeof raw === "string") {
+      try {
+        const o = JSON.parse(raw);
+        return typeof o === "object" && o !== null ? { ok: true, body: o } : { ok: false, body: null };
+      } catch {
+        return { ok: false, body: null };
+      }
+    }
+    return { ok: false, body: null };
+  }
+  function request(options) {
+    const {
+      url,
+      method = "GET",
+      data,
+      header: extraHeader = {},
+      skipAuth = false,
+      showErrorToast = true,
+      fullResponse = false,
+      timeout = 2e4
+    } = options;
+    if (!url) {
+      return Promise.reject(normalizeReject(-1, "缺少请求 url"));
+    }
+    const header = {
+      "Content-Type": "application/json",
+      ...extraHeader
+    };
+    if (!skipAuth) {
+      const token = uni.getStorageSync("token");
+      if (token) {
+        header.Authorization = `Bearer ${token}`;
+      }
+    }
+    const fullUrl = /^https?:\/\//i.test(url) ? url : `${BASE_URL.replace(/\/$/, "")}/${String(url).replace(/^\//, "")}`;
+    return new Promise((resolve, reject) => {
+      uni.request({
+        url: fullUrl,
+        method,
+        data,
+        header,
+        timeout,
+        success: (result) => {
+          const statusCode = result.statusCode;
+          const { ok, body } = parseBody(result.data);
+          if (statusCode === 401) {
+            relaunchLogin("未登录或登录已失效");
+            return reject(
+              normalizeReject(401, ok && body && body.message || "Unauthorized", ok ? body.data : null)
+            );
+          }
+          if (statusCode === 403) {
+            uni.showToast({ title: "无权限", icon: "none" });
+            return reject(normalizeReject(403, ok && body && body.message || "Forbidden", ok ? body.data : null));
+          }
+          if (statusCode >= 500) {
+            uni.showToast({ title: "服务器错误", icon: "none" });
+            return reject(
+              normalizeReject(statusCode, ok && body && body.message || "Server Error", ok ? body.data : null)
+            );
+          }
+          if (statusCode < 200 || statusCode >= 300) {
+            const msg2 = ok && body && body.message || `HTTP ${statusCode}`;
+            if (showErrorToast)
+              uni.showToast({ title: msg2, icon: "none" });
+            return reject(normalizeReject(statusCode, msg2, ok ? body.data : null));
+          }
+          if (!ok || body == null || typeof body.code !== "number") {
+            const msg2 = "接口未按约定返回 { code, data, message }";
+            if (showErrorToast)
+              uni.showToast({ title: msg2, icon: "none" });
+            return reject(normalizeReject(-2, msg2, result.data));
+          }
+          if (body.code === SUCCESS_CODE) {
+            const envelope = {
+              code: body.code,
+              data: body.data !== void 0 ? body.data : null,
+              message: body.message != null ? String(body.message) : "ok"
+            };
+            return fullResponse ? resolve(envelope) : resolve(envelope.data);
+          }
+          const msg = body.message != null ? String(body.message) : "请求失败";
+          if (showErrorToast)
+            uni.showToast({ title: msg, icon: "none" });
+          if (body.code === 401) {
+            relaunchLogin("未登录或登录已失效");
+          }
+          return reject(normalizeReject(body.code, msg, body.data !== void 0 ? body.data : null));
+        },
+        fail: (err) => {
+          const msg = err && err.errMsg || "网络异常";
+          uni.showToast({ title: msg, icon: "none" });
+          reject(normalizeReject(-1, msg, null));
+        }
+      });
+    });
+  }
+  const REMEMBER_LOGIN_KEY = "clientRememberLogin";
+  const _sfc_main$B = {
     __name: "A0002_client_login_v01",
     setup(__props, { expose: __expose }) {
       __expose();
       const phone = vue.ref("");
-      const captchaCode = vue.ref("");
       const password = vue.ref("");
-      const captchaUrl = vue.ref("/static/icons/captcha1.png");
       const isChecked = vue.ref(false);
       const isLoading = vue.ref(false);
+      const rememberAccount = vue.ref(true);
+      const rememberPassword = vue.ref(false);
       const countryList = vue.ref([
         { code: "+86", zh: "中国" },
         { code: "+44", zh: "英国" },
@@ -113,49 +257,104 @@ if (uni.restoreGlobal) {
         const item = countryList.value[e.detail.value];
         selectedCountry.value = `${item.code} ${item.zh}`;
       };
-      const refreshCaptcha = () => {
-        const index = Math.floor(Math.random() * 3) + 1;
-        captchaUrl.value = `/static/icons/captcha${index}.png`;
-      };
       const toggleCheck = () => {
         isChecked.value = !isChecked.value;
       };
-      const login = () => {
+      const onRememberChange = (e) => {
+        const values = e.detail.value || [];
+        rememberPassword.value = values.includes("password");
+        rememberAccount.value = values.includes("account") || rememberPassword.value;
+      };
+      const loadRememberedLogin = () => {
+        try {
+          const saved = uni.getStorageSync(REMEMBER_LOGIN_KEY);
+          if (!saved)
+            return;
+          rememberAccount.value = saved.rememberAccount !== false;
+          rememberPassword.value = saved.rememberPassword === true;
+          if (rememberAccount.value && saved.phone) {
+            phone.value = saved.phone;
+          }
+          if (rememberPassword.value && saved.password) {
+            password.value = saved.password;
+          }
+        } catch (e) {
+        }
+      };
+      const saveRememberedLogin = () => {
+        const payload = {
+          rememberAccount: rememberAccount.value,
+          rememberPassword: rememberPassword.value,
+          phone: rememberAccount.value ? phone.value : "",
+          password: rememberPassword.value ? password.value : ""
+        };
+        uni.setStorageSync(REMEMBER_LOGIN_KEY, payload);
+      };
+      const login = async () => {
         if (!isChecked.value) {
           uni.showToast({ title: "请先同意协议", icon: "none" });
           return;
         }
-        if (!phone.value || !password.value || !captchaCode.value) {
-          uni.showToast({ title: "请填写完整信息", icon: "none" });
+        if (!phone.value) {
+          uni.showToast({ title: "请输入手机号", icon: "none" });
+          return;
+        }
+        if (!password.value) {
+          uni.showToast({ title: "请输入密码", icon: "none" });
           return;
         }
         isLoading.value = true;
-        setTimeout(() => {
+        try {
+          const data = await request({
+            url: "/auth/login",
+            method: "POST",
+            skipAuth: true,
+            data: {
+              phone: phone.value,
+              password: password.value
+            }
+          });
+          if (data == null ? void 0 : data.user) {
+            if (data.user.role === "driver") {
+              uni.showToast({
+                title: "当前为乘客端，请使用司机端 App 登录",
+                icon: "none",
+                duration: 3e3
+              });
+              return;
+            }
+            saveRememberedLogin();
+            uni.setStorageSync("token", data.token || "");
+            uni.setStorageSync("user", data.user);
+            uni.redirectTo({ url: "/pages/A0300_client_main_v01" });
+            return;
+          }
+          uni.showToast({ title: "登录失败", icon: "none" });
+        } catch (error) {
+        } finally {
           isLoading.value = false;
-          uni.redirectTo({ url: "/pages/A0300_client_main_v01" });
-        }, 1e3);
-      };
-      const loginWithWechat = () => {
-        uni.showToast({ title: "微信登录开发中", icon: "none" });
-      };
-      const loginWithAlipay = () => {
-        uni.showToast({ title: "支付宝登录开发中", icon: "none" });
-      };
-      const loginWithApple = () => {
-        uni.showToast({ title: "Apple 登录开发中", icon: "none" });
+        }
       };
       vue.onMounted(() => {
         selectedCountry.value = `${countryList.value[0].code} ${countryList.value[0].zh}`;
+        loadRememberedLogin();
       });
-      const __returned__ = { phone, captchaCode, password, captchaUrl, isChecked, isLoading, countryList, selectedCountry, selectCountry, refreshCaptcha, toggleCheck, login, loginWithWechat, loginWithAlipay, loginWithApple, ref: vue.ref, onMounted: vue.onMounted };
+      const __returned__ = { phone, password, isChecked, isLoading, REMEMBER_LOGIN_KEY, rememberAccount, rememberPassword, countryList, selectedCountry, selectCountry, toggleCheck, onRememberChange, loadRememberedLogin, saveRememberedLogin, login, ref: vue.ref, onMounted: vue.onMounted, get request() {
+        return request;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$z(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$A(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createElementVNode("view", { class: "page-title" }, "您好！"),
+      vue.createElementVNode("view", { class: "brand" }, [
+        vue.createElementVNode("text", { class: "brand-logo" }, "CNber"),
+        vue.createElementVNode("text", { class: "brand-name" }, "中步出行"),
+        vue.createElementVNode("text", { class: "brand-desc" }, "英国华人用车服务")
+      ]),
       vue.createElementVNode("view", { class: "card" }, [
+        vue.createElementVNode("view", { class: "card-title" }, "手机号登录"),
         vue.createElementVNode("view", { class: "input-group" }, [
           vue.createElementVNode("picker", {
             onChange: $setup.selectCountry,
@@ -189,32 +388,7 @@ if (uni.restoreGlobal) {
             "input",
             {
               class: "input",
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.captchaCode = $event),
-              placeholder: "输入图形验证码"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.captchaCode]
-          ]),
-          vue.createElementVNode("view", {
-            class: "captcha-wrapper",
-            onClick: $setup.refreshCaptcha
-          }, [
-            vue.createElementVNode("image", {
-              src: $setup.captchaUrl,
-              class: "captcha-img"
-            }, null, 8, ["src"]),
-            vue.createElementVNode("text", { class: "captcha-text" }, "换一张")
-          ])
-        ]),
-        vue.createElementVNode("view", { class: "input-group" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              class: "input",
-              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.password = $event),
+              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.password = $event),
               placeholder: "请输入密码",
               password: ""
             },
@@ -225,7 +399,30 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.password]
           ])
         ]),
-        vue.createCommentVNode(" 协议勾选 "),
+        vue.createElementVNode("view", { class: "remember-box" }, [
+          vue.createElementVNode(
+            "checkbox-group",
+            { onChange: $setup.onRememberChange },
+            [
+              vue.createElementVNode("label", null, [
+                vue.createElementVNode("checkbox", {
+                  value: "account",
+                  checked: $setup.rememberAccount
+                }, null, 8, ["checked"]),
+                vue.createTextVNode(" 记住账号 ")
+              ]),
+              vue.createElementVNode("label", null, [
+                vue.createElementVNode("checkbox", {
+                  value: "password",
+                  checked: $setup.rememberPassword
+                }, null, 8, ["checked"]),
+                vue.createTextVNode(" 记住密码 ")
+              ])
+            ],
+            32
+            /* NEED_HYDRATION */
+          )
+        ]),
         vue.createElementVNode("view", { class: "agreement" }, [
           vue.createElementVNode("checkbox", {
             checked: $setup.isChecked,
@@ -250,53 +447,26 @@ if (uni.restoreGlobal) {
           disabled: !$setup.isChecked,
           onClick: $setup.login
         }, " 登录 ", 8, ["loading", "disabled"]),
-        vue.createCommentVNode(" 底部链接 "),
-        vue.createElementVNode("view", { class: "agreement" }, [
+        vue.createElementVNode("view", { class: "footer-links" }, [
+          vue.createElementVNode("text", { class: "footer-text" }, "还没有账号？"),
           vue.createElementVNode("navigator", {
             url: "/pages/A0003_client_register_v01",
             class: "link"
-          }, "《注册账号》"),
-          vue.createElementVNode("text", { class: "divider" }, "|"),
-          vue.createElementVNode("navigator", {
-            url: "/pages/A0303_client_change_password_v01",
-            class: "link"
-          }, "《忘记密码》")
-        ])
-      ]),
-      vue.createElementVNode("view", { class: "third-login" }, [
-        vue.createElementVNode("text", { class: "third-title" }, "快捷登录入口"),
-        vue.createElementVNode("view", { class: "third-icons" }, [
-          vue.createElementVNode("image", {
-            src: _imports_0$3,
-            class: "icon",
-            onClick: $setup.loginWithWechat
-          }),
-          vue.createElementVNode("image", {
-            src: _imports_1,
-            class: "icon",
-            onClick: $setup.loginWithAlipay
-          }),
-          vue.createElementVNode("image", {
-            src: _imports_2,
-            class: "icon",
-            onClick: $setup.loginWithApple
-          })
+          }, "注册账号")
         ])
       ])
     ]);
   }
-  const PagesA0002ClientLoginV01 = /* @__PURE__ */ _export_sfc(_sfc_main$A, [["render", _sfc_render$z], ["__scopeId", "data-v-00b814b3"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0002_client_login_v01.vue"]]);
-  const _sfc_main$z = {
+  const PagesA0002ClientLoginV01 = /* @__PURE__ */ _export_sfc(_sfc_main$B, [["render", _sfc_render$A], ["__scopeId", "data-v-00b814b3"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0002_client_login_v01.vue"]]);
+  const _sfc_main$A = {
     __name: "A0003_client_register_v01",
     setup(__props, { expose: __expose }) {
       __expose();
       const phone = vue.ref("");
-      const captchaInput = vue.ref("");
-      const smsCode = vue.ref("");
       const password = vue.ref("");
       const confirmPassword = vue.ref("");
-      const captchaSrc = vue.ref("/static/icons/captcha1.png");
       const isChecked = vue.ref(false);
+      const submitting = vue.ref(false);
       const countryList = vue.ref([
         { code: "+86", zh: "中国" },
         { code: "+44", zh: "英国" },
@@ -312,23 +482,24 @@ if (uni.restoreGlobal) {
         const item = countryList.value[e.detail.value];
         selectedCountry.value = `${item.code} ${item.zh}`;
       };
-      const refreshCaptcha = () => {
-        const index = Math.floor(Math.random() * 3) + 1;
-        captchaSrc.value = `/static/icons/captcha${index}.png`;
+      const toggleCheck = () => {
+        isChecked.value = !isChecked.value;
       };
-      const getCode = () => {
+      const register = async () => {
+        if (!isChecked.value) {
+          uni.showToast({ title: "请先同意协议", icon: "none" });
+          return;
+        }
         if (!phone.value) {
           uni.showToast({ title: "请输入手机号", icon: "none" });
           return;
         }
-        uni.showToast({ title: "验证码已发送", icon: "success" });
-      };
-      const toggleCheck = () => {
-        isChecked.value = !isChecked.value;
-      };
-      const register = () => {
-        if (!phone.value || !captchaInput.value || !smsCode.value || !password.value || !confirmPassword.value) {
-          uni.showToast({ title: "请填写完整信息", icon: "none" });
+        if (!password.value) {
+          uni.showToast({ title: "请输入密码", icon: "none" });
+          return;
+        }
+        if (!confirmPassword.value) {
+          uni.showToast({ title: "请再次输入密码", icon: "none" });
           return;
         }
         if (password.value !== confirmPassword.value) {
@@ -339,30 +510,45 @@ if (uni.restoreGlobal) {
           uni.showToast({ title: "密码格式错误（6-20位字母或数字）", icon: "none" });
           return;
         }
-        uni.showToast({ title: "注册成功", icon: "success" });
-        setTimeout(() => {
-          uni.redirectTo({ url: "/pages/A0300_client_main_v01" });
-        }, 1500);
-      };
-      const loginWithWeChat = () => {
-        uni.showToast({ title: "微信快捷登录", icon: "none" });
-      };
-      const loginWithAlipay = () => {
-        uni.showToast({ title: "支付宝快捷登录", icon: "none" });
+        submitting.value = true;
+        try {
+          await request({
+            url: "/auth/register",
+            method: "POST",
+            skipAuth: true,
+            data: {
+              phone: phone.value,
+              password: password.value
+            }
+          });
+          uni.showToast({ title: "注册成功", icon: "success" });
+          setTimeout(() => {
+            uni.redirectTo({ url: "/pages/A0002_client_login_v01" });
+          }, 1200);
+        } catch (error) {
+        } finally {
+          submitting.value = false;
+        }
       };
       vue.onMounted(() => {
         selectedCountry.value = `${countryList.value[0].code} ${countryList.value[0].zh}`;
       });
-      const __returned__ = { phone, captchaInput, smsCode, password, confirmPassword, captchaSrc, isChecked, countryList, selectedCountry, selectCountry, refreshCaptcha, getCode, toggleCheck, register, loginWithWeChat, loginWithAlipay, ref: vue.ref, onMounted: vue.onMounted };
+      const __returned__ = { phone, password, confirmPassword, isChecked, submitting, countryList, selectedCountry, selectCountry, toggleCheck, register, ref: vue.ref, onMounted: vue.onMounted, get request() {
+        return request;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$y(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$z(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createElementVNode("view", { class: "page-title" }),
+      vue.createElementVNode("view", { class: "brand" }, [
+        vue.createElementVNode("text", { class: "brand-logo" }, "CNber"),
+        vue.createElementVNode("text", { class: "brand-name" }, "中步出行"),
+        vue.createElementVNode("text", { class: "brand-desc" }, "创建账号，开始预约用车")
+      ]),
       vue.createElementVNode("view", { class: "card" }, [
-        vue.createCommentVNode(" 手机号输入 "),
+        vue.createElementVNode("view", { class: "card-title" }, "注册账号"),
         vue.createElementVNode("view", { class: "input-group" }, [
           vue.createElementVNode("picker", {
             onChange: $setup.selectCountry,
@@ -392,59 +578,12 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.phone]
           ])
         ]),
-        vue.createCommentVNode(" 图形验证码 "),
         vue.createElementVNode("view", { class: "input-group" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
               class: "input",
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.captchaInput = $event),
-              placeholder: "输入图形验证码"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.captchaInput]
-          ]),
-          vue.createElementVNode("view", {
-            class: "captcha-wrapper",
-            onClick: $setup.refreshCaptcha
-          }, [
-            vue.createElementVNode("image", {
-              src: $setup.captchaSrc,
-              class: "captcha-img"
-            }, null, 8, ["src"]),
-            vue.createElementVNode("text", { class: "captcha-text" }, "换一张")
-          ])
-        ]),
-        vue.createCommentVNode(" 验证码 "),
-        vue.createElementVNode("view", { class: "input-group" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              class: "input",
-              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.smsCode = $event),
-              placeholder: "输入验证码"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.smsCode]
-          ]),
-          vue.createElementVNode("button", {
-            class: "verify-btn",
-            onClick: $setup.getCode
-          }, "获取验证码")
-        ]),
-        vue.createCommentVNode(" 密码 "),
-        vue.createElementVNode("view", { class: "input-group" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              class: "input",
-              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.password = $event),
+              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.password = $event),
               placeholder: "输入密码",
               password: ""
             },
@@ -455,13 +594,12 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.password]
           ])
         ]),
-        vue.createCommentVNode(" 确认密码 "),
         vue.createElementVNode("view", { class: "input-group" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
               class: "input",
-              "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => $setup.confirmPassword = $event),
+              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.confirmPassword = $event),
               placeholder: "再次输入密码",
               password: ""
             },
@@ -472,9 +610,7 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.confirmPassword]
           ])
         ]),
-        vue.createCommentVNode(" 密码提示 "),
-        vue.createElementVNode("view", { class: "password-tip" }, " 密码须为6-20位字母或数字 "),
-        vue.createCommentVNode(" 协议勾选 "),
+        vue.createElementVNode("view", { class: "password-tip" }, "密码须为6-20位字母或数字"),
         vue.createElementVNode("view", { class: "agreement" }, [
           vue.createElementVNode("checkbox", {
             checked: $setup.isChecked,
@@ -493,44 +629,24 @@ if (uni.restoreGlobal) {
             class: "link"
           }, "《服务协议》")
         ]),
-        vue.createCommentVNode(" 注册按钮 "),
         vue.createElementVNode("button", {
           class: "login-btn",
+          loading: $setup.submitting,
+          disabled: !$setup.isChecked,
           onClick: $setup.register
-        }, "注册"),
-        vue.createCommentVNode(" 已有账号登录 "),
-        vue.createElementVNode("view", { class: "agreement" }, [
+        }, "注册", 8, ["loading", "disabled"]),
+        vue.createElementVNode("view", { class: "footer-links" }, [
+          vue.createElementVNode("text", { class: "footer-text" }, "已有账号？"),
           vue.createElementVNode("navigator", {
             url: "/pages/A0002_client_login_v01",
             class: "link"
-          }, "已有账号？立即登录")
-        ])
-      ]),
-      vue.createCommentVNode(" 第三方快捷登录 "),
-      vue.createElementVNode("view", { class: "third-login" }, [
-        vue.createElementVNode("text", { class: "third-title" }),
-        vue.createElementVNode("view", { class: "third-icons" }, [
-          vue.createElementVNode("image", {
-            src: _imports_0$3,
-            class: "icon",
-            onClick: $setup.loginWithWeChat
-          }),
-          vue.createElementVNode("image", {
-            src: _imports_1,
-            class: "icon",
-            onClick: $setup.loginWithAlipay
-          }),
-          vue.createElementVNode("image", {
-            src: _imports_2,
-            class: "icon",
-            onClick: _cache[5] || (_cache[5] = (...args) => _ctx.loginWithApple && _ctx.loginWithApple(...args))
-          })
+          }, "立即登录")
         ])
       ])
     ]);
   }
-  const PagesA0003ClientRegisterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["render", _sfc_render$y], ["__scopeId", "data-v-34d112b7"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0003_client_register_v01.vue"]]);
-  const _sfc_main$y = {
+  const PagesA0003ClientRegisterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$A, [["render", _sfc_render$z], ["__scopeId", "data-v-34d112b7"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0003_client_register_v01.vue"]]);
+  const _sfc_main$z = {
     __name: "A0005_client_profile_detail_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -554,7 +670,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$x(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$y(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "page-title" }),
       vue.createElementVNode("view", { class: "profile-card" }, [
@@ -634,7 +750,6 @@ if (uni.restoreGlobal) {
             /* TEXT */
           )
         ]),
-        vue.createCommentVNode(" 编辑资料跳转按钮 "),
         vue.createElementVNode("button", {
           class: "btn edit-btn",
           onClick: $setup.goToEditPage
@@ -642,8 +757,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0005ClientProfileDetailV01 = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["render", _sfc_render$x], ["__scopeId", "data-v-e91a14cf"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0005_client_profile_detail_v01.vue"]]);
-  const _sfc_main$x = {
+  const PagesA0005ClientProfileDetailV01 = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["render", _sfc_render$y], ["__scopeId", "data-v-e91a14cf"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0005_client_profile_detail_v01.vue"]]);
+  const _sfc_main$y = {
     __name: "A0006_client_profile_complete_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -666,7 +781,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$w(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$x(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, "编辑资料"),
       vue.createElementVNode("view", { class: "form-card" }, [
@@ -815,8 +930,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0006ClientProfileCompleteV01 = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["render", _sfc_render$w], ["__scopeId", "data-v-0e746aac"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0006_client_profile_complete_v01.vue"]]);
-  const _sfc_main$w = {
+  const PagesA0006ClientProfileCompleteV01 = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["render", _sfc_render$x], ["__scopeId", "data-v-0e746aac"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0006_client_profile_complete_v01.vue"]]);
+  const _sfc_main$x = {
     __name: "A0009_client_logout_confirm_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -830,29 +945,23 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$v(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$w(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 顶部 ✅ 图标 "),
       vue.createElementVNode("view", { class: "icon" }, "🔆"),
-      vue.createCommentVNode(" 提示标题 "),
       vue.createElementVNode("view", { class: "title" }, "您已退出账号"),
-      vue.createCommentVNode(" 友好提示 "),
       vue.createElementVNode("view", { class: "subtitle" }, " 感谢您对中步的支持！ "),
-      vue.createCommentVNode(" 友好提示 "),
       vue.createElementVNode("view", { class: "subtitle" }, " 中步出行 您英国的守护专家！ "),
-      vue.createCommentVNode(" 按钮组 "),
       vue.createElementVNode("view", { class: "btn-group" }, [
         vue.createElementVNode("button", {
           class: "btn login-btn",
           onClick: $setup.loginAgain
         }, "🔐重新登录")
       ]),
-      vue.createCommentVNode(" 底部版权 "),
       vue.createElementVNode("view", { class: "footer" }, "@2025 中步出行 版权所有")
     ]);
   }
-  const PagesA0009ClientLogoutConfirmV01 = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["render", _sfc_render$v], ["__scopeId", "data-v-7eebc39c"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0009_client_logout_confirm_v01.vue"]]);
-  const _sfc_main$v = {
+  const PagesA0009ClientLogoutConfirmV01 = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["render", _sfc_render$w], ["__scopeId", "data-v-7eebc39c"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0009_client_logout_confirm_v01.vue"]]);
+  const _sfc_main$w = {
     __name: "A0101_client_order_service_type_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -881,7 +990,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$v(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "title" }, "请您选择"),
       vue.createElementVNode("view", { class: "service-grid" }, [
@@ -910,29 +1019,105 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("text", { class: "label" }, "🚘包车")
         ])
       ]),
-      vue.createCommentVNode(" 底部提示语 "),
       vue.createElementVNode("view", { class: "tip-text" }, " 温馨提示：司机均通过实名认证，中步出行将为您保驾护航.请您乘车时全程系好安全带，祝您旅途平安愉快！ "),
-      vue.createCommentVNode(" ✅ 新增：返回主页按钮 "),
       vue.createElementVNode("view", {
         class: "home-button",
         onClick: $setup.goHome
       }, "🏠 返回主页")
     ]);
   }
-  const PagesA0101ClientOrderServiceTypeV01 = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0101_client_order_service_type_v01.vue"]]);
-  const ON_LOAD = "onLoad";
-  function formatAppLog(type, filename, ...args) {
-    if (uni.__log__) {
-      uni.__log__(type, filename, ...args);
-    } else {
-      console[type].apply(console, [...args, filename]);
+  const PagesA0101ClientOrderServiceTypeV01 = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["render", _sfc_render$v], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0101_client_order_service_type_v01.vue"]]);
+  function createRideOrder(pickup, destination, serviceType = "ride", extra = {}) {
+    return request({
+      url: "/order/create",
+      method: "POST",
+      data: {
+        pickup: String(pickup || "").trim(),
+        destination: String(destination || "").trim(),
+        serviceType,
+        ...extra
+      }
+    });
+  }
+  function fetchOrderList() {
+    return request({
+      url: "/order/list",
+      method: "GET"
+    });
+  }
+  function fetchOrderDetail(orderId) {
+    const id = String(orderId || "").trim();
+    return request({
+      url: `/order/detail/${encodeURIComponent(id)}`,
+      method: "GET"
+    });
+  }
+  function confirmOrderPrice(orderId) {
+    return request({
+      url: "/order/confirm-price",
+      method: "POST",
+      data: { orderId: String(orderId || "").trim() }
+    });
+  }
+  function payOrderMock(orderId, paymentType) {
+    const data = { orderId: String(orderId || "").trim() };
+    if (paymentType)
+      data.paymentType = paymentType;
+    return request({
+      url: "/order/pay",
+      method: "POST",
+      data
+    });
+  }
+  function cancelPassengerOrder(orderId) {
+    return request({
+      url: "/order/passenger-cancel",
+      method: "POST",
+      data: { orderId: String(orderId || "").trim() }
+    });
+  }
+  function fetchPaymentAccounts(scene = "deposit") {
+    const s = encodeURIComponent(String(scene || "deposit"));
+    return request({
+      url: `/payment/accounts?scene=${s}`,
+      method: "GET"
+    });
+  }
+  function submitOrderDeposit(orderId, body) {
+    const id = String(orderId || "").trim();
+    return request({
+      url: `/order/${encodeURIComponent(id)}/deposit/submit`,
+      method: "POST",
+      data: body
+    });
+  }
+  function submitOrderBalance(orderId, body) {
+    const id = String(orderId || "").trim();
+    return request({
+      url: `/order/${encodeURIComponent(id)}/balance/submit`,
+      method: "POST",
+      data: body
+    });
+  }
+  const ORDER_RATING_API_ENABLED = false;
+  function submitOrderRating(payload) {
+    {
+      return Promise.reject(new Error("RATING_API_NOT_IMPLEMENTED"));
     }
   }
-  const createHook = (lifecycle) => (hook, target = vue.getCurrentInstance()) => {
-    !vue.isInSSRComponentSetup && vue.injectHook(lifecycle, hook, target);
-  };
-  const onLoad = /* @__PURE__ */ createHook(ON_LOAD);
-  const _sfc_main$u = {
+  function lookupAddressByPostcode(postcode, config = {}) {
+    return request({
+      url: "/address/lookup",
+      method: "GET",
+      data: {
+        postcode: String(postcode || "").trim()
+      },
+      ...config
+    });
+  }
+  const POSTCODE_DEBOUNCE_MS$3 = 800;
+  const MIN_POSTCODE_LENGTH$3 = 5;
+  const _sfc_main$v = {
     __name: "A0102_client_order_pickup_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -949,12 +1134,37 @@ if (uni.restoreGlobal) {
         { zh: "贝尔法斯特国际机场", terminals: [] },
         { zh: "爱尔兰机场", terminals: [] }
       ];
+      const airportCodeMap = {
+        希思罗机场: "LHR",
+        盖特威克机场: "LGW",
+        伦敦城市机场: "LCY",
+        卢顿机场: "LTN",
+        曼城机场: "MAN",
+        爱丁堡机场: "EDI",
+        贝尔法斯特机场: "BHD",
+        贝尔法斯特国际机场: "BFS"
+      };
       const airportDisplayList = vue.computed(() => airportList.map((item) => item.zh));
       const vehicleList = ["5座", "7座", "8座", "9座"];
       const selectedAirport = vue.ref("");
       const terminalOptions = vue.ref([]);
       const selectedTerminal = vue.ref("");
-      const estimatedPrice = vue.ref("0");
+      const pickupAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: ""
+      });
+      const dropoffAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const dropoffLookupLoading = vue.ref(false);
+      const dropoffLookupHint = vue.ref("");
+      const dropoffLookupError = vue.ref("");
+      let dropoffPostcodeTimer = null;
       const minDate = vue.ref("");
       const today = /* @__PURE__ */ new Date();
       today.setDate(today.getDate() + 1);
@@ -963,7 +1173,6 @@ if (uni.restoreGlobal) {
         flightNumber: "",
         pickupDate: "",
         pickupTime: "",
-        dropoffAddress: "",
         vehicle: "",
         adults: "",
         childrenUnder2: "",
@@ -988,10 +1197,67 @@ if (uni.restoreGlobal) {
       function filterNumber(field) {
         form.value[field] = form.value[field].replace(/\D/g, "");
       }
-      function submitOrder() {
-        var _a;
-        if (!form.value.dropoffAddress)
-          return uni.showToast({ title: "请输入出发地址", icon: "none" });
+      function normalizeLookupData(res) {
+        return (res == null ? void 0 : res.data) || res || {};
+      }
+      function buildAreaText(data) {
+        return `${(data == null ? void 0 : data.city) || ""}${(data == null ? void 0 : data.region) ? " / " + data.region : ""}`;
+      }
+      function normalizePostcodeInput(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+      }
+      function clearDropoffPostcodeTimer() {
+        if (dropoffPostcodeTimer) {
+          clearTimeout(dropoffPostcodeTimer);
+          dropoffPostcodeTimer = null;
+        }
+      }
+      function resetDropoffLookupState() {
+        dropoffLookupHint.value = "";
+        dropoffLookupError.value = "";
+        dropoffAddress.value.longitude = null;
+        dropoffAddress.value.latitude = null;
+      }
+      function onDropoffPostcodeInput() {
+        resetDropoffLookupState();
+        clearDropoffPostcodeTimer();
+        if (normalizePostcodeInput(dropoffAddress.value.postcode).length < MIN_POSTCODE_LENGTH$3)
+          return;
+        dropoffPostcodeTimer = setTimeout(() => {
+          lookupDropoffPostcode();
+        }, POSTCODE_DEBOUNCE_MS$3);
+      }
+      async function lookupDropoffPostcode() {
+        const postcode = normalizePostcodeInput(dropoffAddress.value.postcode);
+        if (!postcode)
+          return;
+        dropoffLookupLoading.value = true;
+        dropoffLookupHint.value = "";
+        dropoffLookupError.value = "";
+        try {
+          const res = await lookupAddressByPostcode(postcode, { showErrorToast: false });
+          const data = normalizeLookupData(res);
+          const recognizedArea = buildAreaText(data);
+          dropoffAddress.value.postcode = (data == null ? void 0 : data.postcode) || dropoffAddress.value.postcode;
+          dropoffAddress.value.address = recognizedArea;
+          dropoffAddress.value.longitude = (data == null ? void 0 : data.longitude) ?? null;
+          dropoffAddress.value.latitude = (data == null ? void 0 : data.latitude) ?? null;
+          dropoffLookupHint.value = recognizedArea;
+        } catch (e) {
+          dropoffLookupError.value = "邮编不存在，请检查后重新输入";
+        } finally {
+          dropoffLookupLoading.value = false;
+        }
+      }
+      async function submitOrder() {
+        var _a, _b;
+        if (!uni.getStorageSync("token")) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        if (!dropoffAddress.value.postcode || !dropoffAddress.value.address) {
+          return uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+        }
         if (!form.value.pickupDate)
           return uni.showToast({ title: "请选择送机日期", icon: "none" });
         if (!form.value.pickupTime)
@@ -1008,27 +1274,58 @@ if (uni.restoreGlobal) {
           return uni.showToast({ title: "请选择车型", icon: "none" });
         if (!form.value.phone)
           return uni.showToast({ title: "请输入电话", icon: "none" });
-        formatAppLog("log", "at pages/A0102_client_order_pickup_v01.vue:161", "提交送机订单：", {
-          ...form.value,
-          airport: selectedAirport.value,
-          terminal: selectedTerminal.value
-        });
-        uni.showToast({ title: "订单已提交", icon: "success" });
-        setTimeout(() => {
-          uni.navigateTo({
-            url: "/pages/A0106_client_payment_v01"
+        const term = selectedTerminal.value ? ` ${selectedTerminal.value}` : "";
+        const airportCode = airportCodeMap[selectedAirport.value] || selectedAirport.value;
+        pickupAddress.value = {
+          postcode: airportCode,
+          address: selectedAirport.value,
+          detail: `${term} ${form.value.pickupDate} ${form.value.pickupTime} 航班${form.value.flightNumber}`.trim()
+        };
+        const pickup = pickupAddress.value.address;
+        const destination = dropoffAddress.value.address.trim();
+        try {
+          const data = await createRideOrder(pickup, destination, "pickup", {
+            airport: airportCode,
+            pickupAirport: airportCode,
+            pickupPostcode: pickupAddress.value.postcode,
+            dropoffPostcode: dropoffAddress.value.postcode.trim(),
+            pickupDetail: pickupAddress.value.detail,
+            dropoffDetail: dropoffAddress.value.detail.trim()
           });
-        }, 800);
+          const oid = (_b = data == null ? void 0 : data.order) == null ? void 0 : _b._id;
+          uni.showToast({ title: "下单成功", icon: "success" });
+          setTimeout(() => {
+            if (oid) {
+              uni.navigateTo({
+                url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+              });
+            } else {
+              uni.navigateTo({ url: "/pages/A0107_client_wait_driver_v01" });
+            }
+          }, 600);
+        } catch (e) {
+        }
       }
       function goBack() {
         uni.navigateBack();
       }
-      const __returned__ = { airportList, airportDisplayList, vehicleList, selectedAirport, terminalOptions, selectedTerminal, estimatedPrice, minDate, today, form, handleBabySeatChange, onAirportChange, onTerminalChange, filterNumber, submitOrder, goBack, ref: vue.ref, computed: vue.computed };
+      vue.onUnmounted(() => {
+        clearDropoffPostcodeTimer();
+      });
+      const __returned__ = { airportList, airportCodeMap, airportDisplayList, vehicleList, selectedAirport, terminalOptions, selectedTerminal, pickupAddress, dropoffAddress, dropoffLookupLoading, dropoffLookupHint, dropoffLookupError, get dropoffPostcodeTimer() {
+        return dropoffPostcodeTimer;
+      }, set dropoffPostcodeTimer(v) {
+        dropoffPostcodeTimer = v;
+      }, POSTCODE_DEBOUNCE_MS: POSTCODE_DEBOUNCE_MS$3, MIN_POSTCODE_LENGTH: MIN_POSTCODE_LENGTH$3, minDate, today, form, handleBabySeatChange, onAirportChange, onTerminalChange, filterNumber, normalizeLookupData, buildAreaText, normalizePostcodeInput, clearDropoffPostcodeTimer, resetDropoffLookupState, onDropoffPostcodeInput, lookupDropoffPostcode, submitOrder, goBack, ref: vue.ref, computed: vue.computed, onUnmounted: vue.onUnmounted, get createRideOrder() {
+        return createRideOrder;
+      }, get lookupAddressByPostcode() {
+        return lookupAddressByPostcode;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("view", {
@@ -1038,7 +1335,6 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "title" })
       ]),
       vue.createElementVNode("view", { class: "form-card" }, [
-        vue.createCommentVNode(" 机场 + 航站楼 + 航班号 "),
         vue.createElementVNode("view", { class: "row-3" }, [
           vue.createElementVNode("picker", {
             range: $setup.airportDisplayList,
@@ -1079,7 +1375,6 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.flightNumber]
           ])
         ]),
-        vue.createCommentVNode(" 接机日期 + 接机时间 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.createElementVNode("picker", {
             mode: "date",
@@ -1113,30 +1408,78 @@ if (uni.restoreGlobal) {
             /* NEED_HYDRATION */
           )
         ]),
-        vue.createCommentVNode(" 送达地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
+        vue.createElementVNode("view", { class: "address-block" }, [
+          vue.createElementVNode("view", { class: "label" }, "终点"),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.form.dropoffAddress = $event),
+              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.dropoffAddress.postcode = $event),
               type: "text",
-              placeholder: "请输入送达地址",
+              placeholder: "Postcode (e.g. SW1A 1AA)",
+              class: "dropoff-address",
+              onInput: $setup.onDropoffPostcodeInput
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.postcode]
+          ]),
+          $setup.dropoffLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            "📍 已识别：" + vue.toDisplayString($setup.dropoffLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.dropoffLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.dropoffLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => $setup.dropoffAddress.address = $event),
+              type: "text",
+              placeholder: "Street / Area",
               class: "dropoff-address"
             },
             null,
             512
             /* NEED_PATCH */
           ), [
-            [vue.vModelText, $setup.form.dropoffAddress]
+            [vue.vModelText, $setup.dropoffAddress.address]
+          ]),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.dropoffAddress.detail = $event),
+              type: "text",
+              placeholder: "Flat / Door / Note",
+              class: "dropoff-address"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.detail]
           ])
         ]),
-        vue.createCommentVNode(" 车辆选择 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.createElementVNode(
             "picker",
             {
               range: $setup.vehicleList,
-              onChange: _cache[4] || (_cache[4] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
+              onChange: _cache[6] || (_cache[6] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
             },
             [
               vue.createElementVNode(
@@ -1151,12 +1494,11 @@ if (uni.restoreGlobal) {
             /* NEED_HYDRATION */
           )
         ]),
-        vue.createCommentVNode(" 人数 "),
         vue.createElementVNode("view", { class: "row-3" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.form.adults = $event),
+              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.adults = $event),
               type: "number",
               placeholder: "成人",
               class: "adult-input"
@@ -1175,7 +1517,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => $setup.form.childrenUnder2 = $event),
+              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.childrenUnder2 = $event),
               type: "number",
               placeholder: "2岁以下选填",
               class: "under2-input"
@@ -1194,7 +1536,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.children2To6 = $event),
+              "onUpdate:modelValue": _cache[9] || (_cache[9] = ($event) => $setup.form.children2To6 = $event),
               type: "number",
               placeholder: "2-6岁选填",
               class: "age2to6-input"
@@ -1211,17 +1553,16 @@ if (uni.restoreGlobal) {
             ]
           ])
         ]),
-        vue.createCommentVNode(" 电话 + 微信 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.phone = $event),
+              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.phone = $event),
               type: "number",
               pattern: "\\d*",
               placeholder: "电话",
               class: "phone-input",
-              onInput: _cache[9] || (_cache[9] = ($event) => $setup.filterNumber("phone"))
+              onInput: _cache[11] || (_cache[11] = ($event) => $setup.filterNumber("phone"))
             },
             null,
             544
@@ -1232,7 +1573,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.wechat = $event),
+              "onUpdate:modelValue": _cache[12] || (_cache[12] = ($event) => $setup.form.wechat = $event),
               type: "text",
               placeholder: "微信/WhatsApp",
               class: "wechat-input"
@@ -1244,12 +1585,11 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.wechat]
           ])
         ]),
-        vue.createCommentVNode(" 备注 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.withDirectives(vue.createElementVNode(
             "textarea",
             {
-              "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.form.remarks = $event),
+              "onUpdate:modelValue": _cache[13] || (_cache[13] = ($event) => $setup.form.remarks = $event),
               rows: "2",
               placeholder: "备注",
               class: "remarks-textarea"
@@ -1262,7 +1602,6 @@ if (uni.restoreGlobal) {
           ])
         ]),
         vue.createElementVNode("view", { class: "tip" }, " 🚗 提示：接机免费等待时间为90分钟。因高峰期出关和行李问题，建议您在选着时间往后（如：延后60分钟），以避免落地后即开始计算额外等待费用。 "),
-        vue.createCommentVNode(" 婴儿座椅（已修复部分） "),
         vue.createElementVNode("view", { class: "baby-seat" }, [
           vue.createElementVNode("view", { class: "label" }, "婴儿座椅"),
           vue.createElementVNode(
@@ -1292,13 +1631,7 @@ if (uni.restoreGlobal) {
         ])
       ]),
       vue.createElementVNode("view", { class: "footer" }, [
-        vue.createElementVNode(
-          "view",
-          { class: "price" },
-          "预计价格：£" + vue.toDisplayString($setup.estimatedPrice),
-          1
-          /* TEXT */
-        ),
+        vue.createElementVNode("view", { class: "price" }, "待后台报价"),
         vue.createElementVNode("button", {
           class: "submit-btn",
           onClick: $setup.submitOrder
@@ -1306,8 +1639,10 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0102ClientOrderPickupV01 = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-ebb825c2"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0102_client_order_pickup_v01.vue"]]);
-  const _sfc_main$t = {
+  const PagesA0102ClientOrderPickupV01 = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__scopeId", "data-v-ebb825c2"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0102_client_order_pickup_v01.vue"]]);
+  const POSTCODE_DEBOUNCE_MS$2 = 800;
+  const MIN_POSTCODE_LENGTH$2 = 5;
+  const _sfc_main$u = {
     __name: "A0103_client_order_dropoff_v01",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -1324,18 +1659,42 @@ if (uni.restoreGlobal) {
         { zh: "贝尔法斯特国际机场", terminals: [] },
         { zh: "爱尔兰机场", terminals: [] }
       ];
+      const airportCodeMap = {
+        希思罗机场: "LHR",
+        盖特威克机场: "LGW",
+        伦敦城市机场: "LCY",
+        卢顿机场: "LTN",
+        曼城机场: "MAN",
+        爱丁堡机场: "EDI",
+        贝尔法斯特机场: "BHD",
+        贝尔法斯特国际机场: "BFS"
+      };
       const airportDisplayList = vue.computed(() => airportList.map((item) => item.zh));
       const vehicleList = ["5座", "7座", "8座", "9座"];
       const selectedAirport = vue.ref("");
       const terminalOptions = vue.ref([]);
       const selectedTerminal = vue.ref("");
-      const estimatedPrice = vue.ref("0");
+      const pickupAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const dropoffAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: ""
+      });
+      const pickupLookupLoading = vue.ref(false);
+      const pickupLookupHint = vue.ref("");
+      const pickupLookupError = vue.ref("");
+      let pickupPostcodeTimer = null;
       const minDate = vue.ref("");
       const today = /* @__PURE__ */ new Date();
       today.setDate(today.getDate() + 1);
       minDate.value = today.toISOString().split("T")[0];
       const form = vue.ref({
-        dropoffAddress: "",
         pickupDate: "",
         pickupTime: "",
         flightNumber: "",
@@ -1363,10 +1722,69 @@ if (uni.restoreGlobal) {
       function filterNumber(field) {
         form.value[field] = form.value[field].replace(/\D/g, "");
       }
-      function submitOrder() {
-        var _a;
-        if (!form.value.dropoffAddress)
-          return uni.showToast({ title: "请输入出发地址", icon: "none" });
+      function normalizeLookupData(res) {
+        return (res == null ? void 0 : res.data) || res || {};
+      }
+      function buildAreaText(data) {
+        return `${(data == null ? void 0 : data.city) || ""}${(data == null ? void 0 : data.region) ? " / " + data.region : ""}`;
+      }
+      function normalizePostcodeInput(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+      }
+      function clearPickupPostcodeTimer() {
+        if (pickupPostcodeTimer) {
+          clearTimeout(pickupPostcodeTimer);
+          pickupPostcodeTimer = null;
+        }
+      }
+      function resetPickupLookupState() {
+        pickupLookupHint.value = "";
+        pickupLookupError.value = "";
+        pickupAddress.value.longitude = null;
+        pickupAddress.value.latitude = null;
+      }
+      function onPickupPostcodeInput(e) {
+        var _a, _b;
+        pickupAddress.value.postcode = ((_a = e == null ? void 0 : e.detail) == null ? void 0 : _a.value) || ((_b = e == null ? void 0 : e.target) == null ? void 0 : _b.value) || pickupAddress.value.postcode;
+        resetPickupLookupState();
+        clearPickupPostcodeTimer();
+        if (normalizePostcodeInput(pickupAddress.value.postcode).length < MIN_POSTCODE_LENGTH$2)
+          return;
+        pickupPostcodeTimer = setTimeout(() => {
+          lookupPickupPostcode();
+        }, POSTCODE_DEBOUNCE_MS$2);
+      }
+      async function lookupPickupPostcode() {
+        const postcode = normalizePostcodeInput(pickupAddress.value.postcode);
+        if (!postcode)
+          return;
+        pickupLookupLoading.value = true;
+        pickupLookupHint.value = "";
+        pickupLookupError.value = "";
+        try {
+          const res = await lookupAddressByPostcode(postcode, { showErrorToast: false });
+          const data = normalizeLookupData(res);
+          const recognizedArea = buildAreaText(data);
+          pickupAddress.value.postcode = (data == null ? void 0 : data.postcode) || pickupAddress.value.postcode;
+          pickupAddress.value.address = recognizedArea;
+          pickupAddress.value.longitude = (data == null ? void 0 : data.longitude) ?? null;
+          pickupAddress.value.latitude = (data == null ? void 0 : data.latitude) ?? null;
+          pickupLookupHint.value = recognizedArea;
+        } catch (e) {
+          pickupLookupError.value = "邮编不存在，请检查后重新输入";
+        } finally {
+          pickupLookupLoading.value = false;
+        }
+      }
+      async function submitOrder() {
+        var _a, _b;
+        if (!uni.getStorageSync("token")) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        if (!pickupAddress.value.postcode || !pickupAddress.value.address) {
+          return uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+        }
         if (!form.value.pickupDate)
           return uni.showToast({ title: "请选择送机日期", icon: "none" });
         if (!form.value.pickupTime)
@@ -1383,29 +1801,59 @@ if (uni.restoreGlobal) {
           return uni.showToast({ title: "请选择车型", icon: "none" });
         if (!form.value.phone)
           return uni.showToast({ title: "请输入电话", icon: "none" });
-        formatAppLog("log", "at pages/A0103_client_order_dropoff_v01.vue:163", "提交送机订单：", {
-          ...form.value,
-          airport: selectedAirport.value,
-          terminal: selectedTerminal.value
-        });
-        uni.showToast({ title: "订单已提交", icon: "success" });
-        setTimeout(() => {
-          uni.navigateTo({
-            url: "/pages/A0106_client_payment_v01"
+        const term = selectedTerminal.value ? ` ${selectedTerminal.value}` : "";
+        const airportCode = airportCodeMap[selectedAirport.value] || selectedAirport.value;
+        dropoffAddress.value = {
+          postcode: airportCode,
+          address: selectedAirport.value,
+          detail: `${term} 航班${form.value.flightNumber}`.trim()
+        };
+        const pickup = pickupAddress.value.address.trim();
+        const destination = dropoffAddress.value.address;
+        try {
+          const data = await createRideOrder(pickup, destination, "dropoff", {
+            airport: airportCode,
+            dropoffAirport: airportCode,
+            pickupPostcode: pickupAddress.value.postcode.trim(),
+            dropoffPostcode: dropoffAddress.value.postcode,
+            pickupDetail: pickupAddress.value.detail.trim(),
+            dropoffDetail: dropoffAddress.value.detail
           });
-        }, 800);
+          const oid = (_b = data == null ? void 0 : data.order) == null ? void 0 : _b._id;
+          uni.showToast({ title: "下单成功", icon: "success" });
+          setTimeout(() => {
+            if (oid) {
+              uni.navigateTo({
+                url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+              });
+            } else {
+              uni.navigateTo({ url: "/pages/A0107_client_wait_driver_v01" });
+            }
+          }, 600);
+        } catch (e) {
+        }
       }
       function goBack() {
         uni.navigateBack();
       }
-      const __returned__ = { airportList, airportDisplayList, vehicleList, selectedAirport, terminalOptions, selectedTerminal, estimatedPrice, minDate, today, form, handleBabySeatChange, onAirportChange, onTerminalChange, filterNumber, submitOrder, goBack, ref: vue.ref, computed: vue.computed };
+      vue.onUnmounted(() => {
+        clearPickupPostcodeTimer();
+      });
+      const __returned__ = { airportList, airportCodeMap, airportDisplayList, vehicleList, selectedAirport, terminalOptions, selectedTerminal, pickupAddress, dropoffAddress, pickupLookupLoading, pickupLookupHint, pickupLookupError, get pickupPostcodeTimer() {
+        return pickupPostcodeTimer;
+      }, set pickupPostcodeTimer(v) {
+        pickupPostcodeTimer = v;
+      }, POSTCODE_DEBOUNCE_MS: POSTCODE_DEBOUNCE_MS$2, MIN_POSTCODE_LENGTH: MIN_POSTCODE_LENGTH$2, minDate, today, form, handleBabySeatChange, onAirportChange, onTerminalChange, filterNumber, normalizeLookupData, buildAreaText, normalizePostcodeInput, clearPickupPostcodeTimer, resetPickupLookupState, onPickupPostcodeInput, lookupPickupPostcode, submitOrder, goBack, ref: vue.ref, computed: vue.computed, onUnmounted: vue.onUnmounted, get createRideOrder() {
+        return createRideOrder;
+      }, get lookupAddressByPostcode() {
+        return lookupAddressByPostcode;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 顶部返回 + 标题 "),
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("view", {
           class: "back-btn",
@@ -1414,29 +1862,77 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "title" })
       ]),
       vue.createElementVNode("view", { class: "form-card" }, [
-        vue.createCommentVNode(" 出发地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
+        vue.createElementVNode("view", { class: "address-block" }, [
+          vue.createElementVNode("view", { class: "label" }, "起点"),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.dropoffAddress = $event),
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.pickupAddress.postcode = $event),
               type: "text",
-              placeholder: "请输入出发地址",
+              placeholder: "Postcode (e.g. SW1A 1AA)",
+              class: "dropoff-address",
+              onInput: $setup.onPickupPostcodeInput
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.postcode]
+          ]),
+          $setup.pickupLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            "📍 已识别：" + vue.toDisplayString($setup.pickupLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.pickupLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.pickupLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.pickupAddress.address = $event),
+              type: "text",
+              placeholder: "Street / Area",
               class: "dropoff-address"
             },
             null,
             512
             /* NEED_PATCH */
           ), [
-            [vue.vModelText, $setup.form.dropoffAddress]
+            [vue.vModelText, $setup.pickupAddress.address]
+          ]),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.pickupAddress.detail = $event),
+              type: "text",
+              placeholder: "Flat / Door / Note",
+              class: "dropoff-address"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.detail]
           ])
         ]),
-        vue.createCommentVNode(" 送机日期 + 送机时间 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.createElementVNode("picker", {
             mode: "date",
             start: $setup.minDate,
-            onChange: _cache[1] || (_cache[1] = (e) => $setup.form.pickupDate = e.detail.value)
+            onChange: _cache[3] || (_cache[3] = (e) => $setup.form.pickupDate = e.detail.value)
           }, [
             vue.createElementVNode(
               "view",
@@ -1450,7 +1946,7 @@ if (uni.restoreGlobal) {
             "picker",
             {
               mode: "time",
-              onChange: _cache[2] || (_cache[2] = (e) => $setup.form.pickupTime = e.detail.value)
+              onChange: _cache[4] || (_cache[4] = (e) => $setup.form.pickupTime = e.detail.value)
             },
             [
               vue.createElementVNode(
@@ -1465,7 +1961,6 @@ if (uni.restoreGlobal) {
             /* NEED_HYDRATION */
           )
         ]),
-        vue.createCommentVNode(" 送达机场 + 航站楼 + 航班号 "),
         vue.createElementVNode("view", { class: "row-3" }, [
           vue.createElementVNode("picker", {
             range: $setup.airportDisplayList,
@@ -1494,7 +1989,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.form.flightNumber = $event),
+              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.form.flightNumber = $event),
               type: "text",
               placeholder: "航班号",
               class: "flight-number"
@@ -1506,13 +2001,12 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.flightNumber]
           ])
         ]),
-        vue.createCommentVNode(" 车型选择 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.createElementVNode(
             "picker",
             {
               range: $setup.vehicleList,
-              onChange: _cache[4] || (_cache[4] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
+              onChange: _cache[6] || (_cache[6] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
             },
             [
               vue.createElementVNode(
@@ -1527,12 +2021,11 @@ if (uni.restoreGlobal) {
             /* NEED_HYDRATION */
           )
         ]),
-        vue.createCommentVNode(" 人数 "),
         vue.createElementVNode("view", { class: "row-3" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.form.adults = $event),
+              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.adults = $event),
               type: "number",
               placeholder: "成人",
               class: "adult-input"
@@ -1551,7 +2044,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => $setup.form.childrenUnder2 = $event),
+              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.childrenUnder2 = $event),
               type: "number",
               placeholder: "2岁以下选填",
               class: "under2-input"
@@ -1570,7 +2063,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.children2To6 = $event),
+              "onUpdate:modelValue": _cache[9] || (_cache[9] = ($event) => $setup.form.children2To6 = $event),
               type: "number",
               placeholder: "2-6岁选填",
               class: "age2to6-input"
@@ -1587,17 +2080,16 @@ if (uni.restoreGlobal) {
             ]
           ])
         ]),
-        vue.createCommentVNode(" 电话 + 微信 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.phone = $event),
+              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.phone = $event),
               type: "number",
               pattern: "\\d*",
               placeholder: "电话",
               class: "phone-input",
-              onInput: _cache[9] || (_cache[9] = ($event) => $setup.filterNumber("phone"))
+              onInput: _cache[11] || (_cache[11] = ($event) => $setup.filterNumber("phone"))
             },
             null,
             544
@@ -1608,7 +2100,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.wechat = $event),
+              "onUpdate:modelValue": _cache[12] || (_cache[12] = ($event) => $setup.form.wechat = $event),
               type: "text",
               placeholder: "微信/WhatsApp",
               class: "wechat-input"
@@ -1620,12 +2112,11 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.wechat]
           ])
         ]),
-        vue.createCommentVNode(" 备注 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.withDirectives(vue.createElementVNode(
             "textarea",
             {
-              "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.form.remarks = $event),
+              "onUpdate:modelValue": _cache[13] || (_cache[13] = ($event) => $setup.form.remarks = $event),
               rows: "2",
               placeholder: "备注",
               class: "remarks-textarea"
@@ -1637,9 +2128,7 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.remarks]
           ])
         ]),
-        vue.createCommentVNode(" 提示改为送机版 "),
         vue.createElementVNode("view", { class: "tip" }, " 🚗 提示：建议至少提前5小时出发，以防高峰期交通拥堵影响航班。 "),
-        vue.createCommentVNode(" 婴儿座椅（已修复） "),
         vue.createElementVNode("view", { class: "baby-seat" }, [
           vue.createElementVNode("view", { class: "label" }, "婴儿座椅"),
           vue.createElementVNode(
@@ -1675,13 +2164,7 @@ if (uni.restoreGlobal) {
         ])
       ]),
       vue.createElementVNode("view", { class: "footer" }, [
-        vue.createElementVNode(
-          "view",
-          { class: "price" },
-          "预计价格：£" + vue.toDisplayString($setup.estimatedPrice),
-          1
-          /* TEXT */
-        ),
+        vue.createElementVNode("view", { class: "price" }, "待后台报价"),
         vue.createElementVNode("button", {
           class: "submit-btn",
           onClick: $setup.submitOrder
@@ -1689,20 +2172,378 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0103ClientOrderDropoffV01 = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-38ce85c3"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0103_client_order_dropoff_v01.vue"]]);
-  const _sfc_main$s = {
+  const PagesA0103ClientOrderDropoffV01 = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-38ce85c3"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0103_client_order_dropoff_v01.vue"]]);
+  const POSTCODE_DEBOUNCE_MS$1 = 800;
+  const MIN_POSTCODE_LENGTH$1 = 5;
+  const _sfc_main$t = {
     __name: "A0104_client_order_point_v01",
     setup(__props, { expose: __expose }) {
       __expose();
+      const pickupAddress = vue.reactive({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const dropoffAddress = vue.reactive({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const submitting = vue.ref(false);
+      const pickupLookupLoading = vue.ref(false);
+      const dropoffLookupLoading = vue.ref(false);
+      const pickupLookupHint = vue.ref("");
+      const dropoffLookupHint = vue.ref("");
+      const pickupLookupError = vue.ref("");
+      const dropoffLookupError = vue.ref("");
+      let pickupPostcodeTimer = null;
+      let dropoffPostcodeTimer = null;
+      function normalizeLookupData(res) {
+        return (res == null ? void 0 : res.data) || res || {};
+      }
+      function buildAreaText(data) {
+        return `${(data == null ? void 0 : data.city) || ""}${(data == null ? void 0 : data.region) ? " / " + data.region : ""}`;
+      }
+      function normalizePostcodeInput(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+      }
+      function resetLookupState(target, hintRef, errorRef) {
+        hintRef.value = "";
+        errorRef.value = "";
+        target.longitude = null;
+        target.latitude = null;
+      }
+      function clearPostcodeTimer(timerName) {
+        if (timerName === "pickup" && pickupPostcodeTimer) {
+          clearTimeout(pickupPostcodeTimer);
+          pickupPostcodeTimer = null;
+        }
+        if (timerName === "dropoff" && dropoffPostcodeTimer) {
+          clearTimeout(dropoffPostcodeTimer);
+          dropoffPostcodeTimer = null;
+        }
+      }
+      function schedulePostcodeLookup(target, loadingRef, hintRef, errorRef, timerName) {
+        resetLookupState(target, hintRef, errorRef);
+        clearPostcodeTimer(timerName);
+        if (normalizePostcodeInput(target.postcode).length < MIN_POSTCODE_LENGTH$1)
+          return;
+        const timer = setTimeout(() => {
+          lookupPostcode(target, loadingRef, hintRef, errorRef, { showToast: false });
+        }, POSTCODE_DEBOUNCE_MS$1);
+        if (timerName === "pickup") {
+          pickupPostcodeTimer = timer;
+        } else {
+          dropoffPostcodeTimer = timer;
+        }
+      }
+      async function lookupPostcode(target, loadingRef, hintRef, errorRef, options = {}) {
+        const postcode = normalizePostcodeInput(target.postcode);
+        if (!postcode) {
+          uni.showToast({ title: "请输入邮编", icon: "none" });
+          return;
+        }
+        loadingRef.value = true;
+        hintRef.value = "";
+        errorRef.value = "";
+        try {
+          const res = await lookupAddressByPostcode(postcode, {
+            showErrorToast: options.showToast !== false
+          });
+          const data = normalizeLookupData(res);
+          const recognizedArea = buildAreaText(data);
+          target.postcode = (data == null ? void 0 : data.postcode) || target.postcode;
+          target.address = recognizedArea;
+          target.longitude = (data == null ? void 0 : data.longitude) ?? null;
+          target.latitude = (data == null ? void 0 : data.latitude) ?? null;
+          hintRef.value = recognizedArea;
+        } catch (e) {
+          errorRef.value = "邮编不存在，请检查后重新输入";
+          if (options.showToast !== false) {
+            uni.showToast({ title: "邮编不存在，请检查后重新输入", icon: "none" });
+          }
+        } finally {
+          loadingRef.value = false;
+        }
+      }
+      function onPickupPostcodeInput() {
+        schedulePostcodeLookup(
+          pickupAddress,
+          pickupLookupLoading,
+          pickupLookupHint,
+          pickupLookupError,
+          "pickup"
+        );
+      }
+      function onDropoffPostcodeInput() {
+        schedulePostcodeLookup(
+          dropoffAddress,
+          dropoffLookupLoading,
+          dropoffLookupHint,
+          dropoffLookupError,
+          "dropoff"
+        );
+      }
+      const submitOrder = async () => {
+        var _a;
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        if (!pickupAddress.postcode || !pickupAddress.address) {
+          uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+          return;
+        }
+        if (!dropoffAddress.postcode || !dropoffAddress.address) {
+          uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+          return;
+        }
+        submitting.value = true;
+        try {
+          const data = await createRideOrder(
+            pickupAddress.address,
+            dropoffAddress.address,
+            "point",
+            {
+              pickupPostcode: pickupAddress.postcode.trim(),
+              dropoffPostcode: dropoffAddress.postcode.trim(),
+              pickupDetail: pickupAddress.detail.trim(),
+              dropoffDetail: dropoffAddress.detail.trim()
+            }
+          );
+          const oid = (_a = data == null ? void 0 : data.order) == null ? void 0 : _a._id;
+          uni.showToast({ title: "下单成功", icon: "success" });
+          setTimeout(() => {
+            if (oid) {
+              uni.navigateTo({
+                url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+              });
+            } else {
+              uni.navigateTo({
+                url: "/pages/A0107_client_wait_driver_v01"
+              });
+            }
+          }, 800);
+        } catch (error) {
+        } finally {
+          submitting.value = false;
+        }
+      };
+      const goBack = () => {
+        uni.navigateBack();
+      };
+      vue.onUnmounted(() => {
+        clearPostcodeTimer("pickup");
+        clearPostcodeTimer("dropoff");
+      });
+      const __returned__ = { pickupAddress, dropoffAddress, submitting, pickupLookupLoading, dropoffLookupLoading, pickupLookupHint, dropoffLookupHint, pickupLookupError, dropoffLookupError, get pickupPostcodeTimer() {
+        return pickupPostcodeTimer;
+      }, set pickupPostcodeTimer(v) {
+        pickupPostcodeTimer = v;
+      }, get dropoffPostcodeTimer() {
+        return dropoffPostcodeTimer;
+      }, set dropoffPostcodeTimer(v) {
+        dropoffPostcodeTimer = v;
+      }, POSTCODE_DEBOUNCE_MS: POSTCODE_DEBOUNCE_MS$1, MIN_POSTCODE_LENGTH: MIN_POSTCODE_LENGTH$1, normalizeLookupData, buildAreaText, normalizePostcodeInput, resetLookupState, clearPostcodeTimer, schedulePostcodeLookup, lookupPostcode, onPickupPostcodeInput, onDropoffPostcodeInput, submitOrder, goBack, onUnmounted: vue.onUnmounted, reactive: vue.reactive, ref: vue.ref, get lookupAddressByPostcode() {
+        return lookupAddressByPostcode;
+      }, get createRideOrder() {
+        return createRideOrder;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      vue.createElementVNode("view", { class: "header" }, [
+        vue.createElementVNode("view", {
+          class: "back-btn",
+          onClick: $setup.goBack
+        }, "返回"),
+        vue.createElementVNode("view", { class: "title" }, "创建订单"),
+        vue.createElementVNode("view", { class: "placeholder" })
+      ]),
+      vue.createElementVNode("view", { class: "form-card" }, [
+        vue.createElementVNode("view", { class: "field" }, [
+          vue.createElementVNode("text", { class: "label" }, "起点"),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.pickupAddress.postcode = $event),
+              type: "text",
+              placeholder: "Postcode (e.g. SW1A 1AA)",
+              class: "address-input",
+              onInput: $setup.onPickupPostcodeInput
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.postcode]
+          ]),
+          $setup.pickupLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            " 📍 已识别：" + vue.toDisplayString($setup.pickupLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.pickupLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.pickupLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.pickupAddress.address = $event),
+              type: "text",
+              placeholder: "Street / Area",
+              class: "address-input"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.address]
+          ]),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.pickupAddress.detail = $event),
+              type: "text",
+              placeholder: "Flat / Door / Note",
+              class: "address-input"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.detail]
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "field" }, [
+          vue.createElementVNode("text", { class: "label" }, "终点"),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.dropoffAddress.postcode = $event),
+              type: "text",
+              placeholder: "Postcode (e.g. E14 5AB)",
+              class: "address-input",
+              onInput: $setup.onDropoffPostcodeInput
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.postcode]
+          ]),
+          $setup.dropoffLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            " 📍 已识别：" + vue.toDisplayString($setup.dropoffLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.dropoffLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.dropoffLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => $setup.dropoffAddress.address = $event),
+              type: "text",
+              placeholder: "Street / Area",
+              class: "address-input"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.address]
+          ]),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.dropoffAddress.detail = $event),
+              type: "text",
+              placeholder: "Flat / Door / Note",
+              class: "address-input"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.detail]
+          ])
+        ]),
+        vue.createElementVNode("button", {
+          class: "submit-btn",
+          loading: $setup.submitting,
+          onClick: $setup.submitOrder
+        }, " 下单 ", 8, ["loading"])
+      ])
+    ]);
+  }
+  const PagesA0104ClientOrderPointV01 = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-4ecac031"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0104_client_order_point_v01.vue"]]);
+  const POSTCODE_DEBOUNCE_MS = 800;
+  const MIN_POSTCODE_LENGTH = 5;
+  const _sfc_main$s = {
+    __name: "A0105_client_order_charter_v01",
+    setup(__props, { expose: __expose }) {
+      __expose();
       const vehicleList = ["5座", "7座", "8座", "9座"];
-      const estimatedPrice = vue.ref("0");
+      const pickupAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const dropoffAddress = vue.ref({
+        postcode: "",
+        address: "",
+        detail: "",
+        longitude: null,
+        latitude: null
+      });
+      const pickupLookupLoading = vue.ref(false);
+      const dropoffLookupLoading = vue.ref(false);
+      const pickupLookupHint = vue.ref("");
+      const dropoffLookupHint = vue.ref("");
+      const pickupLookupError = vue.ref("");
+      const dropoffLookupError = vue.ref("");
+      let pickupPostcodeTimer = null;
+      let dropoffPostcodeTimer = null;
       const today = /* @__PURE__ */ new Date();
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
       const minDate = tomorrow.toISOString().split("T")[0];
       const form = vue.ref({
-        pickupAddress: "",
-        dropoffAddress: "",
         pickupDate: "",
         pickupTime: "",
         flightNumber: "",
@@ -1721,41 +2562,154 @@ if (uni.restoreGlobal) {
       function filterNumber(field) {
         form.value[field] = form.value[field].replace(/\D/g, "");
       }
-      function submitOrder() {
+      function normalizeLookupData(res) {
+        return (res == null ? void 0 : res.data) || res || {};
+      }
+      function buildAreaText(data) {
+        return `${(data == null ? void 0 : data.city) || ""}${(data == null ? void 0 : data.region) ? " / " + data.region : ""}`;
+      }
+      function normalizePostcodeInput(value) {
+        return String(value || "").trim().replace(/\s+/g, " ");
+      }
+      function clearPostcodeTimer(timerName) {
+        if (timerName === "pickup" && pickupPostcodeTimer) {
+          clearTimeout(pickupPostcodeTimer);
+          pickupPostcodeTimer = null;
+        }
+        if (timerName === "dropoff" && dropoffPostcodeTimer) {
+          clearTimeout(dropoffPostcodeTimer);
+          dropoffPostcodeTimer = null;
+        }
+      }
+      function resetLookupState(targetRef, hintRef, errorRef) {
+        hintRef.value = "";
+        errorRef.value = "";
+        targetRef.value.longitude = null;
+        targetRef.value.latitude = null;
+      }
+      function schedulePostcodeLookup(targetRef, loadingRef, hintRef, errorRef, timerName) {
+        resetLookupState(targetRef, hintRef, errorRef);
+        clearPostcodeTimer(timerName);
+        if (normalizePostcodeInput(targetRef.value.postcode).length < MIN_POSTCODE_LENGTH)
+          return;
+        const timer = setTimeout(() => {
+          lookupPostcode(targetRef, loadingRef, hintRef, errorRef);
+        }, POSTCODE_DEBOUNCE_MS);
+        if (timerName === "pickup") {
+          pickupPostcodeTimer = timer;
+        } else {
+          dropoffPostcodeTimer = timer;
+        }
+      }
+      async function lookupPostcode(targetRef, loadingRef, hintRef, errorRef) {
+        const postcode = normalizePostcodeInput(targetRef.value.postcode);
+        if (!postcode)
+          return;
+        loadingRef.value = true;
+        hintRef.value = "";
+        errorRef.value = "";
+        try {
+          const res = await lookupAddressByPostcode(postcode, { showErrorToast: false });
+          const data = normalizeLookupData(res);
+          const recognizedArea = buildAreaText(data);
+          targetRef.value.postcode = (data == null ? void 0 : data.postcode) || targetRef.value.postcode;
+          targetRef.value.address = recognizedArea;
+          targetRef.value.longitude = (data == null ? void 0 : data.longitude) ?? null;
+          targetRef.value.latitude = (data == null ? void 0 : data.latitude) ?? null;
+          hintRef.value = recognizedArea;
+        } catch (e) {
+          errorRef.value = "邮编不存在，请检查后重新输入";
+        } finally {
+          loadingRef.value = false;
+        }
+      }
+      function onPickupPostcodeInput() {
+        schedulePostcodeLookup(
+          pickupAddress,
+          pickupLookupLoading,
+          pickupLookupHint,
+          pickupLookupError,
+          "pickup"
+        );
+      }
+      function onDropoffPostcodeInput() {
+        schedulePostcodeLookup(
+          dropoffAddress,
+          dropoffLookupLoading,
+          dropoffLookupHint,
+          dropoffLookupError,
+          "dropoff"
+        );
+      }
+      async function submitOrder() {
+        var _a;
+        if (!uni.getStorageSync("token")) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
         if (!form.value.pickupDate)
           return uni.showToast({ title: "请选择出发日期", icon: "none" });
         if (!form.value.pickupTime)
           return uni.showToast({ title: "请选择出发时间", icon: "none" });
-        if (!form.value.pickupAddress)
-          return uni.showToast({ title: "请输入出发地址", icon: "none" });
-        if (!form.value.dropoffAddress)
-          return uni.showToast({ title: "请输入目的地地址", icon: "none" });
+        if (!pickupAddress.value.postcode || !pickupAddress.value.address) {
+          return uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+        }
+        if (!dropoffAddress.value.postcode || !dropoffAddress.value.address) {
+          return uni.showToast({ title: "请输入完整地址（邮编 + 地址）", icon: "none" });
+        }
         if (!form.value.vehicle)
           return uni.showToast({ title: "请选择车型", icon: "none" });
         if (!form.value.phone)
           return uni.showToast({ title: "请输入电话", icon: "none" });
-        formatAppLog("log", "at pages/A0104_client_order_point_v01.vue:123", "提交订单：", form.value);
-        uni.showToast({
-          title: "订单已提交",
-          icon: "success"
-        });
-        setTimeout(() => {
-          uni.navigateTo({
-            url: "/pages/A0106_client_payment_v01"
+        const pickup = pickupAddress.value.address.trim();
+        const destination = dropoffAddress.value.address.trim();
+        try {
+          const data = await createRideOrder(pickup, destination, "charter", {
+            pickupPostcode: pickupAddress.value.postcode.trim(),
+            dropoffPostcode: dropoffAddress.value.postcode.trim(),
+            pickupDetail: `${pickupAddress.value.detail.trim()} | ${form.value.pickupDate} ${form.value.pickupTime} | ${form.value.vehicle} | 电话${form.value.phone}`.trim(),
+            dropoffDetail: dropoffAddress.value.detail.trim()
           });
-        }, 800);
+          const oid = (_a = data == null ? void 0 : data.order) == null ? void 0 : _a._id;
+          uni.showToast({ title: "下单成功", icon: "success" });
+          setTimeout(() => {
+            if (oid) {
+              uni.navigateTo({
+                url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+              });
+            } else {
+              uni.navigateTo({ url: "/pages/A0107_client_wait_driver_v01" });
+            }
+          }, 600);
+        } catch (e) {
+        }
       }
       function goBack() {
         uni.navigateBack();
       }
-      const __returned__ = { vehicleList, estimatedPrice, today, tomorrow, minDate, form, handleBabySeatChange, filterNumber, submitOrder, goBack, ref: vue.ref };
+      vue.onUnmounted(() => {
+        clearPostcodeTimer("pickup");
+        clearPostcodeTimer("dropoff");
+      });
+      const __returned__ = { vehicleList, pickupAddress, dropoffAddress, pickupLookupLoading, dropoffLookupLoading, pickupLookupHint, dropoffLookupHint, pickupLookupError, dropoffLookupError, get pickupPostcodeTimer() {
+        return pickupPostcodeTimer;
+      }, set pickupPostcodeTimer(v) {
+        pickupPostcodeTimer = v;
+      }, get dropoffPostcodeTimer() {
+        return dropoffPostcodeTimer;
+      }, set dropoffPostcodeTimer(v) {
+        dropoffPostcodeTimer = v;
+      }, POSTCODE_DEBOUNCE_MS, MIN_POSTCODE_LENGTH, today, tomorrow, minDate, form, handleBabySeatChange, filterNumber, normalizeLookupData, buildAreaText, normalizePostcodeInput, clearPostcodeTimer, resetLookupState, schedulePostcodeLookup, lookupPostcode, onPickupPostcodeInput, onDropoffPostcodeInput, submitOrder, goBack, ref: vue.ref, onUnmounted: vue.onUnmounted, get createRideOrder() {
+        return createRideOrder;
+      }, get lookupAddressByPostcode() {
+        return lookupAddressByPostcode;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$r(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 顶部返回 + 标题 "),
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("view", {
           class: "back-btn",
@@ -1764,373 +2718,144 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "title" })
       ]),
       vue.createElementVNode("view", { class: "form-card" }, [
-        vue.createCommentVNode(" 出发地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
+        vue.createElementVNode("view", { class: "address-block" }, [
+          vue.createElementVNode("view", { class: "label" }, "起点"),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.pickupAddress = $event),
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.pickupAddress.postcode = $event),
               type: "text",
-              placeholder: "请输入出发地址",
-              class: "pickup-address"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.form.pickupAddress]
-          ])
-        ]),
-        vue.createCommentVNode(" 目的地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.dropoffAddress = $event),
-              type: "text",
-              placeholder: "请输入目的地地址",
-              class: "dropoff-address"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.form.dropoffAddress]
-          ])
-        ]),
-        vue.createCommentVNode(" 出发日期 + 出发时间 "),
-        vue.createElementVNode("view", { class: "row-2" }, [
-          vue.createElementVNode("picker", {
-            mode: "date",
-            start: $setup.minDate,
-            onChange: _cache[2] || (_cache[2] = (e) => $setup.form.pickupDate = e.detail.value)
-          }, [
-            vue.createElementVNode(
-              "view",
-              { class: "picker pickup-date" },
-              vue.toDisplayString($setup.form.pickupDate || "出发日期"),
-              1
-              /* TEXT */
-            )
-          ], 40, ["start"]),
-          vue.createElementVNode(
-            "picker",
-            {
-              mode: "time",
-              onChange: _cache[3] || (_cache[3] = (e) => $setup.form.pickupTime = e.detail.value)
-            },
-            [
-              vue.createElementVNode(
-                "view",
-                { class: "picker pickup-time" },
-                vue.toDisplayString($setup.form.pickupTime || "出发时间"),
-                1
-                /* TEXT */
-              )
-            ],
-            32
-            /* NEED_HYDRATION */
-          )
-        ]),
-        vue.createCommentVNode(" 车型选择 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
-          vue.createElementVNode(
-            "picker",
-            {
-              range: $setup.vehicleList,
-              onChange: _cache[4] || (_cache[4] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
-            },
-            [
-              vue.createElementVNode(
-                "view",
-                { class: "picker vehicle-picker" },
-                vue.toDisplayString($setup.form.vehicle || "请选择车型"),
-                1
-                /* TEXT */
-              )
-            ],
-            32
-            /* NEED_HYDRATION */
-          )
-        ]),
-        vue.createCommentVNode(" 人数 "),
-        vue.createElementVNode("view", { class: "row-3" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.form.adults = $event),
-              type: "number",
-              placeholder: "成人",
-              class: "adult-input"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [
-              vue.vModelText,
-              $setup.form.adults,
-              void 0,
-              { number: true }
-            ]
-          ]),
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => $setup.form.childrenUnder2 = $event),
-              type: "number",
-              placeholder: "2岁以下选填",
-              class: "under2-input"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [
-              vue.vModelText,
-              $setup.form.childrenUnder2,
-              void 0,
-              { number: true }
-            ]
-          ]),
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.children2To6 = $event),
-              type: "number",
-              placeholder: "2-6岁选填",
-              class: "age2to6-input"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [
-              vue.vModelText,
-              $setup.form.children2To6,
-              void 0,
-              { number: true }
-            ]
-          ])
-        ]),
-        vue.createCommentVNode(" 电话 + 微信 "),
-        vue.createElementVNode("view", { class: "row-2" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.phone = $event),
-              type: "number",
-              pattern: "\\d*",
-              placeholder: "电话",
-              class: "phone-input",
-              onInput: _cache[9] || (_cache[9] = ($event) => $setup.filterNumber("phone"))
+              placeholder: "Postcode (e.g. SW1A 1AA)",
+              class: "pickup-address",
+              onInput: $setup.onPickupPostcodeInput
             },
             null,
             544
             /* NEED_HYDRATION, NEED_PATCH */
           ), [
-            [vue.vModelText, $setup.form.phone]
+            [vue.vModelText, $setup.pickupAddress.postcode]
           ]),
+          $setup.pickupLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            "📍 已识别：" + vue.toDisplayString($setup.pickupLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.pickupLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.pickupLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.wechat = $event),
+              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.pickupAddress.address = $event),
               type: "text",
-              placeholder: "微信/WhatsApp",
-              class: "wechat-input"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.form.wechat]
-          ])
-        ]),
-        vue.createCommentVNode(" 备注 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "textarea",
-            {
-              "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.form.remarks = $event),
-              rows: "2",
-              placeholder: "备注",
-              class: "remarks-textarea"
-            },
-            null,
-            512
-            /* NEED_PATCH */
-          ), [
-            [vue.vModelText, $setup.form.remarks]
-          ])
-        ]),
-        vue.createElementVNode("view", { class: "tip" }, " 🚗 提示：建议您合理预留出发时间，避免因交通状况耽误行程。 "),
-        vue.createCommentVNode(" 婴儿座椅（已修复） "),
-        vue.createElementVNode("view", { class: "baby-seat" }, [
-          vue.createElementVNode("view", { class: "label" }, "婴儿座椅"),
-          vue.createElementVNode(
-            "radio-group",
-            { onChange: $setup.handleBabySeatChange },
-            [
-              vue.createElementVNode("label", null, [
-                vue.createElementVNode("radio", {
-                  value: "none",
-                  checked: $setup.form.babySeat === "none"
-                }, null, 8, ["checked"]),
-                vue.createTextVNode(" 无")
-              ]),
-              vue.createElementVNode("label", null, [
-                vue.createElementVNode("radio", {
-                  value: "0-2",
-                  checked: $setup.form.babySeat === "0-2"
-                }, null, 8, ["checked"]),
-                vue.createTextVNode(" 0-2岁")
-              ]),
-              vue.createElementVNode("label", null, [
-                vue.createElementVNode("radio", {
-                  value: "2-6",
-                  checked: $setup.form.babySeat === "2-6"
-                }, null, 8, ["checked"]),
-                vue.createTextVNode(" 2-6岁")
-              ])
-            ],
-            32
-            /* NEED_HYDRATION */
-          ),
-          vue.createElementVNode("view", { class: "tip" }, "英国法律规定，儿童必须要有儿童座椅，请自备，避免产生费用。")
-        ])
-      ]),
-      vue.createCommentVNode(" 底部固定 "),
-      vue.createElementVNode("view", { class: "footer" }, [
-        vue.createElementVNode(
-          "view",
-          { class: "price" },
-          "预计价格：£" + vue.toDisplayString($setup.estimatedPrice),
-          1
-          /* TEXT */
-        ),
-        vue.createElementVNode("button", {
-          class: "submit-btn",
-          onClick: $setup.submitOrder
-        }, "提交订单")
-      ])
-    ]);
-  }
-  const PagesA0104ClientOrderPointV01 = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-4ecac031"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0104_client_order_point_v01.vue"]]);
-  const _sfc_main$r = {
-    __name: "A0105_client_order_charter_v01",
-    setup(__props, { expose: __expose }) {
-      __expose();
-      const vehicleList = ["5座", "7座", "8座", "9座"];
-      const estimatedPrice = vue.ref("0");
-      const today = /* @__PURE__ */ new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      const minDate = tomorrow.toISOString().split("T")[0];
-      const form = vue.ref({
-        pickupAddress: "",
-        dropoffAddress: "",
-        pickupDate: "",
-        pickupTime: "",
-        flightNumber: "",
-        vehicle: "",
-        adults: "",
-        childrenUnder2: "",
-        children2To6: "",
-        phone: "",
-        wechat: "",
-        remarks: "",
-        babySeat: "none"
-      });
-      function handleBabySeatChange(e) {
-        form.value.babySeat = e.detail.value;
-      }
-      function filterNumber(field) {
-        form.value[field] = form.value[field].replace(/\D/g, "");
-      }
-      function submitOrder() {
-        if (!form.value.pickupDate)
-          return uni.showToast({ title: "请选择出发日期", icon: "none" });
-        if (!form.value.pickupTime)
-          return uni.showToast({ title: "请选择出发时间", icon: "none" });
-        if (!form.value.pickupAddress)
-          return uni.showToast({ title: "请输入出发地址", icon: "none" });
-        if (!form.value.dropoffAddress)
-          return uni.showToast({ title: "请输入目的地地址", icon: "none" });
-        if (!form.value.vehicle)
-          return uni.showToast({ title: "请选择车型", icon: "none" });
-        if (!form.value.phone)
-          return uni.showToast({ title: "请输入电话", icon: "none" });
-        formatAppLog("log", "at pages/A0105_client_order_charter_v01.vue:124", "提交订单：", form.value);
-        uni.showToast({
-          title: "订单已提交",
-          icon: "success"
-        });
-        setTimeout(() => {
-          uni.navigateTo({
-            url: "/pages/A0106_client_payment_v01"
-          });
-        }, 800);
-      }
-      function goBack() {
-        uni.navigateBack();
-      }
-      const __returned__ = { vehicleList, estimatedPrice, today, tomorrow, minDate, form, handleBabySeatChange, filterNumber, submitOrder, goBack, ref: vue.ref };
-      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
-      return __returned__;
-    }
-  };
-  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 顶部返回 + 标题 "),
-      vue.createElementVNode("view", { class: "header" }, [
-        vue.createElementVNode("view", {
-          class: "back-btn",
-          onClick: $setup.goBack
-        }),
-        vue.createElementVNode("view", { class: "title" })
-      ]),
-      vue.createElementVNode("view", { class: "form-card" }, [
-        vue.createCommentVNode(" 出发地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
-          vue.withDirectives(vue.createElementVNode(
-            "input",
-            {
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.pickupAddress = $event),
-              type: "text",
-              placeholder: "请输入出发地址",
+              placeholder: "Street / Area",
               class: "pickup-address"
             },
             null,
             512
             /* NEED_PATCH */
           ), [
-            [vue.vModelText, $setup.form.pickupAddress]
-          ])
-        ]),
-        vue.createCommentVNode(" 目的地址 "),
-        vue.createElementVNode("view", { class: "row-full" }, [
+            [vue.vModelText, $setup.pickupAddress.address]
+          ]),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.dropoffAddress = $event),
+              "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.pickupAddress.detail = $event),
               type: "text",
-              placeholder: "请输入目的地地址",
+              placeholder: "Flat / Door / Note",
+              class: "pickup-address"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.pickupAddress.detail]
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "address-block" }, [
+          vue.createElementVNode("view", { class: "label" }, "终点"),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.dropoffAddress.postcode = $event),
+              type: "text",
+              placeholder: "Postcode (e.g. E14 5AB)",
+              class: "dropoff-address",
+              onInput: $setup.onDropoffPostcodeInput
+            },
+            null,
+            544
+            /* NEED_HYDRATION, NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.postcode]
+          ]),
+          $setup.dropoffLookupHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "location-hint"
+            },
+            "📍 已识别：" + vue.toDisplayString($setup.dropoffLookupHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.dropoffLookupError ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 1,
+              class: "lookup-error"
+            },
+            vue.toDisplayString($setup.dropoffLookupError),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => $setup.dropoffAddress.address = $event),
+              type: "text",
+              placeholder: "Street / Area",
               class: "dropoff-address"
             },
             null,
             512
             /* NEED_PATCH */
           ), [
-            [vue.vModelText, $setup.form.dropoffAddress]
+            [vue.vModelText, $setup.dropoffAddress.address]
+          ]),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.dropoffAddress.detail = $event),
+              type: "text",
+              placeholder: "Flat / Door / Note",
+              class: "dropoff-address"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [vue.vModelText, $setup.dropoffAddress.detail]
           ])
         ]),
-        vue.createCommentVNode(" 出发日期 + 出发时间 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.createElementVNode("picker", {
             mode: "date",
             value: $setup.form.pickupDate,
             start: $setup.minDate,
-            onChange: _cache[2] || (_cache[2] = (e) => $setup.form.pickupDate = e.detail.value)
+            onChange: _cache[6] || (_cache[6] = (e) => $setup.form.pickupDate = e.detail.value)
           }, [
             vue.createElementVNode(
               "view",
@@ -2143,7 +2868,7 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("picker", {
             mode: "time",
             value: $setup.form.pickupTime,
-            onChange: _cache[3] || (_cache[3] = (e) => $setup.form.pickupTime = e.detail.value)
+            onChange: _cache[7] || (_cache[7] = (e) => $setup.form.pickupTime = e.detail.value)
           }, [
             vue.createElementVNode(
               "view",
@@ -2154,14 +2879,13 @@ if (uni.restoreGlobal) {
             )
           ], 40, ["value"])
         ]),
-        vue.createCommentVNode(" 车型选择 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.createElementVNode(
             "picker",
             {
               mode: "selector",
               range: $setup.vehicleList,
-              onChange: _cache[4] || (_cache[4] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
+              onChange: _cache[8] || (_cache[8] = (e) => $setup.form.vehicle = $setup.vehicleList[e.detail.value])
             },
             [
               vue.createElementVNode(
@@ -2176,12 +2900,11 @@ if (uni.restoreGlobal) {
             /* NEED_HYDRATION */
           )
         ]),
-        vue.createCommentVNode(" 人数 "),
         vue.createElementVNode("view", { class: "row-3" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.form.adults = $event),
+              "onUpdate:modelValue": _cache[9] || (_cache[9] = ($event) => $setup.form.adults = $event),
               type: "number",
               placeholder: "成人",
               class: "adult-input"
@@ -2200,7 +2923,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => $setup.form.childrenUnder2 = $event),
+              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.childrenUnder2 = $event),
               type: "number",
               placeholder: "2岁以下选填",
               class: "under2-input"
@@ -2219,7 +2942,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[7] || (_cache[7] = ($event) => $setup.form.children2To6 = $event),
+              "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.form.children2To6 = $event),
               type: "number",
               placeholder: "2-6岁选填",
               class: "age2to6-input"
@@ -2236,17 +2959,16 @@ if (uni.restoreGlobal) {
             ]
           ])
         ]),
-        vue.createCommentVNode(" 电话 + 微信 "),
         vue.createElementVNode("view", { class: "row-2" }, [
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[8] || (_cache[8] = ($event) => $setup.form.phone = $event),
+              "onUpdate:modelValue": _cache[12] || (_cache[12] = ($event) => $setup.form.phone = $event),
               type: "number",
               pattern: "\\d*",
               placeholder: "电话",
               class: "phone-input",
-              onInput: _cache[9] || (_cache[9] = ($event) => $setup.filterNumber("phone"))
+              onInput: _cache[13] || (_cache[13] = ($event) => $setup.filterNumber("phone"))
             },
             null,
             544
@@ -2257,7 +2979,7 @@ if (uni.restoreGlobal) {
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
-              "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.form.wechat = $event),
+              "onUpdate:modelValue": _cache[14] || (_cache[14] = ($event) => $setup.form.wechat = $event),
               type: "text",
               placeholder: "微信/WhatsApp",
               class: "wechat-input"
@@ -2269,12 +2991,11 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.form.wechat]
           ])
         ]),
-        vue.createCommentVNode(" 备注 "),
         vue.createElementVNode("view", { class: "row-full" }, [
           vue.withDirectives(vue.createElementVNode(
             "textarea",
             {
-              "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.form.remarks = $event),
+              "onUpdate:modelValue": _cache[15] || (_cache[15] = ($event) => $setup.form.remarks = $event),
               rows: "2",
               placeholder: "备注",
               class: "remarks-textarea"
@@ -2287,7 +3008,6 @@ if (uni.restoreGlobal) {
           ])
         ]),
         vue.createElementVNode("view", { class: "tip" }, " 🚗 提示：建议您合理预留出发时间，避免因交通状况耽误行程。 "),
-        vue.createCommentVNode(" 婴儿座椅 "),
         vue.createElementVNode("view", { class: "baby-seat" }, [
           vue.createElementVNode("view", { class: "label" }, "婴儿座椅"),
           vue.createElementVNode(
@@ -2322,15 +3042,8 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("view", { class: "tip" }, "英国法律规定，儿童必须要有儿童座椅，请自备，避免产生费用。")
         ])
       ]),
-      vue.createCommentVNode(" 底部固定 "),
       vue.createElementVNode("view", { class: "footer" }, [
-        vue.createElementVNode(
-          "view",
-          { class: "price" },
-          "预计价格：£" + vue.toDisplayString($setup.estimatedPrice),
-          1
-          /* TEXT */
-        ),
+        vue.createElementVNode("view", { class: "price" }, "待后台报价"),
         vue.createElementVNode("button", {
           class: "submit-btn",
           onClick: $setup.submitOrder
@@ -2338,165 +3051,750 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0105ClientOrderCharterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__scopeId", "data-v-cc55a02a"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0105_client_order_charter_v01.vue"]]);
-  const _sfc_main$q = {
+  const PagesA0105ClientOrderCharterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-cc55a02a"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0105_client_order_charter_v01.vue"]]);
+  const pageTitle = "支付定金";
+  const submitButtonText = "我已完成付款";
+  const _sfc_main$r = {
     __name: "A0106_client_payment_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const orderInfo = vue.ref({
-        orderNumber: "202405060001",
-        amount: "120.00",
-        serviceType: "",
-        status: "待支付"
+      const orderId = vue.ref("");
+      const order = vue.ref(null);
+      const accounts = vue.ref([]);
+      const loading = vue.ref(true);
+      const err = vue.ref("");
+      const submitting = vue.ref(false);
+      const form = vue.ref({
+        method: "",
+        payerName: "",
+        paidAmount: "",
+        remark: ""
       });
-      const countdown = vue.ref("15:00");
-      let timer = null;
-      function startCountdown() {
-        let totalSeconds = 15 * 60;
-        timer = setInterval(() => {
-          totalSeconds--;
-          const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-          const seconds = String(totalSeconds % 60).padStart(2, "0");
-          countdown.value = `${minutes}:${seconds}`;
-          if (totalSeconds <= 0) {
-            clearInterval(timer);
-            countdown.value = "已超时";
+      const methodOptions = ["微信", "支付宝", "银行转账", "其他"];
+      const totalPrice = vue.computed(() => {
+        var _a, _b, _c;
+        const o = order.value || {};
+        const n = Number(((_a = o.priceBreakdown) == null ? void 0 : _a.totalPrice) ?? ((_b = o.quoteBreakdown) == null ? void 0 : _b.totalPrice) ?? ((_c = o.quoteBreakdown) == null ? void 0 : _c.total) ?? o.amount ?? 0);
+        return Number.isFinite(n) ? n : 0;
+      });
+      const depositNum = vue.computed(() => {
+        const o = order.value;
+        const v = o == null ? void 0 : o.depositAmount;
+        if (v != null && v !== "") {
+          const n = Number(v);
+          if (Number.isFinite(n))
+            return n;
+        }
+        return totalPrice.value * 0.1;
+      });
+      const amountNum = vue.computed(() => depositNum.value);
+      const orderDisplayNo = vue.computed(() => {
+        const o = order.value;
+        if (o == null ? void 0 : o.orderNo)
+          return String(o.orderNo);
+        const id = o == null ? void 0 : o._id;
+        if (!id)
+          return "—";
+        const s = String(id);
+        return s.length > 10 ? `${s.slice(0, 8)}…` : s;
+      });
+      const amountLabel = vue.computed(() => "定金金额");
+      const showForm = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return false;
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return false;
+        if (o.depositStatus === "submitted")
+          return false;
+        return ["unpaid", "rejected"].includes(o.depositStatus || "unpaid");
+      });
+      const stateHint = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return "";
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return "定金已确认，可返回订单页等待派单。";
+        if (o.depositStatus === "submitted")
+          return "您已提交付款信息，请等待平台确认到账。";
+        return "";
+      });
+      function onMethodPick(e) {
+        const i = Number(e.detail.value);
+        if (!Number.isFinite(i) || i < 0)
+          return;
+        form.value.method = methodOptions[i] || "";
+      }
+      async function loadAll() {
+        var _a;
+        loading.value = true;
+        err.value = "";
+        if (!orderId.value) {
+          err.value = "缺少订单参数";
+          loading.value = false;
+          return;
+        }
+        try {
+          const data = await fetchOrderDetail(orderId.value);
+          order.value = (data == null ? void 0 : data.order) || null;
+          if (!((_a = order.value) == null ? void 0 : _a._id)) {
+            err.value = "订单不存在";
+            return;
           }
-        }, 1e3);
+          const accData = await fetchPaymentAccounts("deposit");
+          accounts.value = Array.isArray(accData == null ? void 0 : accData.accounts) ? accData.accounts : [];
+          form.value.paidAmount = depositNum.value ? String(depositNum.value.toFixed(2)) : "";
+        } catch (e) {
+          err.value = e && e.message || "加载失败";
+        } finally {
+          loading.value = false;
+        }
       }
-      function payNow() {
-        uni.showToast({
-          title: "支付成功",
-          icon: "success",
-          duration: 1500
-          // 提示1.5秒
-        });
-        setTimeout(() => {
-          uni.redirectTo({
-            url: "/pages/A0107_client_wait_driver_v01"
+      async function submitDone() {
+        const name = String(form.value.payerName || "").trim();
+        const amt = Number(form.value.paidAmount);
+        if (!name) {
+          uni.showToast({ title: "请填写付款人姓名", icon: "none" });
+          return;
+        }
+        if (!Number.isFinite(amt) || amt <= 0) {
+          uni.showToast({ title: "请填写有效付款金额", icon: "none" });
+          return;
+        }
+        if (!String(form.value.method || "").trim()) {
+          uni.showToast({ title: "请选择支付方式", icon: "none" });
+          return;
+        }
+        submitting.value = true;
+        try {
+          await submitOrderDeposit(orderId.value, {
+            method: String(form.value.method || "").trim(),
+            payerName: name,
+            paidAmount: amt,
+            remark: String(form.value.remark || "").trim()
           });
-        }, 1500);
+          uni.showToast({ title: "已提交", icon: "success" });
+          setTimeout(() => {
+            uni.redirectTo({ url: "/pages/A0107_client_wait_driver_v01" });
+          }, 800);
+        } catch (e) {
+        } finally {
+          submitting.value = false;
+        }
       }
-      function goHome() {
-        uni.reLaunch({
-          url: "/pages/A0300_client_main_v01"
-        });
+      function goWait() {
+        uni.redirectTo({ url: "/pages/A0107_client_wait_driver_v01" });
       }
-      onLoad((query) => {
-        orderInfo.value.serviceType = query.serviceType || "点对点";
+      onLoad((q) => {
+        orderId.value = String(q && q.orderId || "").trim();
       });
       vue.onMounted(() => {
-        startCountdown();
+        loadAll();
       });
-      const __returned__ = { orderInfo, countdown, get timer() {
-        return timer;
-      }, set timer(v) {
-        timer = v;
-      }, startCountdown, payNow, goHome, ref: vue.ref, onMounted: vue.onMounted, get onLoad() {
+      const __returned__ = { orderId, order, accounts, loading, err, submitting, form, methodOptions, pageTitle, submitButtonText, totalPrice, depositNum, amountNum, orderDisplayNo, amountLabel, showForm, stateHint, onMethodPick, loadAll, submitDone, goWait, ref: vue.ref, computed: vue.computed, onMounted: vue.onMounted, get onLoad() {
         return onLoad;
+      }, get fetchOrderDetail() {
+        return fetchOrderDetail;
+      }, get fetchPaymentAccounts() {
+        return fetchPaymentAccounts;
+      }, get submitOrderDeposit() {
+        return submitOrderDeposit;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
+      vue.createElementVNode("view", { class: "title" }, vue.toDisplayString($setup.pageTitle)),
+      $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "muted"
+      }, "加载中…")) : $setup.err ? (vue.openBlock(), vue.createElementBlock(
+        "view",
+        {
+          key: 1,
+          class: "err"
+        },
+        vue.toDisplayString($setup.err),
+        1
+        /* TEXT */
+      )) : $setup.order && $setup.order._id ? (vue.openBlock(), vue.createElementBlock(
+        vue.Fragment,
+        { key: 2 },
+        [
+          vue.createElementVNode("view", { class: "card" }, [
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("text", { class: "label" }, "订单号"),
+              vue.createElementVNode(
+                "text",
+                { class: "value" },
+                vue.toDisplayString($setup.orderDisplayNo),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode(
+                "text",
+                { class: "label" },
+                vue.toDisplayString($setup.amountLabel),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode(
+                "text",
+                { class: "value strong" },
+                "£" + vue.toDisplayString($setup.amountNum.toFixed(2)),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode(
+              "view",
+              { class: "hint" },
+              " 请转账时在备注中填写订单号，便于财务核对：" + vue.toDisplayString($setup.orderDisplayNo),
+              1
+              /* TEXT */
+            )
+          ]),
+          $setup.stateHint ? (vue.openBlock(), vue.createElementBlock(
+            "view",
+            {
+              key: 0,
+              class: "card hint-card"
+            },
+            vue.toDisplayString($setup.stateHint),
+            1
+            /* TEXT */
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.showForm ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "card"
+          }, [
+            vue.createElementVNode("view", { class: "sub-title" }, "平台收款账户"),
+            !$setup.accounts.length ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "muted"
+            }, "暂无可用账户，请联系客服。")) : vue.createCommentVNode("v-if", true),
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.accounts, (a, idx) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  key: a._id || idx,
+                  class: "account-block"
+                }, [
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-name" },
+                    vue.toDisplayString(a.name || "账户"),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-line" },
+                    "收款人：" + vue.toDisplayString(a.receiverName || "—"),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-line" },
+                    "账号：" + vue.toDisplayString(a.accountNo || "—"),
+                    1
+                    /* TEXT */
+                  ),
+                  a.instruction ? (vue.openBlock(), vue.createElementBlock(
+                    "view",
+                    {
+                      key: 0,
+                      class: "acc-inst"
+                    },
+                    vue.toDisplayString(a.instruction),
+                    1
+                    /* TEXT */
+                  )) : vue.createCommentVNode("v-if", true)
+                ]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            )),
+            vue.createElementVNode("view", { class: "sub-title" }, "填写付款信息"),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "付款人姓名"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.payerName = $event),
+                  class: "input",
+                  placeholder: "必填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.payerName]
+              ])
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "支付方式"),
+              vue.createElementVNode(
+                "picker",
+                {
+                  range: $setup.methodOptions,
+                  onChange: $setup.onMethodPick
+                },
+                [
+                  vue.createElementVNode(
+                    "view",
+                    { class: "input picker-like" },
+                    vue.toDisplayString($setup.form.method || "请选择"),
+                    1
+                    /* TEXT */
+                  )
+                ],
+                32
+                /* NEED_HYDRATION */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "付款金额（£）"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.paidAmount = $event),
+                  class: "input",
+                  type: "digit",
+                  placeholder: "必填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.paidAmount]
+              ])
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "备注"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.form.remark = $event),
+                  class: "input",
+                  placeholder: "选填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.remark]
+              ])
+            ]),
+            vue.createElementVNode("button", {
+              class: "submit-btn",
+              disabled: $setup.submitting,
+              onClick: $setup.submitDone
+            }, vue.toDisplayString($setup.submitting ? "提交中…" : $setup.submitButtonText), 9, ["disabled"])
+          ])) : vue.createCommentVNode("v-if", true),
+          !$setup.showForm && !$setup.stateHint ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 2,
+            class: "card"
+          }, [
+            vue.createElementVNode("button", {
+              class: "submit-btn secondary",
+              onClick: $setup.goWait
+            }, "查看订单进度")
+          ])) : vue.createCommentVNode("v-if", true)
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      )) : vue.createCommentVNode("v-if", true)
+    ]);
+  }
+  const PagesA0106ClientPaymentV01 = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__scopeId", "data-v-760eb68f"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0106_client_payment_v01.vue"]]);
+  const _sfc_main$q = {
+    __name: "A0106b_client_balance_payment_v01",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const orderId = vue.ref("");
+      const order = vue.ref(null);
+      const accounts = vue.ref([]);
+      const loading = vue.ref(true);
+      const err = vue.ref("");
+      const submitting = vue.ref(false);
+      const form = vue.ref({
+        method: "",
+        payerName: "",
+        paidAmount: "",
+        remark: ""
+      });
+      const methodOptions = ["微信", "支付宝", "银行转账", "其他"];
+      const totalPrice = vue.computed(() => {
+        var _a, _b, _c;
+        const o = order.value || {};
+        const n = Number(((_a = o.priceBreakdown) == null ? void 0 : _a.totalPrice) ?? ((_b = o.quoteBreakdown) == null ? void 0 : _b.totalPrice) ?? ((_c = o.quoteBreakdown) == null ? void 0 : _c.total) ?? o.amount ?? 0);
+        return Number.isFinite(n) ? n : 0;
+      });
+      const depositNum = vue.computed(() => {
+        const o = order.value;
+        const v = o == null ? void 0 : o.depositAmount;
+        if (v != null && v !== "") {
+          const n = Number(v);
+          if (Number.isFinite(n))
+            return n;
+        }
+        return totalPrice.value * 0.1;
+      });
+      const amountNum = vue.computed(() => {
+        const o = order.value;
+        const v = o == null ? void 0 : o.balanceAmount;
+        if (v != null && v !== "") {
+          const n = Number(v);
+          if (Number.isFinite(n))
+            return n;
+        }
+        const rem = o == null ? void 0 : o.remainingAmount;
+        if (rem != null && rem !== "") {
+          const n = Number(rem);
+          if (Number.isFinite(n))
+            return n;
+        }
+        return Math.max(0, totalPrice.value - depositNum.value);
+      });
+      const orderDisplayNo = vue.computed(() => {
+        const o = order.value;
+        if (o == null ? void 0 : o.orderNo)
+          return String(o.orderNo);
+        const id = o == null ? void 0 : o._id;
+        if (!id)
+          return "—";
+        const s = String(id);
+        return s.length > 10 ? `${s.slice(0, 8)}…` : s;
+      });
+      const showForm = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return false;
+        if (o.paymentStage !== "balance_pending") {
+          return false;
+        }
+        if (o.balanceStatus === "confirmed" || o.remainingPaid)
+          return false;
+        if (o.balanceStatus === "submitted")
+          return false;
+        return ["unpaid", "rejected"].includes(o.balanceStatus || "unpaid");
+      });
+      const stateHint = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return "";
+        if (o.paymentStage !== "balance_pending" && o.paymentStage !== "balance_submitted") {
+          if (o.paymentStage === "balance_confirmed" || o.remainingPaid)
+            return "尾款已确认。";
+          return "当前无需支付尾款，或请等待客服发起尾款收款。";
+        }
+        if (o.balanceStatus === "confirmed" || o.remainingPaid)
+          return "尾款已确认。";
+        if (o.balanceStatus === "submitted")
+          return "您已提交尾款信息，请等待平台确认到账。";
+        return "";
+      });
+      function onMethodPick(e) {
+        const i = Number(e.detail.value);
+        if (!Number.isFinite(i) || i < 0)
+          return;
+        form.value.method = methodOptions[i] || "";
+      }
+      async function loadAll() {
+        var _a;
+        loading.value = true;
+        err.value = "";
+        if (!orderId.value) {
+          err.value = "缺少订单参数";
+          loading.value = false;
+          return;
+        }
+        try {
+          const data = await fetchOrderDetail(orderId.value);
+          order.value = (data == null ? void 0 : data.order) || null;
+          if (!((_a = order.value) == null ? void 0 : _a._id)) {
+            err.value = "订单不存在";
+            return;
+          }
+          if (order.value.paymentStage !== "balance_pending" && order.value.paymentStage !== "balance_submitted") {
+            err.value = "";
+          }
+          const accData = await fetchPaymentAccounts("balance");
+          accounts.value = Array.isArray(accData == null ? void 0 : accData.accounts) ? accData.accounts : [];
+          form.value.paidAmount = amountNum.value ? String(amountNum.value.toFixed(2)) : "";
+        } catch (e) {
+          err.value = e && e.message || "加载失败";
+        } finally {
+          loading.value = false;
+        }
+      }
+      async function submitDone() {
+        const name = String(form.value.payerName || "").trim();
+        const amt = Number(form.value.paidAmount);
+        if (!name) {
+          uni.showToast({ title: "请填写付款人姓名", icon: "none" });
+          return;
+        }
+        if (!Number.isFinite(amt) || amt <= 0) {
+          uni.showToast({ title: "请填写有效付款金额", icon: "none" });
+          return;
+        }
+        if (!String(form.value.method || "").trim()) {
+          uni.showToast({ title: "请选择支付方式", icon: "none" });
+          return;
+        }
+        submitting.value = true;
+        try {
+          await submitOrderBalance(orderId.value, {
+            method: String(form.value.method || "").trim(),
+            payerName: name,
+            paidAmount: amt,
+            remark: String(form.value.remark || "").trim()
+          });
+          uni.showToast({ title: "已提交", icon: "success" });
+          setTimeout(() => {
+            uni.redirectTo({ url: "/pages/A0107_client_wait_driver_v01" });
+          }, 800);
+        } catch (e) {
+        } finally {
+          submitting.value = false;
+        }
+      }
+      function goWait() {
+        uni.redirectTo({ url: "/pages/A0107_client_wait_driver_v01" });
+      }
+      onLoad((q) => {
+        orderId.value = String(q && q.orderId || "").trim();
+      });
+      vue.onMounted(() => {
+        loadAll();
+      });
+      const __returned__ = { orderId, order, accounts, loading, err, submitting, form, methodOptions, totalPrice, depositNum, amountNum, orderDisplayNo, showForm, stateHint, onMethodPick, loadAll, submitDone, goWait, ref: vue.ref, computed: vue.computed, onMounted: vue.onMounted, get onLoad() {
+        return onLoad;
+      }, get fetchOrderDetail() {
+        return fetchOrderDetail;
+      }, get fetchPaymentAccounts() {
+        return fetchPaymentAccounts;
+      }, get submitOrderBalance() {
+        return submitOrderBalance;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$p(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "payment-page" }, [
-      vue.createElementVNode("view", { class: "title" }, "支付订单"),
-      vue.createElementVNode("view", { class: "order-info" }, [
-        vue.createElementVNode("view", { class: "order-detail" }, [
-          vue.createElementVNode("view", { class: "label" }, "订单编号："),
-          vue.createElementVNode(
-            "view",
-            { class: "value" },
-            vue.toDisplayString($setup.orderInfo.orderNumber),
-            1
-            /* TEXT */
-          )
-        ]),
-        vue.createElementVNode("view", { class: "order-detail" }, [
-          vue.createElementVNode("view", { class: "label" }, "金额："),
-          vue.createElementVNode(
-            "view",
-            { class: "value" },
-            "£" + vue.toDisplayString($setup.orderInfo.amount),
-            1
-            /* TEXT */
-          )
-        ]),
-        vue.createElementVNode("view", { class: "order-detail" }, [
-          vue.createElementVNode("view", { class: "label" }, "服务类型："),
-          vue.createElementVNode(
-            "view",
-            { class: "value" },
-            vue.toDisplayString($setup.orderInfo.serviceType),
-            1
-            /* TEXT */
-          )
-        ]),
-        vue.createElementVNode("view", { class: "order-detail" }, [
-          vue.createElementVNode("view", { class: "label" }, "支付状态："),
-          vue.createElementVNode(
-            "view",
-            { class: "value" },
-            vue.toDisplayString($setup.orderInfo.status),
-            1
-            /* TEXT */
-          )
-        ]),
-        vue.createElementVNode(
-          "view",
-          { class: "countdown" },
-          "请在 " + vue.toDisplayString($setup.countdown) + " 内完成支付",
-          1
-          /* TEXT */
-        )
-      ]),
-      vue.createElementVNode("view", { class: "button-group" }, [
-        vue.createElementVNode("button", {
-          class: "pay-button",
-          onClick: $setup.payNow
-        }, "立即支付")
-      ]),
-      vue.createCommentVNode(" 感谢提示 "),
-      vue.createElementVNode("view", { class: "thank-you" }, [
-        vue.createElementVNode("text", null, "感谢您对中步出行的支持，"),
-        vue.createElementVNode("br"),
-        vue.createElementVNode("text", null, "您的每一笔订单完成之后，"),
-        vue.createElementVNode("br"),
-        vue.createElementVNode("text", null, "会有一块钱捐给慈善基金，"),
-        vue.createElementVNode("br"),
-        vue.createElementVNode("text", null, "祝您生活愉快💗")
-      ]),
-      vue.createCommentVNode(" 支付结果弹窗 "),
-      _ctx.showPopup ? (vue.openBlock(), vue.createElementBlock("view", {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
+      vue.createElementVNode("view", { class: "title" }, "支付尾款"),
+      $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
-        class: "popup-wrapper"
-      }, [
-        vue.createElementVNode("view", { class: "popup" }, [
-          vue.createElementVNode(
+        class: "muted"
+      }, "加载中…")) : $setup.err ? (vue.openBlock(), vue.createElementBlock(
+        "view",
+        {
+          key: 1,
+          class: "err"
+        },
+        vue.toDisplayString($setup.err),
+        1
+        /* TEXT */
+      )) : $setup.order && $setup.order._id ? (vue.openBlock(), vue.createElementBlock(
+        vue.Fragment,
+        { key: 2 },
+        [
+          vue.createElementVNode("view", { class: "card" }, [
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("text", { class: "label" }, "订单号"),
+              vue.createElementVNode(
+                "text",
+                { class: "value" },
+                vue.toDisplayString($setup.orderDisplayNo),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("text", { class: "label" }, "尾款金额"),
+              vue.createElementVNode(
+                "text",
+                { class: "value strong" },
+                "£" + vue.toDisplayString($setup.amountNum.toFixed(2)),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode(
+              "view",
+              { class: "hint" },
+              "备注请填写订单号：" + vue.toDisplayString($setup.orderDisplayNo),
+              1
+              /* TEXT */
+            )
+          ]),
+          $setup.stateHint ? (vue.openBlock(), vue.createElementBlock(
             "view",
-            { class: "popup-title" },
-            vue.toDisplayString(_ctx.popupTitle),
+            {
+              key: 0,
+              class: "card hint-card"
+            },
+            vue.toDisplayString($setup.stateHint),
             1
             /* TEXT */
-          ),
-          vue.createElementVNode(
-            "view",
-            { class: "popup-message" },
-            vue.toDisplayString(_ctx.popupMessage),
-            1
-            /* TEXT */
-          ),
-          vue.createElementVNode("view", { class: "popup-actions" }, [
+          )) : vue.createCommentVNode("v-if", true),
+          $setup.showForm ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "card"
+          }, [
+            vue.createElementVNode("view", { class: "sub-title" }, "平台收款账户"),
+            !$setup.accounts.length ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "muted"
+            }, "暂无可用账户，请联系客服。")) : vue.createCommentVNode("v-if", true),
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.accounts, (a, idx) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  key: a._id || idx,
+                  class: "account-block"
+                }, [
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-name" },
+                    vue.toDisplayString(a.name || "账户"),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-line" },
+                    "收款人：" + vue.toDisplayString(a.receiverName || "—"),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode(
+                    "view",
+                    { class: "acc-line" },
+                    "账号：" + vue.toDisplayString(a.accountNo || "—"),
+                    1
+                    /* TEXT */
+                  ),
+                  a.instruction ? (vue.openBlock(), vue.createElementBlock(
+                    "view",
+                    {
+                      key: 0,
+                      class: "acc-inst"
+                    },
+                    vue.toDisplayString(a.instruction),
+                    1
+                    /* TEXT */
+                  )) : vue.createCommentVNode("v-if", true)
+                ]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            )),
+            vue.createElementVNode("view", { class: "sub-title" }, "填写付款信息"),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "付款人姓名"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.payerName = $event),
+                  class: "input",
+                  placeholder: "必填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.payerName]
+              ])
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "支付方式"),
+              vue.createElementVNode(
+                "picker",
+                {
+                  range: $setup.methodOptions,
+                  onChange: $setup.onMethodPick
+                },
+                [
+                  vue.createElementVNode(
+                    "view",
+                    { class: "input picker-like" },
+                    vue.toDisplayString($setup.form.method || "请选择"),
+                    1
+                    /* TEXT */
+                  )
+                ],
+                32
+                /* NEED_HYDRATION */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "付款金额（£）"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.paidAmount = $event),
+                  class: "input",
+                  type: "digit",
+                  placeholder: "必填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.paidAmount]
+              ])
+            ]),
+            vue.createElementVNode("view", { class: "field" }, [
+              vue.createElementVNode("text", { class: "label" }, "备注"),
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.form.remark = $event),
+                  class: "input",
+                  placeholder: "选填"
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.form.remark]
+              ])
+            ]),
             vue.createElementVNode("button", {
-              onClick: _cache[0] || (_cache[0] = (...args) => _ctx.closePopup && _ctx.closePopup(...args))
-            }, "关闭")
-          ])
-        ])
-      ])) : vue.createCommentVNode("v-if", true)
+              class: "submit-btn",
+              disabled: $setup.submitting,
+              onClick: $setup.submitDone
+            }, vue.toDisplayString($setup.submitting ? "提交中…" : "我已完成尾款付款"), 9, ["disabled"])
+          ])) : vue.createCommentVNode("v-if", true),
+          !$setup.showForm && !$setup.stateHint ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 2,
+            class: "card"
+          }, [
+            vue.createElementVNode("button", {
+              class: "submit-btn secondary",
+              onClick: $setup.goWait
+            }, "查看订单进度")
+          ])) : vue.createCommentVNode("v-if", true)
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      )) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesA0106ClientPaymentV01 = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__scopeId", "data-v-760eb68f"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0106_client_payment_v01.vue"]]);
+  const PagesA0106bClientBalancePaymentV01 = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__scopeId", "data-v-ffe8158f"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0106b_client_balance_payment_v01.vue"]]);
+  const _imports_0$3 = "/static/icons/wechat.png";
+  const _imports_1 = "/static/icons/alipay.png";
   const _sfc_main$p = {
     __name: "A0106a_client_payment_v01",
     setup(__props, { expose: __expose }) {
@@ -2527,7 +3825,7 @@ if (uni.restoreGlobal) {
           success: () => {
             uni.hideLoading();
             uni.showToast({
-              title: "支付成功",
+              title: "打赏成功",
               icon: "success",
               success: () => {
                 setTimeout(() => {
@@ -2552,7 +3850,6 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$o(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "payment-page" }, [
-      vue.createCommentVNode(" 顶部欢迎信息 "),
       vue.createElementVNode("view", { class: "header-section" }, [
         vue.createElementVNode("view", { class: "header" }, [
           vue.createElementVNode("text", { class: "title" }, "感谢您对我们的服务的肯定")
@@ -2561,7 +3858,6 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("text", { class: "title" }, "期待您的下次用车服务")
         ])
       ]),
-      vue.createCommentVNode(" 支付金额展示 "),
       vue.createElementVNode("view", { class: "amount-section" }, [
         vue.createElementVNode("text", { class: "amount-label" }, "打赏金额"),
         vue.createElementVNode(
@@ -2572,7 +3868,6 @@ if (uni.restoreGlobal) {
           /* TEXT */
         )
       ]),
-      vue.createCommentVNode(" 支付方式选择 "),
       vue.createElementVNode("view", { class: "payment-methods" }, [
         vue.createElementVNode(
           "view",
@@ -2609,7 +3904,6 @@ if (uni.restoreGlobal) {
           /* CLASS */
         )
       ]),
-      vue.createCommentVNode(" 支付按钮 "),
       vue.createElementVNode("button", {
         class: "pay-button",
         onClick: $setup.handlePayment,
@@ -2617,48 +3911,443 @@ if (uni.restoreGlobal) {
       }, " 立即支付 £" + vue.toDisplayString($setup.amount), 9, ["disabled"])
     ]);
   }
-  const PagesA0106aClientPaymentV01 = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__scopeId", "data-v-5b943bb3"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0106a_client_payment_v01.vue"]]);
+  const PagesA0106aClientPaymentV01 = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__scopeId", "data-v-5b943bb3"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0106a_client_payment_v01.vue"]]);
+  const KNOWN = /* @__PURE__ */ new Set([
+    "created",
+    "quoted",
+    "confirmed",
+    "deposit_paid",
+    "assigned",
+    "driver_accepted",
+    "ready_to_start",
+    "in_progress",
+    "arrived",
+    "completed",
+    "cancelled",
+    "pending",
+    "accepted",
+    "started"
+  ]);
+  function normalizeOrderStatus(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (!s)
+      return "unknown";
+    if (s === "ongoing")
+      return "in_progress";
+    if (KNOWN.has(s))
+      return s;
+    return "unknown";
+  }
+  function clientOrderFlowSlot(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    if ([
+      "pending",
+      "created",
+      "quoted",
+      "confirmed",
+      "deposit_paid",
+      "assigned"
+    ].includes(n)) {
+      return "wait";
+    }
+    if (["accepted", "driver_accepted", "ready_to_start"].includes(n)) {
+      return "driver_info";
+    }
+    if (["started", "in_progress", "arrived"].includes(n))
+      return "in_trip";
+    if (n === "completed")
+      return "completed";
+    if (n === "cancelled")
+      return "history";
+    return "unknown";
+  }
+  const CLIENT_ORDER_PAGE_PATHS = {
+    wait: "/pages/A0107_client_wait_driver_v01",
+    driver_info: "/pages/A0109_client_driver_info_v01",
+    in_trip: "/pages/A0110_client_in_trip_v01",
+    completed: "/pages/A0111_client_trip_completed_v01",
+    history: "/pages/A0202_client_order_history_v01"
+  };
+  function clientPagePathForFlowSlot(slot) {
+    return CLIENT_ORDER_PAGE_PATHS[slot] || "";
+  }
+  const STATUS_LABELS = {
+    created: "已下单",
+    quoted: "已报价",
+    confirmed: "已确认",
+    deposit_paid: "已付订金",
+    assigned: "已派单",
+    driver_accepted: "司机已接单",
+    ready_to_start: "待出发",
+    in_progress: "行程中",
+    arrived: "已到达",
+    completed: "已完成",
+    cancelled: "已取消",
+    pending: "待处理",
+    accepted: "已接单",
+    started: "行程中",
+    unknown: "状态未知"
+  };
+  function clientOrderStatusLabel(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    return STATUS_LABELS[n] || STATUS_LABELS.unknown;
+  }
+  function clientWaitPageTitle(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    const map = {
+      pending: "正在为您安排司机",
+      created: "订单已提交",
+      quoted: "已出具报价",
+      confirmed: "请完成支付订金",
+      deposit_paid: "已付订金，正在派单",
+      assigned: "已分配司机",
+      driver_accepted: "司机已接单",
+      ready_to_start: "待出发",
+      accepted: "司机已接单",
+      started: "行程进行中",
+      in_progress: "行程进行中",
+      arrived: "司机已到达",
+      completed: "订单已完成",
+      cancelled: "订单已取消",
+      unknown: "订单状态"
+    };
+    return map[n] || map.unknown;
+  }
+  function clientOrderWaitingHint(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    const map = {
+      pending: "系统正在为您安排司机，请耐心等待……",
+      created: "订单已创建，请等待报价或后续通知。",
+      quoted: "报价已生成，请确认价格并支付订金。",
+      confirmed: "价格已确认，请尽快完成订金支付以便派单。",
+      deposit_paid: "订金已支付，平台正在为您指派司机……",
+      assigned: "订单已分配司机，等待司机确认接单，请稍候……",
+      driver_accepted: "司机已接单，正在准备前往上车点。",
+      ready_to_start: "尾款已结清，司机即将出发。",
+      accepted: "司机已接单，正在准备前往上车点。",
+      started: "您的行程正在进行中。",
+      in_progress: "您的行程正在进行中。",
+      arrived: "司机已到达上车点，请留意来电。",
+      completed: "感谢您的使用，欢迎再次下单。",
+      cancelled: "该订单已取消，您可在订单历史中查看。",
+      unknown: "暂无订单状态信息。"
+    };
+    return map[n] || "暂无订单状态信息。";
+  }
+  function clientDriverInfoNotice(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    if (["accepted", "driver_accepted", "ready_to_start"].includes(n)) {
+      return "司机已接单，请保持手机畅通，司机将在预计时间内到达上车地点。";
+    }
+    return "请保持手机畅通，如有问题请及时联系客服。";
+  }
+  function clientInTripHeadline(rawStatus) {
+    const n = normalizeOrderStatus(rawStatus);
+    if (["started", "in_progress", "arrived"].includes(n)) {
+      return "行程进行中，请系好安全带";
+    }
+    return clientOrderWaitingHint(rawStatus);
+  }
+  function formatOrderListTime(iso) {
+    if (!iso)
+      return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime()))
+      return String(iso);
+    const pad = (x) => String(x).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function pickActiveOrder(orders) {
+    const list = Array.isArray(orders) ? orders.filter(Boolean) : [];
+    if (!list.length)
+      return null;
+    const sorted = [...list].sort((a, b) => {
+      const ta = new Date(a.createdAt || 0).getTime();
+      const tb = new Date(b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+    const buckets = [
+      ["pending", "created", "quoted", "confirmed", "deposit_paid"],
+      ["assigned"],
+      ["accepted", "driver_accepted", "ready_to_start"],
+      ["started", "in_progress", "arrived"]
+    ];
+    for (const bucket of buckets) {
+      const subset = sorted.filter(
+        (o) => bucket.includes(normalizeOrderStatus(o.status))
+      );
+      if (subset.length)
+        return subset[0];
+    }
+    for (const o of sorted) {
+      const n = normalizeOrderStatus(o.status);
+      if (n === "completed" || n === "cancelled")
+        return o;
+    }
+    return sorted[0];
+  }
+  function applyClientOrderRoute(order, lastFlowSlotRef) {
+    if (!order || !order.status) {
+      lastFlowSlotRef.value = "";
+      return;
+    }
+    const slot = clientOrderFlowSlot(order.status);
+    const targetUrl = clientPagePathForFlowSlot(slot);
+    if (!targetUrl) {
+      lastFlowSlotRef.value = slot;
+      return;
+    }
+    const pages = typeof getCurrentPages === "function" ? getCurrentPages() : [];
+    const currentRoute = pages.length ? pages[pages.length - 1].route : "";
+    const currentPath = currentRoute ? `/${currentRoute}` : "";
+    if (currentPath !== targetUrl) {
+      lastFlowSlotRef.value = slot;
+      uni.redirectTo({ url: targetUrl });
+      return;
+    }
+    lastFlowSlotRef.value = slot;
+  }
+  function driverDisplayFromOrder(order) {
+    const fallback = {
+      name: "司机",
+      phone: "—",
+      vehicle: "车辆信息请咨询司机",
+      plateNumber: "—",
+      rating: "5.0",
+      avatar: "/static/driver_avatar.png"
+    };
+    if (!order || !order.driverId)
+      return fallback;
+    const d = order.driverId;
+    if (d && typeof d === "object" && d.phone) {
+      return {
+        name: `司机（尾号${String(d.phone).slice(-4)}）`,
+        phone: String(d.phone),
+        vehicle: fallback.vehicle,
+        plateNumber: fallback.plateNumber,
+        rating: fallback.rating,
+        avatar: fallback.avatar
+      };
+    }
+    return { ...fallback, phone: String(d) };
+  }
   const _imports_0$2 = "/static/loading.gif";
   const _sfc_main$o = {
     __name: "A0107_client_wait_driver_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const order = vue.ref({
-        departure: "伦敦 Heathrow",
-        destination: "剑桥 University",
-        date: "2025-05-06 10:30",
-        orderId: "CNB202505060001",
-        price: "88.00"
+      const order = vue.ref(null);
+      const lastFlowSlot = vue.ref("");
+      const priceActing = vue.ref(false);
+      const driverInfo = vue.computed(() => {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a.driverId))
+          return null;
+        return driverDisplayFromOrder(order.value);
       });
-      const waitingText = vue.ref("系统正在为您调度司机，请耐心等待......");
+      const orderNorm = vue.computed(() => {
+        var _a;
+        return normalizeOrderStatus((_a = order.value) == null ? void 0 : _a.status);
+      });
+      const pageTitle2 = vue.computed(() => {
+        var _a;
+        return clientWaitPageTitle((_a = order.value) == null ? void 0 : _a.status);
+      });
+      const statusLabel = vue.computed(() => {
+        var _a;
+        return clientOrderStatusLabel((_a = order.value) == null ? void 0 : _a.status);
+      });
+      const waitingText = vue.computed(() => {
+        var _a;
+        return clientOrderWaitingHint((_a = order.value) == null ? void 0 : _a.status);
+      });
+      const amountLine = vue.computed(() => {
+        var _a;
+        const amount = (_a = order.value) == null ? void 0 : _a.amount;
+        if (amount == null || amount === "")
+          return "—";
+        const n = Number(amount);
+        return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount);
+      });
+      const priceLine = vue.computed(() => {
+        var _a, _b;
+        const status = ((_a = order.value) == null ? void 0 : _a.priceStatus) || "pending";
+        if (status === "quoted" && ((_b = order.value) == null ? void 0 : _b.quoteSource) === "matrix") {
+          return `机场固定价：${amountLine.value}`;
+        }
+        if (status === "quoted")
+          return `报价：${amountLine.value}`;
+        if (status === "confirmed")
+          return `价格已确认：${amountLine.value}`;
+        return "等待后台报价";
+      });
+      const pickupAddressLines = vue.computed(
+        () => {
+          var _a, _b, _c;
+          return addressLines(
+            (_a = order.value) == null ? void 0 : _a.pickupPostcode,
+            (_b = order.value) == null ? void 0 : _b.pickup,
+            (_c = order.value) == null ? void 0 : _c.pickupDetail
+          );
+        }
+      );
+      const dropoffAddressLines = vue.computed(
+        () => {
+          var _a, _b, _c;
+          return addressLines(
+            (_a = order.value) == null ? void 0 : _a.dropoffPostcode,
+            (_b = order.value) == null ? void 0 : _b.destination,
+            (_c = order.value) == null ? void 0 : _c.dropoffDetail
+          );
+        }
+      );
+      const paymentLine = vue.computed(() => {
+        var _a, _b;
+        const map = {
+          unpaid: "未支付",
+          pending: "待支付",
+          paid: "已支付，等待司机服务",
+          refunded: "已退款"
+        };
+        return map[((_a = order.value) == null ? void 0 : _a.paymentStatus) || "unpaid"] || ((_b = order.value) == null ? void 0 : _b.paymentStatus);
+      });
+      const manualDepositLine = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return "—";
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return "已确认";
+        if (o.depositStatus === "submitted")
+          return "已提交，待平台确认";
+        if (o.depositStatus === "rejected")
+          return "已驳回，请重新提交";
+        return "待支付";
+      });
+      const manualBalanceLine = vue.computed(() => {
+        const o = order.value;
+        if (!o)
+          return "—";
+        if (o.balanceStatus === "confirmed" || o.remainingPaid)
+          return "已确认";
+        if (o.paymentStage === "balance_pending" && o.balanceStatus === "submitted")
+          return "已提交，待平台确认";
+        if (o.paymentStage === "balance_pending")
+          return "待支付";
+        if (o.paymentStage === "balance_submitted")
+          return "待平台确认尾款";
+        if (o.paymentStage === "balance_confirmed")
+          return "已确认";
+        return "—";
+      });
+      const needsDepositPay = vue.computed(() => {
+        const o = order.value;
+        if (!(o == null ? void 0 : o._id))
+          return false;
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return false;
+        return ["unpaid", "rejected"].includes(o.depositStatus || "unpaid");
+      });
+      const needsBalancePay = vue.computed(() => {
+        const o = order.value;
+        if (!(o == null ? void 0 : o._id))
+          return false;
+        return o.paymentStage === "balance_pending" && ["unpaid", "rejected"].includes(o.balanceStatus || "unpaid");
+      });
+      const canConfirmPrice = vue.computed(() => {
+        var _a;
+        return ((_a = order.value) == null ? void 0 : _a.priceStatus) === "quoted";
+      });
+      const canMockPay = vue.computed(
+        () => {
+          var _a, _b;
+          return ((_a = order.value) == null ? void 0 : _a.priceStatus) === "confirmed" && ((_b = order.value) == null ? void 0 : _b.paymentStatus) !== "paid";
+        }
+      );
+      const canCancelOrder = vue.computed(
+        () => [
+          "pending",
+          "assigned",
+          "created",
+          "quoted",
+          "confirmed",
+          "deposit_paid"
+        ].includes(orderNorm.value)
+      );
+      const orderIdShort = vue.computed(() => {
+        var _a;
+        const id = (_a = order.value) == null ? void 0 : _a._id;
+        if (!id)
+          return "—";
+        const s = String(id);
+        return s.length > 12 ? `${s.slice(0, 8)}…` : s;
+      });
+      const driverSummaryLine = vue.computed(() => {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a.driverId))
+          return "暂未分配司机";
+        const n = orderNorm.value;
+        const d = driverDisplayFromOrder(order.value);
+        if (n === "assigned") {
+          return d.phone && d.phone !== "—" ? `已指派，待司机确认（尾号 ${String(d.phone).slice(-4)}）` : "已指派，待司机确认";
+        }
+        if (d.phone && d.phone !== "—")
+          return `尾号 ${String(d.phone).slice(-4)}`;
+        return "已关联司机";
+      });
+      const showDriverPreviewCard = vue.computed(() => orderNorm.value === "assigned" && !!driverInfo.value);
+      const driverCardTitle = vue.computed(
+        () => orderNorm.value === "assigned" ? "指派司机（待对方确认）" : "司机信息"
+      );
       let pollingTimer = null;
-      const startPolling = (orderId) => {
+      function addressLines(postcode, address, detail) {
+        return [postcode, address, detail].map((item) => String(item || "").trim()).filter(Boolean);
+      }
+      const fetchOrders = async () => {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        try {
+          const data = await fetchOrderList();
+          const orders = Array.isArray(data == null ? void 0 : data.orders) ? data.orders : [];
+          order.value = pickActiveOrder(orders);
+          applyClientOrderRoute(order.value, lastFlowSlot);
+        } catch (error) {
+          uni.showToast({ title: "获取订单失败", icon: "none" });
+        }
+      };
+      const startPolling = () => {
         if (pollingTimer)
           clearInterval(pollingTimer);
+        fetchOrders();
         pollingTimer = setInterval(() => {
-          formatAppLog("log", "at pages/A0107_client_wait_driver_v01.vue:81", "轮询检查司机接单状态...");
-          uni.request({
-            url: "/api/getOrderStatus",
-            data: { orderId },
-            success(res) {
-              if (res.data.status === "accepted") {
-                clearInterval(pollingTimer);
-                uni.redirectTo({
-                  url: "/pages/A0109_client_driver_info_v01"
-                });
-              }
-            },
-            fail() {
-              formatAppLog("log", "at pages/A0107_client_wait_driver_v01.vue:94", "订单状态检查失败");
-            }
-          });
+          fetchOrders();
         }, 5e3);
       };
       const goBack = () => {
-        uni.navigateTo({
-          url: "/pages/A0106_client_payment_v01"
+        uni.navigateBack({
+          fail: () => {
+            uni.reLaunch({ url: "/pages/A0300_client_main_v01" });
+          }
         });
       };
+      function goDepositPay() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        uni.navigateTo({
+          url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(order.value._id)}`
+        });
+      }
+      function goBalancePay() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        uni.navigateTo({
+          url: `/pages/A0106b_client_balance_payment_v01?orderId=${encodeURIComponent(order.value._id)}`
+        });
+      }
       const goHome = () => {
         uni.navigateTo({
           url: "/pages/A0300_client_main_v01"
@@ -2677,27 +4366,104 @@ if (uni.restoreGlobal) {
           url: "/pages/A0108_client_edit_order_v01"
         });
       }
-      function mockInTrip() {
-        uni.redirectTo({
-          url: "/pages/A0110_client_in_trip_v01"
+      async function confirmPrice() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        priceActing.value = true;
+        try {
+          await confirmOrderPrice(order.value._id);
+          uni.showToast({ title: "价格已确认", icon: "success" });
+          await fetchOrders();
+        } catch (e) {
+        } finally {
+          priceActing.value = false;
+        }
+      }
+      function mockPaymentType(o) {
+        if (!o)
+          return "deposit";
+        if (o.depositPaid && !o.remainingPaid)
+          return "remaining";
+        if (!o.depositPaid)
+          return "deposit";
+        return "remaining";
+      }
+      async function mockPay() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        priceActing.value = true;
+        try {
+          const typ = mockPaymentType(order.value);
+          await payOrderMock(order.value._id, typ);
+          const title = typ === "remaining" || typ === "full" ? "已支付尾款，等待司机出发" : "已支付订金，等待平台派单";
+          uni.showToast({ title, icon: "success" });
+          await fetchOrders();
+        } catch (e) {
+        } finally {
+          priceActing.value = false;
+        }
+      }
+      async function cancelOrder() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        uni.showModal({
+          title: "确认取消订单",
+          content: "取消后订单将进入订单历史，是否继续？",
+          success: async (res) => {
+            if (!res.confirm)
+              return;
+            priceActing.value = true;
+            try {
+              await cancelPassengerOrder(order.value._id);
+              uni.showToast({ title: "订单已取消", icon: "success" });
+              await fetchOrders();
+            } catch (e) {
+            } finally {
+              priceActing.value = false;
+            }
+          }
         });
       }
       vue.onUnmounted(() => {
         if (pollingTimer)
           clearInterval(pollingTimer);
       });
-      const __returned__ = { order, waitingText, get pollingTimer() {
+      const __returned__ = { order, lastFlowSlot, priceActing, driverInfo, orderNorm, pageTitle: pageTitle2, statusLabel, waitingText, amountLine, priceLine, pickupAddressLines, dropoffAddressLines, paymentLine, manualDepositLine, manualBalanceLine, needsDepositPay, needsBalancePay, canConfirmPrice, canMockPay, canCancelOrder, orderIdShort, driverSummaryLine, showDriverPreviewCard, driverCardTitle, get pollingTimer() {
         return pollingTimer;
       }, set pollingTimer(v) {
         pollingTimer = v;
-      }, startPolling, goBack, goHome, contactService, editOrder, mockInTrip, ref: vue.ref, onMounted: vue.onMounted, onUnmounted: vue.onUnmounted };
+      }, addressLines, fetchOrders, startPolling, goBack, goDepositPay, goBalancePay, goHome, contactService, editOrder, confirmPrice, mockPaymentType, mockPay, cancelOrder, computed: vue.computed, ref: vue.ref, onMounted: vue.onMounted, onUnmounted: vue.onUnmounted, get cancelPassengerOrder() {
+        return cancelPassengerOrder;
+      }, get confirmOrderPrice() {
+        return confirmOrderPrice;
+      }, get fetchOrderList() {
+        return fetchOrderList;
+      }, get payOrderMock() {
+        return payOrderMock;
+      }, get normalizeOrderStatus() {
+        return normalizeOrderStatus;
+      }, get clientOrderStatusLabel() {
+        return clientOrderStatusLabel;
+      }, get clientWaitPageTitle() {
+        return clientWaitPageTitle;
+      }, get clientOrderWaitingHint() {
+        return clientOrderWaitingHint;
+      }, get pickActiveOrder() {
+        return pickActiveOrder;
+      }, get driverDisplayFromOrder() {
+        return driverDisplayFromOrder;
+      }, get applyClientOrderRoute() {
+        return applyClientOrderRoute;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$n(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 顶部导航栏 "),
       vue.createElementVNode("view", { class: "nav-bar" }, [
         vue.createElementVNode("view", { class: "nav-left" }, [
           vue.createElementVNode("view", {
@@ -2714,41 +4480,115 @@ if (uni.restoreGlobal) {
         ])
       ]),
       vue.createElementVNode("view", { class: "wait-driver-page" }, [
-        vue.createCommentVNode(" 状态卡片 "),
-        vue.createElementVNode("view", { class: "status-card" }, [
+        $setup.order ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "status-card"
+        }, [
           vue.createElementVNode("view", { class: "status-row" }, [
-            vue.createElementVNode("text", { class: "status-title" }, "您的订单已锁定")
+            vue.createElementVNode(
+              "text",
+              { class: "status-title" },
+              vue.toDisplayString($setup.pageTitle),
+              1
+              /* TEXT */
+            )
           ]),
           vue.createElementVNode("view", { class: "status-row subtitle" }, [
-            vue.createElementVNode("text", null, "系统正在为您安排司机")
+            vue.createElementVNode(
+              "text",
+              null,
+              vue.toDisplayString($setup.waitingText),
+              1
+              /* TEXT */
+            )
           ]),
           vue.createElementVNode("view", { class: "order-info" }, [
             vue.createElementVNode("view", { class: "row" }, [
               vue.createElementVNode("view", { class: "label" }, "出发地："),
-              vue.createElementVNode(
-                "view",
-                { class: "value" },
-                vue.toDisplayString($setup.order.departure),
-                1
-                /* TEXT */
-              )
+              vue.createElementVNode("view", { class: "value address-value" }, [
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.pickupAddressLines, (line) => {
+                    return vue.openBlock(), vue.createElementBlock(
+                      "view",
+                      { key: line },
+                      vue.toDisplayString(line),
+                      1
+                      /* TEXT */
+                    );
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                ))
+              ])
             ]),
             vue.createElementVNode("view", { class: "row" }, [
               vue.createElementVNode("view", { class: "label" }, "目的地："),
+              vue.createElementVNode("view", { class: "value address-value" }, [
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.dropoffAddressLines, (line) => {
+                    return vue.openBlock(), vue.createElementBlock(
+                      "view",
+                      { key: line },
+                      vue.toDisplayString(line),
+                      1
+                      /* TEXT */
+                    );
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                ))
+              ])
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "订单状态："),
               vue.createElementVNode(
                 "view",
                 { class: "value" },
-                vue.toDisplayString($setup.order.destination),
+                vue.toDisplayString($setup.statusLabel),
                 1
                 /* TEXT */
               )
             ]),
             vue.createElementVNode("view", { class: "row" }, [
-              vue.createElementVNode("view", { class: "label" }, "出发时间："),
+              vue.createElementVNode("view", { class: "label" }, "价格状态："),
               vue.createElementVNode(
                 "view",
                 { class: "value" },
-                vue.toDisplayString($setup.order.date),
+                vue.toDisplayString($setup.priceLine),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "支付状态："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.paymentLine),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "定金（转账）："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.manualDepositLine),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "尾款（转账）："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.manualBalanceLine),
                 1
                 /* TEXT */
               )
@@ -2758,24 +4598,85 @@ if (uni.restoreGlobal) {
               vue.createElementVNode(
                 "view",
                 { class: "value" },
-                vue.toDisplayString($setup.order.orderId),
+                vue.toDisplayString($setup.orderIdShort),
                 1
                 /* TEXT */
               )
             ]),
             vue.createElementVNode("view", { class: "row" }, [
-              vue.createElementVNode("view", { class: "label" }, "已支付金额："),
+              vue.createElementVNode("view", { class: "label" }, "司机："),
               vue.createElementVNode(
                 "view",
-                { class: "value price" },
-                "£" + vue.toDisplayString($setup.order.price),
+                { class: "value" },
+                vue.toDisplayString($setup.driverSummaryLine),
                 1
                 /* TEXT */
               )
             ])
           ])
-        ]),
-        vue.createCommentVNode(" 等待动画 "),
+        ])) : (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "status-card empty-card"
+        }, [
+          vue.createElementVNode("text", { class: "status-title" }, "暂无订单"),
+          vue.createElementVNode("text", { class: "waiting-text" }, "当前没有可展示的订单记录")
+        ])),
+        $setup.driverInfo && $setup.showDriverPreviewCard ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 2,
+          class: "status-card driver-card"
+        }, [
+          vue.createElementVNode("view", { class: "status-row" }, [
+            vue.createElementVNode(
+              "text",
+              { class: "status-title" },
+              vue.toDisplayString($setup.driverCardTitle),
+              1
+              /* TEXT */
+            )
+          ]),
+          vue.createElementVNode("view", { class: "order-info" }, [
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "司机姓名："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.driverInfo.name),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "联系电话："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.driverInfo.phone),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "车辆信息："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.driverInfo.vehicle),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "row" }, [
+              vue.createElementVNode("view", { class: "label" }, "车牌号码："),
+              vue.createElementVNode(
+                "view",
+                { class: "value" },
+                vue.toDisplayString($setup.driverInfo.plateNumber),
+                1
+                /* TEXT */
+              )
+            ])
+          ])
+        ])) : vue.createCommentVNode("v-if", true),
         vue.createElementVNode("view", { class: "loading-section" }, [
           vue.createElementVNode("image", {
             src: _imports_0$2,
@@ -2789,18 +4690,46 @@ if (uni.restoreGlobal) {
             /* TEXT */
           )
         ]),
-        vue.createCommentVNode(" 操作按钮 "),
-        vue.createElementVNode("view", { class: "action-buttons" }, [
+        $setup.order ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 3,
+          class: "action-buttons"
+        }, [
+          $setup.canConfirmPrice ? (vue.openBlock(), vue.createElementBlock("button", {
+            key: 0,
+            class: "pay-btn",
+            disabled: $setup.priceActing,
+            onClick: $setup.confirmPrice
+          }, " 确认价格 ", 8, ["disabled"])) : $setup.canMockPay ? (vue.openBlock(), vue.createElementBlock("button", {
+            key: 1,
+            class: "pay-btn",
+            disabled: $setup.priceActing,
+            onClick: $setup.mockPay
+          }, " 模拟支付 ", 8, ["disabled"])) : vue.createCommentVNode("v-if", true),
+          $setup.needsDepositPay ? (vue.openBlock(), vue.createElementBlock("button", {
+            key: 2,
+            class: "pay-btn",
+            onClick: $setup.goDepositPay
+          }, "去支付定金")) : vue.createCommentVNode("v-if", true),
+          $setup.needsBalancePay ? (vue.openBlock(), vue.createElementBlock("button", {
+            key: 3,
+            class: "pay-btn",
+            onClick: $setup.goBalancePay
+          }, "去支付尾款")) : vue.createCommentVNode("v-if", true),
           vue.createElementVNode("button", {
             class: "edit-btn",
             onClick: $setup.editOrder
-          }, "修改订单")
-        ]),
-        vue.createElementVNode("button", { onClick: $setup.mockInTrip }, "模拟开始行程")
+          }, "修改订单"),
+          $setup.canCancelOrder ? (vue.openBlock(), vue.createElementBlock("button", {
+            key: 4,
+            class: "cancel-btn",
+            disabled: $setup.priceActing,
+            onClick: $setup.cancelOrder
+          }, " 取消订单 ", 8, ["disabled"])) : vue.createCommentVNode("v-if", true)
+        ])) : vue.createCommentVNode("v-if", true)
       ])
     ]);
   }
-  const PagesA0107ClientWaitDriverV01 = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__scopeId", "data-v-d9e6cee9"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0107_client_wait_driver_v01.vue"]]);
+  const PagesA0107ClientWaitDriverV01 = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__scopeId", "data-v-d9e6cee9"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0107_client_wait_driver_v01.vue"]]);
   const _sfc_main$n = {
     __name: "A0108_client_edit_order_v01",
     setup(__props, { expose: __expose }) {
@@ -2871,7 +4800,6 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$m(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
-      vue.createCommentVNode(" 顶部导航 "),
       vue.createElementVNode("view", { class: "nav-bar" }, [
         vue.createElementVNode("text", {
           class: "back",
@@ -2879,9 +4807,7 @@ if (uni.restoreGlobal) {
         }, "← 返回"),
         vue.createElementVNode("text", { class: "title" }, "修改订单")
       ]),
-      vue.createCommentVNode(" 表单区域 "),
       vue.createElementVNode("view", { class: "form" }, [
-        vue.createCommentVNode(" 出发地（地址+邮编） "),
         vue.createElementVNode("view", { class: "form-item" }, [
           vue.createElementVNode("text", { class: "label" }, "出发地"),
           vue.withDirectives(vue.createElementVNode(
@@ -2899,7 +4825,6 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.orderInfo.from]
           ])
         ]),
-        vue.createCommentVNode(" 目的地（地址+邮编） "),
         vue.createElementVNode("view", { class: "form-item" }, [
           vue.createElementVNode("text", { class: "label" }, "目的地"),
           vue.withDirectives(vue.createElementVNode(
@@ -2917,7 +4842,6 @@ if (uni.restoreGlobal) {
             [vue.vModelText, $setup.orderInfo.to]
           ])
         ]),
-        vue.createCommentVNode(" 出发日期与时间 "),
         vue.createElementVNode("view", { class: "form-item" }, [
           vue.createElementVNode("text", { class: "label" }, "出发日期与时间"),
           vue.createElementVNode("view", { class: "datetime-picker" }, [
@@ -2952,7 +4876,6 @@ if (uni.restoreGlobal) {
           ])
         ])
       ]),
-      vue.createCommentVNode(" 按钮 "),
       vue.createElementVNode("view", { class: "btn-group" }, [
         vue.createElementVNode("button", {
           class: "btn-primary",
@@ -2963,49 +4886,174 @@ if (uni.restoreGlobal) {
           onClick: $setup.goBack
         }, "取消")
       ]),
-      vue.createCommentVNode(" 底部版权 "),
       vue.createElementVNode("view", { class: "footer" }, "@2025 赛博出行 版权所有")
     ]);
   }
-  const PagesA0108ClientEditOrderV01 = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__scopeId", "data-v-dc08b233"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0108_client_edit_order_v01.vue"]]);
+  const PagesA0108ClientEditOrderV01 = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__scopeId", "data-v-dc08b233"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0108_client_edit_order_v01.vue"]]);
   const _sfc_main$m = {
     __name: "A0109_client_driver_info_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const driver = vue.ref({
-        name: "张师傅",
-        phone: "138-0000-0000",
-        rating: 4.8,
-        avatar: "/static/driver_avatar.png",
-        vehicle: "丰田 Camry 2023款 2.5L 豪华版",
-        plateNumber: "粤B·12345"
+      const driver = vue.ref(driverDisplayFromOrder(null));
+      const order = vue.ref(null);
+      const lastFlowSlot = vue.ref("");
+      const priceActing = vue.ref(false);
+      let pollingTimer = null;
+      const noticeText = vue.computed(() => {
+        var _a;
+        return clientDriverInfoNotice((_a = order.value) == null ? void 0 : _a.status);
       });
+      const amountLine = vue.computed(() => {
+        var _a;
+        const amount = (_a = order.value) == null ? void 0 : _a.amount;
+        if (amount == null || amount === "")
+          return "—";
+        const n = Number(amount);
+        return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount);
+      });
+      const priceLine = vue.computed(() => {
+        var _a, _b;
+        const status = ((_a = order.value) == null ? void 0 : _a.priceStatus) || "pending";
+        if (status === "quoted" && ((_b = order.value) == null ? void 0 : _b.quoteSource) === "matrix") {
+          return `机场固定价：${amountLine.value}`;
+        }
+        if (status === "quoted")
+          return `报价：${amountLine.value}`;
+        if (status === "confirmed")
+          return `价格已确认：${amountLine.value}`;
+        return "等待后台报价";
+      });
+      const paymentLine = vue.computed(() => {
+        var _a, _b;
+        const map = {
+          unpaid: "未支付",
+          pending: "待支付",
+          paid: "已支付，等待司机服务",
+          refunded: "已退款"
+        };
+        return map[((_a = order.value) == null ? void 0 : _a.paymentStatus) || "unpaid"] || ((_b = order.value) == null ? void 0 : _b.paymentStatus);
+      });
+      const canConfirmPrice = vue.computed(() => {
+        var _a;
+        return ((_a = order.value) == null ? void 0 : _a.priceStatus) === "quoted";
+      });
+      const canMockPay = vue.computed(
+        () => {
+          var _a, _b;
+          return ((_a = order.value) == null ? void 0 : _a.priceStatus) === "confirmed" && ((_b = order.value) == null ? void 0 : _b.paymentStatus) !== "paid";
+        }
+      );
+      const fetchOrders = async () => {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        try {
+          const data = await fetchOrderList();
+          const orders = Array.isArray(data == null ? void 0 : data.orders) ? data.orders : [];
+          order.value = pickActiveOrder(orders);
+          driver.value = driverDisplayFromOrder(order.value);
+          applyClientOrderRoute(order.value, lastFlowSlot);
+        } catch (error) {
+          uni.showToast({ title: "获取订单失败", icon: "none" });
+        }
+      };
+      const startPolling = () => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+        fetchOrders();
+        pollingTimer = setInterval(() => {
+          fetchOrders();
+        }, 5e3);
+      };
       const callDriver = () => {
-        uni.makePhoneCall({
-          phoneNumber: driver.value.phone
-        });
+        const num = String(driver.value.phone || "").replace(/\s/g, "");
+        if (!num || num === "—") {
+          uni.showToast({ title: "暂无司机电话", icon: "none" });
+          return;
+        }
+        uni.makePhoneCall({ phoneNumber: num });
       };
       const callService = () => {
         uni.makePhoneCall({
           phoneNumber: "400-800-8888"
         });
       };
-      function mockInTrip() {
-        uni.redirectTo({
-          url: "/pages/A0110_client_in_trip_v01"
-        });
+      async function confirmPrice() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        priceActing.value = true;
+        try {
+          await confirmOrderPrice(order.value._id);
+          uni.showToast({ title: "价格已确认", icon: "success" });
+          await fetchOrders();
+        } catch (e) {
+        } finally {
+          priceActing.value = false;
+        }
+      }
+      function mockPaymentType(o) {
+        if (!o)
+          return "deposit";
+        if (o.depositPaid && !o.remainingPaid)
+          return "remaining";
+        if (!o.depositPaid)
+          return "deposit";
+        return "remaining";
+      }
+      async function mockPay() {
+        var _a;
+        if (!((_a = order.value) == null ? void 0 : _a._id))
+          return;
+        priceActing.value = true;
+        try {
+          const typ = mockPaymentType(order.value);
+          await payOrderMock(order.value._id, typ);
+          const title = typ === "remaining" || typ === "full" ? "已支付尾款，等待司机出发" : "已支付订金，等待平台派单";
+          uni.showToast({ title, icon: "success" });
+          await fetchOrders();
+        } catch (e) {
+        } finally {
+          priceActing.value = false;
+        }
       }
       const goBack = () => {
         uni.navigateBack();
       };
-      const __returned__ = { driver, callDriver, callService, mockInTrip, goBack, ref: vue.ref };
+      vue.onMounted(() => {
+        startPolling();
+      });
+      vue.onUnmounted(() => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+      });
+      const __returned__ = { driver, order, lastFlowSlot, priceActing, get pollingTimer() {
+        return pollingTimer;
+      }, set pollingTimer(v) {
+        pollingTimer = v;
+      }, noticeText, amountLine, priceLine, paymentLine, canConfirmPrice, canMockPay, fetchOrders, startPolling, callDriver, callService, confirmPrice, mockPaymentType, mockPay, goBack, computed: vue.computed, onMounted: vue.onMounted, onUnmounted: vue.onUnmounted, ref: vue.ref, get confirmOrderPrice() {
+        return confirmOrderPrice;
+      }, get fetchOrderList() {
+        return fetchOrderList;
+      }, get payOrderMock() {
+        return payOrderMock;
+      }, get clientDriverInfoNotice() {
+        return clientDriverInfoNotice;
+      }, get pickActiveOrder() {
+        return pickActiveOrder;
+      }, get driverDisplayFromOrder() {
+        return driverDisplayFromOrder;
+      }, get applyClientOrderRoute() {
+        return applyClientOrderRoute;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$l(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "driver-info-page" }, [
-      vue.createCommentVNode(" 顶部导航栏 "),
       vue.createElementVNode("view", { class: "nav-bar" }, [
         vue.createElementVNode("view", { class: "nav-left" }, [
           vue.createElementVNode("view", {
@@ -3016,7 +5064,6 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "nav-title" }, "司机信息页"),
         vue.createElementVNode("view", { class: "nav-right" })
       ]),
-      vue.createCommentVNode(" 司机信息卡片 "),
       vue.createElementVNode("view", { class: "driver-card" }, [
         vue.createElementVNode("view", { class: "driver-header" }, [
           vue.createElementVNode("image", {
@@ -3067,14 +5114,46 @@ if (uni.restoreGlobal) {
           ])
         ])
       ]),
-      vue.createCommentVNode(" 温馨提示 "),
       vue.createElementVNode("view", { class: "notice" }, [
         vue.createElementVNode("text", { class: "iconfont icon-notice" }, "ℹ️"),
-        vue.createTextVNode(" 请保持手机畅通，司机将在预计时间内到达上车地点。 "),
+        vue.createTextVNode(
+          " " + vue.toDisplayString($setup.noticeText) + " ",
+          1
+          /* TEXT */
+        ),
         vue.createElementVNode("br"),
         vue.createTextVNode("如有问题请及时联系客服。 ")
       ]),
-      vue.createCommentVNode(" 操作按钮 "),
+      $setup.order ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "payment-card"
+      }, [
+        vue.createElementVNode(
+          "view",
+          null,
+          vue.toDisplayString($setup.priceLine),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode(
+          "view",
+          null,
+          vue.toDisplayString($setup.paymentLine),
+          1
+          /* TEXT */
+        ),
+        $setup.canConfirmPrice ? (vue.openBlock(), vue.createElementBlock("button", {
+          key: 0,
+          class: "pay-action",
+          disabled: $setup.priceActing,
+          onClick: $setup.confirmPrice
+        }, " 确认价格 ", 8, ["disabled"])) : $setup.canMockPay ? (vue.openBlock(), vue.createElementBlock("button", {
+          key: 1,
+          class: "pay-action",
+          disabled: $setup.priceActing,
+          onClick: $setup.mockPay
+        }, " 模拟支付 ", 8, ["disabled"])) : vue.createCommentVNode("v-if", true)
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "action-buttons" }, [
         vue.createElementVNode("button", {
           class: "contact-driver",
@@ -3091,29 +5170,48 @@ if (uni.restoreGlobal) {
           vue.createTextVNode(" 联系客服 ")
         ])
       ]),
-      vue.createCommentVNode(" 底部版权 "),
       vue.createElementVNode("view", { class: "footer" }, "@2025 赛博出行 版权所有")
     ]);
   }
-  const PagesA0109ClientDriverInfoV01 = /* @__PURE__ */ _export_sfc(_sfc_main$m, [["render", _sfc_render$l], ["__scopeId", "data-v-18689f35"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0109_client_driver_info_v01.vue"]]);
+  const PagesA0109ClientDriverInfoV01 = /* @__PURE__ */ _export_sfc(_sfc_main$m, [["render", _sfc_render$l], ["__scopeId", "data-v-18689f35"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0109_client_driver_info_v01.vue"]]);
   const _sfc_main$l = {
     __name: "A0110_client_in_trip_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const driver = vue.ref({
-        name: "李师傅",
-        phone: "138-1111-2222",
-        avatar: "/static/driver_avatar.png",
-        plateNumber: "粤B·54321"
+      const driver = vue.ref(driverDisplayFromOrder(null));
+      const order = vue.ref(null);
+      const lastFlowSlot = vue.ref("");
+      let pollingTimer = null;
+      const tripHeadline = vue.computed(() => {
+        var _a;
+        return clientInTripHeadline((_a = order.value) == null ? void 0 : _a.status);
       });
-      onLoad(() => {
-        formatAppLog("log", "at pages/A0110_client_in_trip_v01.vue:82", "✅ 已进入 A0110_client_in_trip_v01 页面");
-      });
+      const fetchOrders = async () => {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        try {
+          const data = await fetchOrderList();
+          const orders = Array.isArray(data == null ? void 0 : data.orders) ? data.orders : [];
+          order.value = pickActiveOrder(orders);
+          driver.value = driverDisplayFromOrder(order.value);
+          applyClientOrderRoute(order.value, lastFlowSlot);
+        } catch (error) {
+          uni.showToast({ title: "获取订单失败", icon: "none" });
+        }
+      };
+      const startPolling = () => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+        fetchOrders();
+        pollingTimer = setInterval(() => {
+          fetchOrders();
+        }, 5e3);
+      };
       vue.onMounted(() => {
-        uni.showToast({
-          title: "行程已开始",
-          icon: "success"
-        });
+        startPolling();
       });
       const sos = () => {
         uni.showModal({
@@ -3146,16 +5244,27 @@ if (uni.restoreGlobal) {
           icon: "none"
         });
       };
-      const mockInTrip = () => {
-        uni.redirectTo({
-          url: "/pages/A0111_client_trip_completed_v01"
-        });
-      };
       const goBack = () => {
         uni.navigateBack();
       };
-      const __returned__ = { driver, sos, callService, shareTrip, shareSocial, mockInTrip, goBack, ref: vue.ref, onMounted: vue.onMounted, get onLoad() {
-        return onLoad;
+      vue.onUnmounted(() => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+      });
+      const __returned__ = { driver, order, lastFlowSlot, get pollingTimer() {
+        return pollingTimer;
+      }, set pollingTimer(v) {
+        pollingTimer = v;
+      }, tripHeadline, fetchOrders, startPolling, sos, callService, shareTrip, shareSocial, goBack, computed: vue.computed, ref: vue.ref, onMounted: vue.onMounted, onUnmounted: vue.onUnmounted, get fetchOrderList() {
+        return fetchOrderList;
+      }, get clientInTripHeadline() {
+        return clientInTripHeadline;
+      }, get pickActiveOrder() {
+        return pickActiveOrder;
+      }, get driverDisplayFromOrder() {
+        return driverDisplayFromOrder;
+      }, get applyClientOrderRoute() {
+        return applyClientOrderRoute;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
@@ -3163,7 +5272,6 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$k(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "in-trip-page" }, [
-      vue.createCommentVNode(" 顶部导航栏 "),
       vue.createElementVNode("view", { class: "nav-bar" }, [
         vue.createElementVNode("view", { class: "nav-left" }, [
           vue.createElementVNode("view", {
@@ -3174,11 +5282,15 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "nav-title" }),
         vue.createElementVNode("view", { class: "nav-right" })
       ]),
-      vue.createCommentVNode(" 行程状态 "),
       vue.createElementVNode("view", { class: "trip-status" }, [
-        vue.createElementVNode("view", { class: "status-detail" }, "司机正在前往目的地...")
+        vue.createElementVNode(
+          "view",
+          { class: "status-detail" },
+          vue.toDisplayString($setup.tripHeadline),
+          1
+          /* TEXT */
+        )
       ]),
-      vue.createCommentVNode(" 司机和车辆信息 "),
       vue.createElementVNode("view", { class: "driver-card" }, [
         vue.createElementVNode("view", { class: "driver-header" }, [
           vue.createElementVNode("image", {
@@ -3214,12 +5326,10 @@ if (uni.restoreGlobal) {
           ])
         ])
       ]),
-      vue.createCommentVNode(" 温馨提示 "),
       vue.createElementVNode("view", { class: "notice" }, [
         vue.createElementVNode("text", { class: "iconfont icon-notice" }, "ℹ️"),
         vue.createTextVNode(" 为了您的安全，请全程系好安全带。 ")
       ]),
-      vue.createCommentVNode(" 操作按钮 "),
       vue.createElementVNode("view", { class: "action-buttons" }, [
         vue.createElementVNode("button", {
           class: "sos-btn",
@@ -3236,7 +5346,6 @@ if (uni.restoreGlobal) {
           vue.createTextVNode(" 联系客服 ")
         ])
       ]),
-      vue.createCommentVNode(" 分享按钮 "),
       vue.createElementVNode("view", { class: "share-buttons" }, [
         vue.createElementVNode("button", {
           class: "share-trip",
@@ -3252,24 +5361,72 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("text", { class: "iconfont icon-social" }, "📱"),
           vue.createTextVNode(" 分享至小红书 ")
         ])
-      ]),
-      vue.createElementVNode("button", { onClick: $setup.mockInTrip }, "模拟开始行程")
+      ])
     ]);
   }
-  const PagesA0110ClientInTripV01 = /* @__PURE__ */ _export_sfc(_sfc_main$l, [["render", _sfc_render$k], ["__scopeId", "data-v-6263e8e2"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0110_client_in_trip_v01.vue"]]);
+  const PagesA0110ClientInTripV01 = /* @__PURE__ */ _export_sfc(_sfc_main$l, [["render", _sfc_render$k], ["__scopeId", "data-v-6263e8e2"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0110_client_in_trip_v01.vue"]]);
   const _imports_0$1 = "/static/complete_icon.png";
   const _sfc_main$k = {
     __name: "A0111_client_trip_completed_v01",
     setup(__props, { expose: __expose }) {
       __expose();
+      const order = vue.ref(null);
+      const lastFlowSlot = vue.ref("");
+      let pollingTimer = null;
+      const statusLabel = vue.computed(() => {
+        var _a;
+        return clientOrderStatusLabel((_a = order.value) == null ? void 0 : _a.status);
+      });
+      const isCompletedOrder = vue.computed(
+        () => {
+          var _a;
+          return normalizeOrderStatus((_a = order.value) == null ? void 0 : _a.status) === "completed";
+        }
+      );
+      const canGoRating = vue.computed(
+        () => !!(order.value && order.value._id && isCompletedOrder.value)
+      );
+      const fetchOrders = async () => {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        try {
+          const data = await fetchOrderList();
+          const orders = Array.isArray(data == null ? void 0 : data.orders) ? data.orders : [];
+          order.value = pickActiveOrder(orders);
+          applyClientOrderRoute(order.value, lastFlowSlot);
+        } catch (error) {
+          uni.showToast({ title: "获取订单失败", icon: "none" });
+        }
+      };
+      const startPolling = () => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+        fetchOrders();
+        pollingTimer = setInterval(() => {
+          fetchOrders();
+        }, 5e3);
+      };
       const goHome = () => {
         uni.reLaunch({
           url: "/pages/A0300_client_main_v01"
         });
       };
       const goRating = () => {
+        if (!canGoRating.value) {
+          uni.showToast({ title: "仅已完成订单可评价", icon: "none" });
+          return;
+        }
+        const id = String(order.value._id);
         uni.navigateTo({
-          url: "/pages/A0201_client_rating_v01"
+          url: `/pages/A0201_client_rating_v01?orderId=${encodeURIComponent(id)}`
+        });
+      };
+      const goOrderHistory = () => {
+        uni.navigateTo({
+          url: "/pages/A0202_client_order_history_v01"
         });
       };
       const goDonate = () => {
@@ -3278,26 +5435,81 @@ if (uni.restoreGlobal) {
           content: "我们承诺：每完成一笔行程订单，平台将捐赠 1 元人民币给慈善基金，用于帮助困难家庭、儿童教育及灾区援助等公益项目。感谢您的每一次出行，温暖将伴随每一程。"
         });
       };
-      const __returned__ = { goHome, goRating, goDonate };
+      vue.onMounted(() => {
+        startPolling();
+      });
+      vue.onUnmounted(() => {
+        if (pollingTimer)
+          clearInterval(pollingTimer);
+      });
+      const __returned__ = { order, lastFlowSlot, get pollingTimer() {
+        return pollingTimer;
+      }, set pollingTimer(v) {
+        pollingTimer = v;
+      }, statusLabel, isCompletedOrder, canGoRating, fetchOrders, startPolling, goHome, goRating, goOrderHistory, goDonate, computed: vue.computed, onMounted: vue.onMounted, onUnmounted: vue.onUnmounted, ref: vue.ref, get fetchOrderList() {
+        return fetchOrderList;
+      }, get clientOrderStatusLabel() {
+        return clientOrderStatusLabel;
+      }, get normalizeOrderStatus() {
+        return normalizeOrderStatus;
+      }, get pickActiveOrder() {
+        return pickActiveOrder;
+      }, get applyClientOrderRoute() {
+        return applyClientOrderRoute;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$j(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 行程完成图标 "),
       vue.createElementVNode("image", {
         class: "icon",
         src: _imports_0$1,
         mode: "widthFix"
       }),
-      vue.createCommentVNode(" 文案 "),
       vue.createElementVNode("text", { class: "title" }),
-      vue.createElementVNode("text", { class: "desc" }, "感谢您使用"),
-      vue.createElementVNode("text", { class: "desc" }, "中步出行"),
-      vue.createElementVNode("text", { class: "desc" }, "订单已完成"),
-      vue.createElementVNode("text", { class: "desc" }, "我们下次再约！"),
-      vue.createCommentVNode(" 按钮组 "),
+      $setup.isCompletedOrder ? (vue.openBlock(), vue.createElementBlock(
+        vue.Fragment,
+        { key: 0 },
+        [
+          vue.createElementVNode("text", { class: "desc" }, "感谢您使用"),
+          vue.createElementVNode("text", { class: "desc" }, "中步出行"),
+          vue.createElementVNode("text", { class: "desc" }, "订单已完成"),
+          vue.createElementVNode("text", { class: "desc" }, "我们下次再约！")
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      )) : (vue.openBlock(), vue.createElementBlock("text", {
+        key: 1,
+        class: "desc muted-strong"
+      }, "正在同步订单状态…")),
+      $setup.order ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 2,
+        class: "order-brief"
+      }, [
+        vue.createElementVNode(
+          "text",
+          { class: "brief-line" },
+          "状态：" + vue.toDisplayString($setup.statusLabel),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode(
+          "text",
+          { class: "brief-line" },
+          "出发：" + vue.toDisplayString($setup.order.pickup || "—"),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode(
+          "text",
+          { class: "brief-line" },
+          "到达：" + vue.toDisplayString($setup.order.destination || "—"),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "button-group" }, [
         vue.createElementVNode("button", {
           class: "btn btn-home",
@@ -3305,10 +5517,14 @@ if (uni.restoreGlobal) {
         }, "返回首页"),
         vue.createElementVNode("button", {
           class: "btn btn-rate",
+          disabled: !$setup.canGoRating,
           onClick: $setup.goRating
-        }, "评价司机")
+        }, " 评价司机 ", 8, ["disabled"]),
+        vue.createElementVNode("button", {
+          class: "btn btn-history",
+          onClick: $setup.goOrderHistory
+        }, "订单历史")
       ]),
-      vue.createCommentVNode(" 捐赠提示 "),
       vue.createElementVNode("view", {
         class: "donate-box",
         onClick: $setup.goDonate
@@ -3320,7 +5536,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0111ClientTripCompletedV01 = /* @__PURE__ */ _export_sfc(_sfc_main$k, [["render", _sfc_render$j], ["__scopeId", "data-v-e62bf269"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0111_client_trip_completed_v01.vue"]]);
+  const PagesA0111ClientTripCompletedV01 = /* @__PURE__ */ _export_sfc(_sfc_main$k, [["render", _sfc_render$j], ["__scopeId", "data-v-e62bf269"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0111_client_trip_completed_v01.vue"]]);
   const _sfc_main$j = {
     __name: "A0201_client_rating_v01",
     setup(__props, { expose: __expose }) {
@@ -3330,19 +5546,58 @@ if (uni.restoreGlobal) {
       const selectedTags = vue.ref([]);
       const suggestion = vue.ref("");
       const selectedTip = vue.ref(null);
-      const currentOrderId = vue.ref("");
+      const orderId = vue.ref("");
+      const orderDetail = vue.ref(null);
+      const loadError = vue.ref("");
       const tipOptions = [
         { amount: 2, emoji: "🥤" },
         { amount: 5, emoji: "🍱" },
-        { amount: 10, emoji: "💷" }
+        { amount: 10, emoji: "☕" }
       ];
-      vue.onMounted(() => {
-        const pages = getCurrentPages();
-        if (pages.length > 0) {
-          currentOrderId.value = pages[pages.length - 1].options.orderId || "";
+      const orderIdShort = vue.computed(() => {
+        const id = orderId.value;
+        if (!id)
+          return "—";
+        return id.length > 14 ? `${id.slice(0, 10)}…` : id;
+      });
+      const submitLabel = vue.computed(() => {
+        return "提交评价（待接口接入）";
+      });
+      function onStarTap(n) {
+        if (loadError.value || !orderDetail.value)
+          return;
+        rating.value = n;
+      }
+      async function loadOrder() {
+        loadError.value = "";
+        orderDetail.value = null;
+        if (!orderId.value) {
+          loadError.value = "缺少参数 orderId，请从「行程完成」页进入评价";
+          return;
         }
+        try {
+          const data = await fetchOrderDetail(orderId.value);
+          const o = data && data.order;
+          if (!o) {
+            loadError.value = "无法加载订单";
+            return;
+          }
+          if (normalizeOrderStatus(o.status) !== "completed") {
+            loadError.value = "仅「已完成」订单可评价；已取消或其它状态请查看订单历史。";
+            return;
+          }
+          orderDetail.value = o;
+        } catch {
+          loadError.value = "加载订单失败，请检查网络或重新登录";
+        }
+      }
+      onLoad((query) => {
+        orderId.value = (query && query.orderId ? String(query.orderId) : "").trim();
+        loadOrder();
       });
       function toggleTag(tag) {
+        if (loadError.value || !orderDetail.value)
+          return;
         const index = selectedTags.value.indexOf(tag);
         if (index > -1) {
           selectedTags.value.splice(index, 1);
@@ -3351,41 +5606,105 @@ if (uni.restoreGlobal) {
         }
       }
       function selectTip(amount) {
+        if (loadError.value || !orderDetail.value)
+          return;
         selectedTip.value = selectedTip.value === amount ? null : amount;
       }
       async function submitRating() {
+        if (!orderDetail.value || loadError.value)
+          return;
         if (rating.value === 0) {
           uni.showToast({ title: "请先评分", icon: "none" });
           return;
         }
-        uni.showLoading({ title: "提交中..." });
-        formatAppLog("log", "at pages/A0201_client_rating_v01.vue:111", "评价提交成功：", {
-          orderId: currentOrderId.value,
-          rating: rating.value,
-          tags: selectedTags.value,
-          suggestion: suggestion.value
-        });
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        uni.hideLoading();
-        if (selectedTip.value) {
-          uni.navigateTo({
-            url: `/pages/A0106a_client_payment_v01?amount=${selectedTip.value}&orderId=${currentOrderId.value}&paymentType=tip`
+        if (selectedTip.value != null) {
+          uni.showModal({
+            title: "打赏未接入",
+            content: "打赏与支付尚未接入，无法随评价发起真实扣款。请先取消打赏选项；仅评价将在接口就绪后提交。",
+            showCancel: false
           });
-        } else {
-          uni.showToast({ title: "评价成功", icon: "success" });
+          return;
+        }
+        uni.showLoading({ title: "处理中…" });
+        try {
+          await submitOrderRating({
+            orderId: orderId.value,
+            stars: rating.value,
+            tags: [...selectedTags.value],
+            comment: String(suggestion.value || "").trim()
+          });
+          uni.hideLoading();
+          uni.showToast({ title: "评价已提交", icon: "success" });
           setTimeout(() => {
-            uni.redirectTo({ url: "/pages/A0300_client_main_v01" });
-          }, 1500);
+            uni.redirectTo({ url: "/pages/A0202_client_order_history_v01" });
+          }, 1200);
+        } catch (e) {
+          uni.hideLoading();
+          const msg = e && e.message || String(e || "");
+          if (msg.includes("RATING_API_NOT_IMPLEMENTED") || msg.includes("RATING_API")) {
+            uni.showModal({
+              title: "评价接口未开通",
+              content: "后端尚未提供乘客评价写入接口，本次不会保存任何评价数据，也不会提示虚假成功。验收通过后请在 CNber_backend 增加评价 API，并把 orderApi.js 中 ORDER_RATING_API_ENABLED 改为 true。",
+              showCancel: false
+            });
+            return;
+          }
+          uni.showToast({ title: msg || "提交失败", icon: "none" });
         }
       }
-      const __returned__ = { rating, tagOptions, selectedTags, suggestion, selectedTip, currentOrderId, tipOptions, toggleTag, selectTip, submitRating, ref: vue.ref, onMounted: vue.onMounted };
+      const __returned__ = { rating, tagOptions, selectedTags, suggestion, selectedTip, orderId, orderDetail, loadError, tipOptions, orderIdShort, submitLabel, onStarTap, loadOrder, toggleTag, selectTip, submitRating, computed: vue.computed, ref: vue.ref, get onLoad() {
+        return onLoad;
+      }, get fetchOrderDetail() {
+        return fetchOrderDetail;
+      }, get submitOrderRating() {
+        return submitOrderRating;
+      }, get ORDER_RATING_API_ENABLED() {
+        return ORDER_RATING_API_ENABLED;
+      }, get normalizeOrderStatus() {
+        return normalizeOrderStatus;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$i(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createCommentVNode(" 星级评分 "),
+      vue.createElementVNode("view", { class: "api-tip" }, [
+        vue.createTextVNode(" 说明：乘客评价需后端提供接口。当前未开通时不会冒充提交成功；接入后请在 "),
+        vue.createElementVNode("text", { class: "mono" }, "utils/orderApi.js"),
+        vue.createTextVNode(" 将 ORDER_RATING_API_ENABLED 设为 true 并实现 POST /order/rating。 ")
+      ]),
+      $setup.loadError ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "err-box"
+      }, [
+        vue.createElementVNode(
+          "text",
+          null,
+          vue.toDisplayString($setup.loadError),
+          1
+          /* TEXT */
+        )
+      ])) : $setup.orderDetail ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 1,
+        class: "order-head"
+      }, [
+        vue.createElementVNode("text", { class: "oh-title" }, "评价订单"),
+        vue.createElementVNode(
+          "text",
+          { class: "oh-line" },
+          "订单号：" + vue.toDisplayString($setup.orderIdShort),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode(
+          "text",
+          { class: "oh-line" },
+          "行程：" + vue.toDisplayString($setup.orderDetail.pickup || "—") + " → " + vue.toDisplayString($setup.orderDetail.destination || "—"),
+          1
+          /* TEXT */
+        )
+      ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "rating" }, [
         vue.createElementVNode("text", null, "综合评分："),
         vue.createElementVNode("view", { class: "stars" }, [
@@ -3395,7 +5714,7 @@ if (uni.restoreGlobal) {
             vue.renderList(5, (n) => {
               return vue.createElementVNode("text", {
                 key: n,
-                onClick: ($event) => $setup.rating = n,
+                onClick: ($event) => $setup.onStarTap(n),
                 class: vue.normalizeClass(["star", { active: n <= $setup.rating }])
               }, "★", 10, ["onClick"]);
             }),
@@ -3404,7 +5723,6 @@ if (uni.restoreGlobal) {
           ))
         ])
       ]),
-      vue.createCommentVNode(" 标签选择 "),
       vue.createElementVNode("view", { class: "tag-section" }, [
         vue.createElementVNode("text", { class: "tag-title" }, "评价亮点："),
         vue.createElementVNode("view", { class: "tags" }, [
@@ -3423,25 +5741,18 @@ if (uni.restoreGlobal) {
           ))
         ])
       ]),
-      vue.createCommentVNode(" 建议填写 "),
       vue.createElementVNode("view", { class: "textarea-section" }, [
         vue.createElementVNode("text", { class: "label" }, "建议反馈（选填）"),
-        vue.withDirectives(vue.createElementVNode(
-          "textarea",
-          {
-            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.suggestion = $event),
-            placeholder: "欢迎告诉我们您的建议..."
-          },
-          null,
-          512
-          /* NEED_PATCH */
-        ), [
+        vue.withDirectives(vue.createElementVNode("textarea", {
+          "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.suggestion = $event),
+          disabled: !!$setup.loadError || !$setup.orderDetail,
+          placeholder: "欢迎告诉我们您的建议..."
+        }, null, 8, ["disabled"]), [
           [vue.vModelText, $setup.suggestion]
         ])
       ]),
-      vue.createCommentVNode(" 打赏功能 "),
       vue.createElementVNode("view", { class: "tip-section" }, [
-        vue.createElementVNode("text", { class: "tip-title" }, "打赏司机（选填）"),
+        vue.createElementVNode("text", { class: "tip-title" }, "打赏司机（选填，支付链未接入）"),
         vue.createElementVNode("view", { class: "tip-options" }, [
           (vue.openBlock(), vue.createElementBlock(
             vue.Fragment,
@@ -3462,7 +5773,7 @@ if (uni.restoreGlobal) {
                 vue.createElementVNode(
                   "text",
                   { class: "tip-amount" },
-                  "£" + vue.toDisplayString(option.amount),
+                  "¥" + vue.toDisplayString(option.amount),
                   1
                   /* TEXT */
                 )
@@ -3473,123 +5784,260 @@ if (uni.restoreGlobal) {
           ))
         ])
       ]),
-      vue.createCommentVNode(" 提交按钮 "),
-      vue.createElementVNode(
-        "button",
-        {
-          class: "submit-btn",
-          onClick: $setup.submitRating
-        },
-        vue.toDisplayString($setup.selectedTip ? `⭐ 提交评价并打赏£${$setup.selectedTip}` : "⭐ 提交评价"),
-        1
-        /* TEXT */
-      )
+      vue.createElementVNode("button", {
+        class: "submit-btn",
+        disabled: !!$setup.loadError || !$setup.orderDetail,
+        onClick: $setup.submitRating
+      }, vue.toDisplayString($setup.submitLabel), 9, ["disabled"])
     ]);
   }
-  const PagesA0201ClientRatingV01 = /* @__PURE__ */ _export_sfc(_sfc_main$j, [["render", _sfc_render$i], ["__scopeId", "data-v-c38286b8"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0201_client_rating_v01.vue"]]);
+  const PagesA0201ClientRatingV01 = /* @__PURE__ */ _export_sfc(_sfc_main$j, [["render", _sfc_render$i], ["__scopeId", "data-v-c38286b8"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0201_client_rating_v01.vue"]]);
   const _sfc_main$i = {
     __name: "A0202_client_order_history_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const orders = vue.ref([
-        {
-          orderNumber: "CNB202405060001",
-          orderTime: "2025-05-06 10:30",
-          serviceType: "接机",
-          amount: "88.00"
-        },
-        {
-          orderNumber: "CNB202405050002",
-          orderTime: "2025-05-05 14:00",
-          serviceType: "送机",
-          amount: "120.00"
-        },
-        {
-          orderNumber: "CNB202405040003",
-          orderTime: "2025-05-04 09:15",
-          serviceType: "包车",
-          amount: "200.00"
-        }
-      ]);
-      function downloadReceipt(order) {
-        uni.showToast({
-          title: `收据下载中：${order.orderNumber}`,
-          icon: "none"
+      const orders = vue.ref([]);
+      const loading = vue.ref(true);
+      function statusLabel(status) {
+        return clientOrderStatusLabel(status);
+      }
+      function formatAmount(amount) {
+        if (amount == null || amount === "")
+          return "—";
+        const n = Number(amount);
+        if (Number.isNaN(n))
+          return String(amount);
+        return `¥${n.toFixed(2)}`;
+      }
+      function needsDepositPay(o) {
+        if (!(o == null ? void 0 : o._id))
+          return false;
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return false;
+        return ["unpaid", "rejected"].includes(o.depositStatus || "unpaid");
+      }
+      function needsBalancePay(o) {
+        if (!(o == null ? void 0 : o._id))
+          return false;
+        return o.paymentStage === "balance_pending" && ["unpaid", "rejected"].includes(o.balanceStatus || "unpaid");
+      }
+      function depositLine(o) {
+        if (!o)
+          return "—";
+        if (o.depositStatus === "confirmed" || o.depositPaid)
+          return "已确认";
+        if (o.depositStatus === "submitted")
+          return "待平台确认";
+        if (o.depositStatus === "rejected")
+          return "已驳回，请重填";
+        return "待支付";
+      }
+      function balanceLine(o) {
+        if (!o)
+          return "—";
+        if (o.balanceStatus === "confirmed" || o.remainingPaid)
+          return "已确认";
+        if (o.paymentStage === "balance_pending" && o.balanceStatus === "submitted")
+          return "待平台确认";
+        if (o.paymentStage === "balance_pending")
+          return "待支付";
+        if (o.paymentStage === "balance_submitted")
+          return "待平台确认";
+        if (o.paymentStage === "balance_confirmed")
+          return "已确认";
+        return "—";
+      }
+      function goDepositPay(orderId) {
+        if (!orderId)
+          return;
+        uni.navigateTo({
+          url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(String(orderId))}`
         });
       }
-      const __returned__ = { orders, downloadReceipt, ref: vue.ref };
+      function goBalancePay(orderId) {
+        if (!orderId)
+          return;
+        uni.navigateTo({
+          url: `/pages/A0106b_client_balance_payment_v01?orderId=${encodeURIComponent(String(orderId))}`
+        });
+      }
+      async function loadList() {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          loading.value = false;
+          orders.value = [];
+          uni.showToast({ title: "请先登录", icon: "none" });
+          return;
+        }
+        loading.value = true;
+        try {
+          const data = await fetchOrderList();
+          const list = Array.isArray(data == null ? void 0 : data.orders) ? data.orders : [];
+          orders.value = [...list].sort((a, b) => {
+            const ta = new Date(a.createdAt || 0).getTime();
+            const tb = new Date(b.createdAt || 0).getTime();
+            return tb - ta;
+          });
+        } catch {
+          orders.value = [];
+        } finally {
+          loading.value = false;
+        }
+      }
+      onShow(() => {
+        loadList();
+      });
+      const __returned__ = { orders, loading, statusLabel, formatAmount, needsDepositPay, needsBalancePay, depositLine, balanceLine, goDepositPay, goBalancePay, loadList, ref: vue.ref, get onShow() {
+        return onShow;
+      }, get fetchOrderList() {
+        return fetchOrderList;
+      }, get clientOrderStatusLabel() {
+        return clientOrderStatusLabel;
+      }, get formatOrderListTime() {
+        return formatOrderListTime;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$h(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "order-history-page" }, [
-      vue.createElementVNode("view", { class: "title" }),
-      vue.createElementVNode("scroll-view", {
+      vue.createElementVNode("view", { class: "title" }, "订单历史"),
+      $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "hint"
+      }, "加载中…")) : !$setup.orders.length ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 1,
+        class: "hint"
+      }, "暂无订单记录")) : (vue.openBlock(), vue.createElementBlock("scroll-view", {
+        key: 2,
         class: "order-list",
         "scroll-y": "true"
       }, [
         (vue.openBlock(true), vue.createElementBlock(
           vue.Fragment,
           null,
-          vue.renderList($setup.orders, (order, index) => {
+          vue.renderList($setup.orders, (item) => {
             return vue.openBlock(), vue.createElementBlock("view", {
               class: "order-item",
-              key: index
+              key: item._id
             }, [
               vue.createElementVNode("view", { class: "row" }, [
-                vue.createElementVNode("text", { class: "label" }, "订单编号："),
+                vue.createElementVNode("text", { class: "label" }, "订单状态"),
                 vue.createElementVNode(
                   "text",
                   { class: "value" },
-                  vue.toDisplayString(order.orderNumber),
+                  vue.toDisplayString($setup.statusLabel(item.status)),
                   1
                   /* TEXT */
                 )
               ]),
               vue.createElementVNode("view", { class: "row" }, [
-                vue.createElementVNode("text", { class: "label" }, "下单时间："),
+                vue.createElementVNode("text", { class: "label" }, "下单时间"),
                 vue.createElementVNode(
                   "text",
                   { class: "value" },
-                  vue.toDisplayString(order.orderTime),
+                  vue.toDisplayString($setup.formatOrderListTime(item.createdAt)),
                   1
                   /* TEXT */
                 )
               ]),
               vue.createElementVNode("view", { class: "row" }, [
-                vue.createElementVNode("text", { class: "label" }, "服务类型："),
+                vue.createElementVNode("text", { class: "label" }, "出发地"),
                 vue.createElementVNode(
                   "text",
                   { class: "value" },
-                  vue.toDisplayString(order.serviceType),
+                  vue.toDisplayString(item.pickup || "—"),
                   1
                   /* TEXT */
                 )
               ]),
               vue.createElementVNode("view", { class: "row" }, [
-                vue.createElementVNode("text", { class: "label" }, "金额："),
+                vue.createElementVNode("text", { class: "label" }, "目的地"),
                 vue.createElementVNode(
                   "text",
                   { class: "value" },
-                  "£" + vue.toDisplayString(order.amount),
+                  vue.toDisplayString(item.destination || "—"),
                   1
                   /* TEXT */
                 )
               ]),
-              vue.createElementVNode("button", {
-                class: "receipt-button",
-                onClick: ($event) => $setup.downloadReceipt(order)
-              }, "🧾下载收据", 8, ["onClick"])
+              vue.createElementVNode("view", { class: "row" }, [
+                vue.createElementVNode("text", { class: "label" }, "服务类型"),
+                vue.createElementVNode(
+                  "text",
+                  { class: "value" },
+                  vue.toDisplayString(item.serviceType || "ride"),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              vue.createElementVNode("view", { class: "row" }, [
+                vue.createElementVNode("text", { class: "label" }, "金额"),
+                vue.createElementVNode(
+                  "text",
+                  { class: "value" },
+                  vue.toDisplayString($setup.formatAmount(item.amount)),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              vue.createElementVNode("view", { class: "row id-row" }, [
+                vue.createElementVNode("text", { class: "label" }, "订单号"),
+                vue.createElementVNode(
+                  "text",
+                  { class: "value mono" },
+                  vue.toDisplayString(item._id),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              vue.createElementVNode("view", { class: "row" }, [
+                vue.createElementVNode("text", { class: "label" }, "定金（转账）"),
+                vue.createElementVNode(
+                  "text",
+                  { class: "value" },
+                  vue.toDisplayString($setup.depositLine(item)),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              vue.createElementVNode("view", { class: "row" }, [
+                vue.createElementVNode("text", { class: "label" }, "尾款（转账）"),
+                vue.createElementVNode(
+                  "text",
+                  { class: "value" },
+                  vue.toDisplayString($setup.balanceLine(item)),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              $setup.needsDepositPay(item) || $setup.needsBalancePay(item) ? (vue.openBlock(), vue.createElementBlock("view", {
+                key: 0,
+                class: "pay-actions"
+              }, [
+                $setup.needsDepositPay(item) ? (vue.openBlock(), vue.createElementBlock("button", {
+                  key: 0,
+                  class: "pay-btn",
+                  type: "default",
+                  onClick: ($event) => $setup.goDepositPay(item._id)
+                }, " 支付定金 ", 8, ["onClick"])) : vue.createCommentVNode("v-if", true),
+                $setup.needsBalancePay(item) ? (vue.openBlock(), vue.createElementBlock("button", {
+                  key: 1,
+                  class: "pay-btn pay-btn-balance",
+                  type: "default",
+                  onClick: ($event) => $setup.goBalancePay(item._id)
+                }, " 支付尾款 ", 8, ["onClick"])) : vue.createCommentVNode("v-if", true)
+              ])) : vue.createCommentVNode("v-if", true)
             ]);
           }),
           128
           /* KEYED_FRAGMENT */
         ))
-      ])
+      ]))
     ]);
   }
-  const PagesA0202ClientOrderHistoryV01 = /* @__PURE__ */ _export_sfc(_sfc_main$i, [["render", _sfc_render$h], ["__scopeId", "data-v-f5ae6983"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0202_client_order_history_v01.vue"]]);
+  const PagesA0202ClientOrderHistoryV01 = /* @__PURE__ */ _export_sfc(_sfc_main$i, [["render", _sfc_render$h], ["__scopeId", "data-v-f5ae6983"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0202_client_order_history_v01.vue"]]);
   const _sfc_main$h = {
     methods: {
       goOrderCenter() {
@@ -3633,9 +6081,7 @@ if (uni.restoreGlobal) {
   function _sfc_render$g(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "main-container" }, [
       vue.createElementVNode("view", { class: "header" }),
-      vue.createCommentVNode(" 广告位条 "),
       vue.createElementVNode("view", { class: "card ad-banner ad-slot" }, "广告位｜admin@cnber.vip"),
-      vue.createCommentVNode(" 主功能区卡片 "),
       vue.createElementVNode("view", { class: "grid" }, [
         vue.createElementVNode("view", {
           class: "card grid-item red",
@@ -3661,14 +6107,8 @@ if (uni.restoreGlobal) {
           class: "card grid-item gemstone",
           onClick: _cache[5] || (_cache[5] = (...args) => $options.goRating && $options.goRating(...args))
         }, "⭐ 订单评价"),
-        vue.createElementVNode("view", {
-          class: "card grid-item cream",
-          onClick: _cache[6] || (_cache[6] = (...args) => $options.goPoints && $options.goPoints(...args))
-        }, "🎁 会员中心"),
-        vue.createElementVNode("view", {
-          class: "card grid-item soft-purple",
-          onClick: _cache[7] || (_cache[7] = (...args) => $options.goActivity && $options.goActivity(...args))
-        }, "🍦 公益中心"),
+        vue.createCommentVNode("v-if", true),
+        vue.createCommentVNode("v-if", true),
         vue.createElementVNode("view", {
           class: "card grid-item baby-blue",
           onClick: _cache[8] || (_cache[8] = (...args) => $options.goProfile && $options.goProfile(...args))
@@ -3686,11 +6126,10 @@ if (uni.restoreGlobal) {
           onClick: _cache[11] || (_cache[11] = (...args) => $options.goLogout && $options.goLogout(...args))
         }, "🚪 退出登录")
       ]),
-      vue.createCommentVNode(" 商务联系条 "),
       vue.createElementVNode("view", { class: "card ad-banner biz-contact" }, "商务合作｜admin@cnber.vip")
     ]);
   }
-  const PagesA0300ClientMainV01 = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["render", _sfc_render$g], ["__scopeId", "data-v-623d72a4"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0300_client_main_v01.vue"]]);
+  const PagesA0300ClientMainV01 = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["render", _sfc_render$g], ["__scopeId", "data-v-623d72a4"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0300_client_main_v01.vue"]]);
   const _sfc_main$g = {
     __name: "A0301_client_customer_service_v01",
     setup(__props, { expose: __expose }) {
@@ -3782,7 +6221,7 @@ if (uni.restoreGlobal) {
       vue.createElementVNode("view", { class: "bottom-note" }, "感谢您对中步出行平台的支持，祝您英国生活愉快！")
     ]);
   }
-  const PagesA0301ClientCustomerServiceV01 = /* @__PURE__ */ _export_sfc(_sfc_main$g, [["render", _sfc_render$f], ["__scopeId", "data-v-f3903aca"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0301_client_customer_service_v01.vue"]]);
+  const PagesA0301ClientCustomerServiceV01 = /* @__PURE__ */ _export_sfc(_sfc_main$g, [["render", _sfc_render$f], ["__scopeId", "data-v-f3903aca"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0301_client_customer_service_v01.vue"]]);
   const _sfc_main$f = {
     data() {
       return {
@@ -3821,7 +6260,6 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$e(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "points-container" }, [
-      vue.createCommentVNode(" 顶部 Tab 栏 "),
       vue.createElementVNode("view", { class: "tabs" }, [
         (vue.openBlock(true), vue.createElementBlock(
           vue.Fragment,
@@ -3837,10 +6275,8 @@ if (uni.restoreGlobal) {
           /* KEYED_FRAGMENT */
         ))
       ]),
-      vue.createCommentVNode(" 内容区 "),
       vue.createElementVNode("view", { class: "content" }, [
         vue.createElementVNode("view", { class: "content-box" }, [
-          vue.createCommentVNode(" 积分中心 "),
           $data.activeTab === 0 ? (vue.openBlock(), vue.createElementBlock("view", { key: 0 }, [
             vue.createElementVNode("view", { class: "section" }, [
               vue.createElementVNode("text", { class: "section-title" }, "我的积分"),
@@ -3879,7 +6315,6 @@ if (uni.restoreGlobal) {
               ))
             ])
           ])) : vue.createCommentVNode("v-if", true),
-          vue.createCommentVNode(" 优惠券中心 "),
           $data.activeTab === 1 ? (vue.openBlock(), vue.createElementBlock("view", { key: 1 }, [
             (vue.openBlock(true), vue.createElementBlock(
               vue.Fragment,
@@ -3918,7 +6353,6 @@ if (uni.restoreGlobal) {
               /* KEYED_FRAGMENT */
             ))
           ])) : vue.createCommentVNode("v-if", true),
-          vue.createCommentVNode(" 会员政策 "),
           $data.activeTab === 2 ? (vue.openBlock(), vue.createElementBlock("view", { key: 2 }, [
             vue.createElementVNode("view", { class: "section" }, [
               vue.createElementVNode("text", { class: "section-title" }, "会员政策"),
@@ -3930,7 +6364,6 @@ if (uni.restoreGlobal) {
               ])
             ])
           ])) : vue.createCommentVNode("v-if", true),
-          vue.createCommentVNode(" 邀请码 "),
           $data.activeTab === 3 ? (vue.openBlock(), vue.createElementBlock("view", { key: 3 }, [
             vue.createElementVNode("view", { class: "section" }, [
               vue.createElementVNode("text", { class: "section-title" }, "我的邀请码"),
@@ -3952,7 +6385,6 @@ if (uni.restoreGlobal) {
           ])) : vue.createCommentVNode("v-if", true)
         ])
       ]),
-      vue.createCommentVNode(" 积分说明区域 "),
       vue.createElementVNode("view", { class: "points-note" }, [
         vue.createElementVNode("text", { class: "note-title" }, "积分说明："),
         vue.createElementVNode("text", { class: "note-line" }, "1. 积分可用于兑换优惠券或参与活动；"),
@@ -3961,160 +6393,32 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0302ClientPointsCouponsMembershipCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$f, [["render", _sfc_render$e], ["__scopeId", "data-v-b5c8c138"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0302_client_points_coupons_membership_center_v01.vue"]]);
+  const PagesA0302ClientPointsCouponsMembershipCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$f, [["render", _sfc_render$e], ["__scopeId", "data-v-b5c8c138"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0302_client_points_coupons_membership_center_v01.vue"]]);
   const _sfc_main$e = {
     __name: "A0303_client_change_password_v01",
     setup(__props, { expose: __expose }) {
       __expose();
-      const phone = vue.ref("");
-      const code = vue.ref("");
-      const newPassword = vue.ref("");
-      const confirmPassword = vue.ref("");
-      const countdown = vue.ref(0);
-      const countryList = vue.ref([
-        { code: "+86", zh: "中国" },
-        { code: "+44", zh: "英国" },
-        { code: "+852", zh: "香港" },
-        { code: "+853", zh: "澳门" },
-        { code: "+886", zh: "台湾" },
-        { code: "+65", zh: "新加坡" },
-        { code: "+60", zh: "马来西亚" },
-        { code: "+66", zh: "泰国" }
-      ]);
-      const selectedCountry = vue.ref("");
-      const setDefaultCountry = () => {
-        selectedCountry.value = `${countryList.value[0].code} ${countryList.value[0].zh}`;
+      const goLogin = () => {
+        uni.redirectTo({ url: "/pages/A0002_client_login_v01" });
       };
-      const selectCountry = (e) => {
-        const item = countryList.value[e.detail.value];
-        selectedCountry.value = `${item.code} ${item.zh}`;
-      };
-      const sendCode = () => {
-        if (!phone.value) {
-          uni.showToast({ title: "请输入手机号", icon: "none" });
-          return;
-        }
-        if (countdown.value > 0)
-          return;
-        countdown.value = 60;
-        const timer = setInterval(() => {
-          countdown.value--;
-          if (countdown.value <= 0)
-            clearInterval(timer);
-        }, 1e3);
-      };
-      const submit = () => {
-        if (!phone.value || !code.value || !newPassword.value || !confirmPassword.value) {
-          uni.showToast({ title: "请输入完整信息", icon: "none" });
-          return;
-        }
-        if (newPassword.value !== confirmPassword.value) {
-          uni.showToast({ title: "两次输入的密码不一致", icon: "none" });
-          return;
-        }
-        uni.showToast({ title: "密码已重置", icon: "success" });
-      };
-      vue.onMounted(() => {
-        setDefaultCountry();
-      });
-      const __returned__ = { phone, code, newPassword, confirmPassword, countdown, countryList, selectedCountry, setDefaultCountry, selectCountry, sendCode, submit, ref: vue.ref, onMounted: vue.onMounted };
+      const __returned__ = { goLogin };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$d(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
-      vue.createElementVNode("view", { class: "header" }, [
-        vue.createElementVNode("text", { class: "title" }, "更改密码")
-      ]),
-      vue.createCommentVNode(" 手机号输入 "),
-      vue.createElementVNode("picker", {
-        mode: "selector",
-        range: $setup.countryList.map((c) => `${c.code} ${c.zh}`),
-        onChange: $setup.selectCountry
-      }, [
-        vue.createElementVNode(
-          "view",
-          { class: "input" },
-          vue.toDisplayString($setup.selectedCountry),
-          1
-          /* TEXT */
-        )
-      ], 40, ["range"]),
-      vue.withDirectives(vue.createElementVNode(
-        "input",
-        {
-          class: "input",
-          type: "number",
-          "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.phone = $event),
-          placeholder: "请输入手机号"
-        },
-        null,
-        512
-        /* NEED_PATCH */
-      ), [
-        [vue.vModelText, $setup.phone]
-      ]),
-      vue.createCommentVNode(" 验证码输入 "),
-      vue.createElementVNode("view", { class: "code-row" }, [
-        vue.withDirectives(vue.createElementVNode(
-          "input",
-          {
-            class: "input code-input",
-            type: "number",
-            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.code = $event),
-            placeholder: "请输入验证码"
-          },
-          null,
-          512
-          /* NEED_PATCH */
-        ), [
-          [vue.vModelText, $setup.code]
-        ]),
+      vue.createElementVNode("view", { class: "card" }, [
+        vue.createElementVNode("text", { class: "title" }, "密码找回暂未开放"),
+        vue.createElementVNode("text", { class: "desc" }, "当前 MVP 版本仅支持手机号和密码登录。忘记密码功能待短信服务接入后开放。"),
         vue.createElementVNode("button", {
-          class: "code-btn",
-          disabled: $setup.countdown > 0,
-          onClick: $setup.sendCode
-        }, vue.toDisplayString($setup.countdown > 0 ? `${$setup.countdown}s` : "获取验证码"), 9, ["disabled"])
-      ]),
-      vue.createCommentVNode(" 新密码 "),
-      vue.withDirectives(vue.createElementVNode(
-        "input",
-        {
-          class: "input",
-          type: "password",
-          "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.newPassword = $event),
-          placeholder: "请输入新密码"
-        },
-        null,
-        512
-        /* NEED_PATCH */
-      ), [
-        [vue.vModelText, $setup.newPassword]
-      ]),
-      vue.createCommentVNode(" 确认新密码 "),
-      vue.withDirectives(vue.createElementVNode(
-        "input",
-        {
-          class: "input",
-          type: "password",
-          "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.confirmPassword = $event),
-          placeholder: "请再次输入新密码"
-        },
-        null,
-        512
-        /* NEED_PATCH */
-      ), [
-        [vue.vModelText, $setup.confirmPassword]
-      ]),
-      vue.createCommentVNode(" 提交按钮 "),
-      vue.createElementVNode("button", {
-        class: "submit-btn",
-        onClick: $setup.submit
-      }, "重置密码")
+          class: "submit-btn",
+          onClick: $setup.goLogin
+        }, "返回登录")
+      ])
     ]);
   }
-  const PagesA0303ClientChangePasswordV01 = /* @__PURE__ */ _export_sfc(_sfc_main$e, [["render", _sfc_render$d], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0303_client_change_password_v01.vue"]]);
+  const PagesA0303ClientChangePasswordV01 = /* @__PURE__ */ _export_sfc(_sfc_main$e, [["render", _sfc_render$d], ["__scopeId", "data-v-bd35dbf9"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0303_client_change_password_v01.vue"]]);
   const _sfc_main$d = {
     data() {
       return {
@@ -4155,7 +6459,6 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$c(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "donation-container" }, [
-      vue.createCommentVNode(" 我的捐赠总览 "),
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "我的捐赠总览"),
         vue.createElementVNode("view", { class: "my-donation-card" }, [
@@ -4191,7 +6494,6 @@ if (uni.restoreGlobal) {
           ])
         ])
       ]),
-      vue.createCommentVNode(" 平台公益基金概况 "),
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "平台公益基金"),
         vue.createElementVNode("view", { class: "fund-card" }, [
@@ -4224,7 +6526,6 @@ if (uni.restoreGlobal) {
           ])
         ])
       ]),
-      vue.createCommentVNode(" 公益活动专区 "),
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "公益活动专区"),
         (vue.openBlock(true), vue.createElementBlock(
@@ -4270,7 +6571,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0304ClientEventsCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["render", _sfc_render$c], ["__scopeId", "data-v-bfbd0f60"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0304_client_events_center_v01.vue"]]);
+  const PagesA0304ClientEventsCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["render", _sfc_render$c], ["__scopeId", "data-v-bfbd0f60"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0304_client_events_center_v01.vue"]]);
   const _sfc_main$c = {
     __name: "A0305_client_sos_v01",
     setup(__props, { expose: __expose }) {
@@ -4312,7 +6613,7 @@ if (uni.restoreGlobal) {
       vue.createElementVNode("view", { class: "input-area" })
     ]);
   }
-  const PagesA0305ClientSosV01 = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["render", _sfc_render$b], ["__scopeId", "data-v-7a2c2f69"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0305_client_sos_v01.vue"]]);
+  const PagesA0305ClientSosV01 = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["render", _sfc_render$b], ["__scopeId", "data-v-7a2c2f69"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0305_client_sos_v01.vue"]]);
   const _sfc_main$b = {
     __name: "A0306_client_privacy_policy_v01",
     setup(__props, { expose: __expose }) {
@@ -4347,7 +6648,7 @@ if (uni.restoreGlobal) {
       vue.createElementVNode("view", { class: "footer" }, "@2025 中步出行 版权所有")
     ]);
   }
-  const PagesA0306ClientPrivacyPolicyV01 = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__scopeId", "data-v-44d4e9bd"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0306_client_privacy_policy_v01.vue"]]);
+  const PagesA0306ClientPrivacyPolicyV01 = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__scopeId", "data-v-44d4e9bd"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0306_client_privacy_policy_v01.vue"]]);
   const _sfc_main$a = {
     __name: "A0307_client_terms_of_service_v01",
     setup(__props, { expose: __expose }) {
@@ -4382,7 +6683,7 @@ if (uni.restoreGlobal) {
       vue.createElementVNode("view", { class: "footer" }, "@2025 中步出行 版权所有")
     ]);
   }
-  const PagesA0307ClientTermsOfServiceV01 = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["render", _sfc_render$9], ["__scopeId", "data-v-79fe31d0"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0307_client_terms_of_service_v01.vue"]]);
+  const PagesA0307ClientTermsOfServiceV01 = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["render", _sfc_render$9], ["__scopeId", "data-v-79fe31d0"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0307_client_terms_of_service_v01.vue"]]);
   const _sfc_main$9 = {
     __name: "A0312_client_payment_center_v01",
     setup(__props, { expose: __expose }) {
@@ -4425,7 +6726,6 @@ if (uni.restoreGlobal) {
   function _sfc_render$8(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "payment-center" }, [
       vue.createElementVNode("view", { class: "header" }),
-      vue.createCommentVNode(" 状态筛选 "),
       vue.createElementVNode("view", { class: "tab-group" }, [
         (vue.openBlock(), vue.createElementBlock(
           vue.Fragment,
@@ -4441,7 +6741,6 @@ if (uni.restoreGlobal) {
           /* STABLE_FRAGMENT */
         ))
       ]),
-      vue.createCommentVNode(" 最近支付记录 "),
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "支付记录"),
         $setup.filteredPayments.length > 0 ? (vue.openBlock(), vue.createElementBlock("view", { key: 0 }, [
@@ -4479,7 +6778,6 @@ if (uni.restoreGlobal) {
           class: "no-data"
         }, "暂无此类订单"))
       ]),
-      vue.createCommentVNode(" 支付方式管理 "),
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("text", { class: "section-title" }, "支付方式"),
         (vue.openBlock(true), vue.createElementBlock(
@@ -4513,7 +6811,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0312ClientPaymentCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__scopeId", "data-v-3f5d8fe2"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0312_client_payment_center_v01.vue"]]);
+  const PagesA0312ClientPaymentCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__scopeId", "data-v-3f5d8fe2"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0312_client_payment_center_v01.vue"]]);
   const _sfc_main$8 = {
     __name: "A0403_client_help_center_v01",
     setup(__props, { expose: __expose }) {
@@ -4559,7 +6857,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0403ClientHelpCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__scopeId", "data-v-e42abba7"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0403_client_help_center_v01.vue"]]);
+  const PagesA0403ClientHelpCenterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__scopeId", "data-v-e42abba7"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0403_client_help_center_v01.vue"]]);
   const _sfc_main$7 = {
     __name: "A0404_client_404_not_found_v01",
     setup(__props, { expose: __expose }) {
@@ -4582,7 +6880,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesA0404Client404NotFoundV01 = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-923e8e82"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0404_client_404_not_found_v01.vue"]]);
+  const PagesA0404Client404NotFoundV01 = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-923e8e82"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0404_client_404_not_found_v01.vue"]]);
   const _sfc_main$6 = {
     __name: "A0405_client_help_register_v01",
     setup(__props, { expose: __expose }) {
@@ -4599,13 +6897,13 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "title" }),
       vue.createElementVNode("view", { class: "content" }, [
-        vue.createElementVNode("text", null, "1️⃣ 打开应用后点击“注册”按钮。"),
-        vue.createElementVNode("text", null, "2️⃣ 填写手机号、验证码和密码。"),
-        vue.createElementVNode("text", null, "3️⃣ 点击确认注册，即可进入首页。")
+        vue.createElementVNode("text", null, "1. 打开应用后点击“注册账号”。"),
+        vue.createElementVNode("text", null, "2. 填写手机号、密码并确认密码。"),
+        vue.createElementVNode("text", null, "3. 阅读并同意协议后点击注册。")
       ])
     ]);
   }
-  const PagesA0405ClientHelpRegisterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-4a90eedc"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0405_client_help_register_v01.vue"]]);
+  const PagesA0405ClientHelpRegisterV01 = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-4a90eedc"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0405_client_help_register_v01.vue"]]);
   const _sfc_main$5 = {
     __name: "A0406_client_help_login_v01",
     setup(__props, { expose: __expose }) {
@@ -4622,13 +6920,13 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "title" }),
       vue.createElementVNode("view", { class: "content" }, [
-        vue.createElementVNode("text", null, "1️⃣ 打开应用后点击“注册”按钮。"),
-        vue.createElementVNode("text", null, "2️⃣ 填写手机号、验证码和密码。"),
-        vue.createElementVNode("text", null, "3️⃣ 点击确认注册，即可进入首页。")
+        vue.createElementVNode("text", null, "1. 打开应用后进入登录页。"),
+        vue.createElementVNode("text", null, "2. 填写手机号和密码。"),
+        vue.createElementVNode("text", null, "3. 阅读并同意协议后点击登录。")
       ])
     ]);
   }
-  const PagesA0406ClientHelpLoginV01 = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-ac5ba6de"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0406_client_help_login_v01.vue"]]);
+  const PagesA0406ClientHelpLoginV01 = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-ac5ba6de"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0406_client_help_login_v01.vue"]]);
   const _sfc_main$4 = {
     __name: "A0407_client_help_usage_v01",
     setup(__props, { expose: __expose }) {
@@ -4645,13 +6943,13 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "title" }),
       vue.createElementVNode("view", { class: "content" }, [
-        vue.createElementVNode("text", null, "1️⃣ 打开应用后点击“注册”按钮。"),
-        vue.createElementVNode("text", null, "2️⃣ 填写手机号、验证码和密码。"),
-        vue.createElementVNode("text", null, "3️⃣ 点击确认注册，即可进入首页。")
+        vue.createElementVNode("text", null, "1. 注册或登录账号。"),
+        vue.createElementVNode("text", null, "2. 选择用车服务并填写行程信息。"),
+        vue.createElementVNode("text", null, "3. 提交订单后等待司机接单。")
       ])
     ]);
   }
-  const PagesA0407ClientHelpUsageV01 = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__scopeId", "data-v-44c250b3"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0407_client_help_usage_v01.vue"]]);
+  const PagesA0407ClientHelpUsageV01 = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__scopeId", "data-v-44c250b3"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0407_client_help_usage_v01.vue"]]);
   const _sfc_main$3 = {
     __name: "A0502_client_notifications_v01",
     setup(__props, { expose: __expose }) {
@@ -4671,7 +6969,6 @@ if (uni.restoreGlobal) {
   function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, "消息通知"),
-      vue.createCommentVNode(" 通知列表 "),
       (vue.openBlock(true), vue.createElementBlock(
         vue.Fragment,
         null,
@@ -4701,7 +6998,7 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const PagesA0502ClientNotificationsV01 = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__scopeId", "data-v-71a5ba52"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0502_client_notifications_v01.vue"]]);
+  const PagesA0502ClientNotificationsV01 = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__scopeId", "data-v-71a5ba52"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0502_client_notifications_v01.vue"]]);
   const _imports_0 = "/static/icons/loading.gif";
   const _sfc_main$2 = {
     __name: "ClientLoading",
@@ -4772,7 +7069,7 @@ if (uni.restoreGlobal) {
       ])
     ])) : vue.createCommentVNode("v-if", true);
   }
-  const ClientLoading = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__scopeId", "data-v-ee8e7d2d"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/components/ClientLoading.vue"]]);
+  const ClientLoading = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__scopeId", "data-v-ee8e7d2d"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/components/ClientLoading.vue"]]);
   const _sfc_main$1 = {
     __name: "A0604_client_loading_v01",
     setup(__props, { expose: __expose }) {
@@ -4790,7 +7087,7 @@ if (uni.restoreGlobal) {
       })
     ]);
   }
-  const PagesA0604ClientLoadingV01 = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-7065f17d"], ["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/pages/A0604_client_loading_v01.vue"]]);
+  const PagesA0604ClientLoadingV01 = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-7065f17d"], ["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/pages/A0604_client_loading_v01.vue"]]);
   __definePage("pages/A0001_client_welcome_v01", PagesA0001ClientWelcomeV01);
   __definePage("pages/A0002_client_login_v01", PagesA0002ClientLoginV01);
   __definePage("pages/A0003_client_register_v01", PagesA0003ClientRegisterV01);
@@ -4803,6 +7100,7 @@ if (uni.restoreGlobal) {
   __definePage("pages/A0104_client_order_point_v01", PagesA0104ClientOrderPointV01);
   __definePage("pages/A0105_client_order_charter_v01", PagesA0105ClientOrderCharterV01);
   __definePage("pages/A0106_client_payment_v01", PagesA0106ClientPaymentV01);
+  __definePage("pages/A0106b_client_balance_payment_v01", PagesA0106bClientBalancePaymentV01);
   __definePage("pages/A0106a_client_payment_v01", PagesA0106aClientPaymentV01);
   __definePage("pages/A0107_client_wait_driver_v01", PagesA0107ClientWaitDriverV01);
   __definePage("pages/A0108_client_edit_order_v01", PagesA0108ClientEditOrderV01);
@@ -4838,7 +7136,7 @@ if (uni.restoreGlobal) {
       formatAppLog("log", "at App.vue:10", "App Hide");
     }
   };
-  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "C:/Users/shuang/Documents/HBuilderProjects/CNber_client_admin_v1.0/App.vue"]]);
+  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "C:/Users/eulan/Documents/HBuilderProjects/CNber/CNber_client_admin_v1.0/App.vue"]]);
   function createApp() {
     const app = vue.createVueApp(App);
     return {

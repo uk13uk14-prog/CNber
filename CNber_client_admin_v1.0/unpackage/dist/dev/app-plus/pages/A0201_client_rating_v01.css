@@ -4,6 +4,46 @@
   min-height: 100vh;
   padding: 1.25rem 0.9375rem;
 }
+.api-tip[data-v-c38286b8] {
+  font-size: 0.75rem;
+  color: #444;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 0.375rem;
+  padding: 0.625rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.55;
+}
+.mono[data-v-c38286b8] {
+  font-family: monospace;
+}
+.err-box[data-v-c38286b8] {
+  background: #ffe8e8;
+  color: #a40000;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+.order-head[data-v-c38286b8] {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+.oh-title[data-v-c38286b8] {
+  display: block;
+  font-size: 1.0625rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #222;
+}
+.oh-line[data-v-c38286b8] {
+  display: block;
+  font-size: 0.8125rem;
+  color: #555;
+  margin-bottom: 0.25rem;
+  line-height: 1.45;
+}
 
 /* 星级评分 */
 .rating[data-v-c38286b8] {
@@ -37,7 +77,7 @@
 .tags[data-v-c38286b8] {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.53125rem; /* ✅ 控制标签间距的地方 */
+  gap: 0.53125rem;
 }
 .tag[data-v-c38286b8] {
   width: 3.75rem;
@@ -83,7 +123,7 @@ uni-textarea[data-v-c38286b8] {
 }
 .tip-title[data-v-c38286b8] {
   display: block;
-  font-size: 1.1875rem;
+  font-size: 1rem;
   font-weight: bold;
   margin-bottom: 0.9375rem;
 }
@@ -132,4 +172,7 @@ uni-textarea[data-v-c38286b8] {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.submit-btn[data-v-c38286b8]:disabled {
+  opacity: 0.5;
 }

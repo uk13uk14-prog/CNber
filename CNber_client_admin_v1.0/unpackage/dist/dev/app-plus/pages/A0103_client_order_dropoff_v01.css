@@ -42,6 +42,26 @@
 }
 .row-full > *[data-v-38ce85c3] { width: 94%;
 }
+.address-block[data-v-38ce85c3] {
+  margin-bottom: 0.625rem;
+}
+.address-block .label[data-v-38ce85c3] {
+  font-weight: bold;
+  margin-bottom: 0.3125rem;
+}
+.address-block uni-input + uni-input[data-v-38ce85c3] {
+  margin-top: 0.3125rem;
+}
+.location-hint[data-v-38ce85c3] {
+  font-size: 0.75rem;
+  color: #666;
+  margin: 0.3125rem 0;
+}
+.lookup-error[data-v-38ce85c3] {
+  font-size: 0.75rem;
+  color: #d93025;
+  margin: 0.3125rem 0;
+}
 .picker[data-v-38ce85c3], uni-input[data-v-38ce85c3], uni-textarea[data-v-38ce85c3] {
   width: 100%;
   padding: 0.625rem;

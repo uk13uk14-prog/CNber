@@ -58,9 +58,18 @@
 .value[data-v-d9e6cee9] {
   color: #666;
 }
+.address-value[data-v-d9e6cee9] {
+  text-align: right;
+  max-width: 60%;
+}
 .price[data-v-d9e6cee9] {
   color: #e64340;
   font-weight: bold;
+}
+.empty-card[data-v-d9e6cee9] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* 等待动画 */
@@ -97,6 +106,24 @@
 .edit-btn[data-v-d9e6cee9] {
   flex: 1;
   background-color: #007AFF;
+  color: white;
+  border: none;
+  padding: 14px 0;
+  border-radius: 50px;
+  font-size: 16px;
+}
+.pay-btn[data-v-d9e6cee9] {
+  flex: 1;
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  padding: 14px 0;
+  border-radius: 50px;
+  font-size: 16px;
+}
+.cancel-btn[data-v-d9e6cee9] {
+  flex: 1;
+  background-color: #e43d33;
   color: white;
   border: none;
   padding: 14px 0;

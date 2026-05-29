@@ -36,6 +36,26 @@
 }
 .row-full > *[data-v-ebb825c2] { width: 94%;
 }
+.address-block[data-v-ebb825c2] {
+  margin-bottom: 0.625rem;
+}
+.address-block .label[data-v-ebb825c2] {
+  font-weight: bold;
+  margin-bottom: 0.3125rem;
+}
+.address-block uni-input + uni-input[data-v-ebb825c2] {
+  margin-top: 0.3125rem;
+}
+.location-hint[data-v-ebb825c2] {
+  font-size: 0.75rem;
+  color: #666;
+  margin: 0.3125rem 0;
+}
+.lookup-error[data-v-ebb825c2] {
+  font-size: 0.75rem;
+  color: #d93025;
+  margin: 0.3125rem 0;
+}
 .picker[data-v-ebb825c2], uni-input[data-v-ebb825c2], uni-textarea[data-v-ebb825c2] {
   width: 100%;
   padding: 0.46875rem;

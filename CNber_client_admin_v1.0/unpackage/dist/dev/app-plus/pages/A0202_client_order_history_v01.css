@@ -3,6 +3,7 @@
   background: linear-gradient(to bottom right, #cce6ff, #00f2fe);
   min-height: 100vh;
   padding: 15px;
+  box-sizing: border-box;
 }
 .title[data-v-f5ae6983] {
   font-size: 30px;
@@ -11,8 +12,15 @@
   text-align: center;
   color: #333;
 }
+.hint[data-v-f5ae6983] {
+  text-align: center;
+  color: #555;
+  font-size: 0.875rem;
+  padding: 1.25rem 0;
+}
 .order-list[data-v-f5ae6983] {
   flex-grow: 1;
+  max-height: calc(100vh - 120px);
 }
 .order-item[data-v-f5ae6983] {
   background: #fff;
@@ -24,23 +32,41 @@
 .row[data-v-f5ae6983] {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 8px;
   font-size: 20px;
+  gap: 12px;
+}
+.id-row .value[data-v-f5ae6983] {
+  flex: 1;
+  text-align: right;
+  word-break: break-all;
+}
+.mono[data-v-f5ae6983] {
+  font-size: 18px;
 }
 .label[data-v-f5ae6983] {
   font-weight: 500;
   color: #333;
+  flex-shrink: 0;
 }
 .value[data-v-f5ae6983] {
   color: #666;
+  text-align: right;
 }
-.receipt-button[data-v-f5ae6983] {
+.pay-actions[data-v-f5ae6983] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 12px;
-  background-color: #409eff;
-  color: white;
-  font-size: 20px;
-  padding: 8px;
-  border: none;
-  border-radius: 4px;
-  width: 100%;
+}
+.pay-btn[data-v-f5ae6983] {
+  flex: 1;
+  min-width: 120px;
+  font-size: 0.8125rem;
+  background: #2563eb;
+  color: #fff;
+}
+.pay-btn-balance[data-v-f5ae6983] {
+  background: #0d9488;
 }
