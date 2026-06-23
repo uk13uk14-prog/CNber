@@ -2,7 +2,7 @@
   <div class="wrap">
     <div class="box card">
       <h1>CNber 管理后台</h1>
-      <p class="muted">请使用管理员账号登录</p>
+      <p class="muted">请使用后台员工账号登录</p>
       <form @submit.prevent="onSubmit">
         <label>手机号</label>
         <input v-model="phone" class="input" type="text" autocomplete="username" />
@@ -36,6 +36,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { defaultRouteForPermissions } from '@/router'
 
 const ADMIN_REMEMBER_PHONE = 'ADMIN_REMEMBER_PHONE'
 const ADMIN_REMEMBER_PASSWORD = 'ADMIN_REMEMBER_PASSWORD'
@@ -87,8 +88,9 @@ async function onSubmit() {
   try {
     await auth.login(phone.value, password.value)
     saveRememberedLogin()
-    const redirect = route.query.redirect || '/'
-    router.replace(typeof redirect === 'string' ? redirect : '/')
+    const fallback = defaultRouteForPermissions(auth)
+    const redirect = route.query.redirect || fallback
+    router.replace(typeof redirect === 'string' ? redirect : fallback)
   } catch (e) {
     error.value = e.message || '登录失败'
   } finally {

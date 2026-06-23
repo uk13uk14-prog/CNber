@@ -10,6 +10,17 @@
       <p v-if="order._id">
         <strong>行程</strong> {{ order.pickup }} → {{ order.destination }}
       </p>
+      <p v-if="order._id && !canAssignByDeposit" class="err">
+        <template v-if="depositSubmittedPendingConfirm(order)">
+          定金已提交，待 admin 确认，不能派单。请返回
+          <router-link :to="`/orders/${id}`">订单详情</router-link>
+          确认定金，或前往
+          <router-link :to="{ name: 'payment-reviews', query: { stage: 'deposit' } }">支付审核</router-link>。
+        </template>
+        <template v-else>
+          定金未确认，不能派单。请返回订单详情确认定金或联系客户提交付款信息。
+        </template>
+      </p>
     </div>
 
     <p class="muted">按「自己团队 → 熟悉 → 外部」分组，单选一名司机后确认指派（仅待接单可指派）。</p>
@@ -39,7 +50,7 @@
                   v-model="selectedUid"
                   type="radio"
                   :value="uidOf(d)"
-                  :disabled="order.status !== 'pending'"
+                  :disabled="order.status !== 'pending' || !canAssignByDeposit"
                 />
               </td>
               <td>{{ phoneOf(d.userId) }}</td>
@@ -59,7 +70,7 @@
       <button
         type="button"
         class="btn btn-primary"
-        :disabled="!selectedUid || order.status !== 'pending' || assigning"
+        :disabled="!selectedUid || !isDispatchableOrderStatus || assigning || !canAssignByDeposit"
         @click="onAssign"
       >
         {{ assigning ? '指派中…' : '确认指派' }}
@@ -73,6 +84,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchOrderById, fetchDriversForDispatch, assignDriver } from '@/api/admin'
 import { driverStatusLabel } from '@/utils/driverDisplay.js'
+import {
+  depositConfirmedForDispatch,
+  depositSubmittedPendingConfirm
+} from '@/utils/depositDispatch'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,6 +106,12 @@ const sections = computed(() => [
   { key: 'familiar', title: '熟悉司机', rows: familiar.value, hint: 'layer = familiar' },
   { key: 'external', title: '外部 / 不熟', rows: external.value, hint: '未维护或 layer = external' }
 ])
+
+const canAssignByDeposit = computed(() => depositConfirmedForDispatch(order.value))
+
+const isDispatchableOrderStatus = computed(() =>
+  ['pending', 'deposit_paid', 'assigned'].includes(order.value.status)
+)
 
 function phoneOf(ref) {
   if (!ref) return ''

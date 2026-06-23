@@ -124,11 +124,18 @@ const sos = () => {
   })
 }
 
-// 客服
+// 客服 — 提交工单
 const callService = () => {
-  uni.makePhoneCall({
-    phoneNumber: '400-800-8888'
-  })
+  const oid = order.value?._id ? String(order.value._id) : ''
+  const ono = order.value?.orderNo ? String(order.value.orderNo) : ''
+  if (!oid) {
+    uni.navigateTo({ url: '/pages/A0408_client_submit_ticket_v01?type=other' })
+    return
+  }
+  const q = ono
+    ? `type=driver_issue&orderId=${encodeURIComponent(oid)}&orderNo=${encodeURIComponent(ono)}&returnTo=order`
+    : `type=driver_issue&orderId=${encodeURIComponent(oid)}&returnTo=order`
+  uni.navigateTo({ url: `/pages/A0408_client_submit_ticket_v01?${q}` })
 }
 
 // 行程分享

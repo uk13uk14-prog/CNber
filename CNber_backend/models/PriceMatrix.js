@@ -27,6 +27,7 @@ const PriceMatrixSchema = new mongoose.Schema(
       set: trimValue
     },
     price: { type: Number, required: true },
+    driverPayout: { type: Number, default: null },
     enabled: { type: Boolean, default: true },
     note: { type: String, default: '' }
   },

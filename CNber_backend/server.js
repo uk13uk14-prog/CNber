@@ -12,17 +12,41 @@ const path = require('path')
 const logger = require('./utils/logger')
 const { apiLimiter } = require('./middlewares/rateLimit')
 const { verifyToken, checkRole } = require('./middlewares/authMiddleware')
+const { STAFF_ROLES } = require('./utils/staffRoles')
 
 const app = express()
 app.set('trust proxy', 1)
 
 const port = process.env.PORT || 3100
-const mongoUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/cnber'
+const mongoUrl =
+  process.env.MONGO_URL || process.env.MONGO_URI || 'mongodb://localhost:27017/cnber'
 const adminDistPath = path.join(__dirname, 'public', 'admin')
 const adminIndexPath = path.join(adminDistPath, 'index.html')
 
-app.use(cors())
-app.use(express.json())
+function createCorsMiddleware() {
+  const isProduction = process.env.NODE_ENV === 'production'
+  if (!isProduction) {
+    return cors()
+  }
+  const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error('Not allowed by CORS'))
+      }
+    }
+  })
+}
+
+app.use(createCorsMiddleware())
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')))
 
 morgan.token('client-ip', (req) => req.ip || '-')
 
@@ -40,8 +64,17 @@ app.use(
 app.use('/api', apiLimiter)
 const asyncHandler = require('./utils/asyncHandler')
 const paymentPublicController = require('./controllers/paymentPublicController')
+const pricingConfigController = require('./controllers/pricingConfigController')
+const systemConfigController = require('./controllers/systemConfigController')
+const campaignController = require('./controllers/campaignController')
+const marketingPublicController = require('./controllers/marketingPublicController')
 app.get('/api/payment/accounts', asyncHandler(paymentPublicController.listPublicAccounts))
-app.use('/api/admin', verifyToken, checkRole('admin'), require('./routes/admin'))
+app.get('/api/catalog/vehicle-classes', asyncHandler(pricingConfigController.listPublicVehicleClasses))
+app.get('/api/catalog/service-types', asyncHandler(pricingConfigController.listPublicServiceTypes))
+app.get('/api/public/system-config', asyncHandler(systemConfigController.getPublicSystemConfig))
+app.get('/api/public/campaigns', asyncHandler(campaignController.listPublicCampaigns))
+app.get('/api/public/coupons/validate', asyncHandler(marketingPublicController.validatePublicCoupon))
+app.use('/api/admin', verifyToken, checkRole(...STAFF_ROLES), require('./routes/admin'))
 
 mongoose
   .connect(mongoUrl)
@@ -68,6 +101,7 @@ app.use('/api/auth', require('./routes/auth'))
 app.use('/api/address', require('./routes/address'))
 app.use('/api/order', verifyToken, require('./routes/order'))
 app.use('/api/payment', verifyToken, require('./routes/payment'))
+app.use('/api/support-tickets', verifyToken, require('./routes/supportTickets'))
 // GET /api/payment/accounts 已在上方公开注册
 app.use('/api/user', verifyToken, checkRole('admin'), require('./routes/user'))
 app.use('/api/driver', verifyToken, checkRole('driver'), require('./routes/driver'))

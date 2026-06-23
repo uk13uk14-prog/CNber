@@ -10,7 +10,8 @@
           <input
             v-model="phone"
             class="input"
-            type="number"
+            type="text"
+            inputmode="numeric"
             maxlength="11"
             placeholder="请输入手机号"
             placeholder-class="input-ph"
@@ -50,6 +51,7 @@
 
 <script>
 import { request } from '../utils/request.js'
+import { updateDriverStatus } from '../utils/driverApi.js'
 
 const REMEMBER_LOGIN_KEY = 'driverRememberLogin'
 
@@ -118,25 +120,33 @@ export default {
           method: 'POST',
           skipAuth: true,
           data: {
-            phone: this.phone,
+            phone: String(this.phone || '').trim(),
             password: this.password
           }
         })
-        if (data?.token) {
-          const u = data.user || {}
-          if (u.role !== 'driver') {
-            uni.showToast({
-              title: '当前账号不是司机，请用司机端注册或更换账号',
-              icon: 'none',
-              duration: 3500
-            })
-            return
-          }
-          this.saveRememberedLogin()
-          uni.setStorageSync('token', data.token)
-          uni.setStorageSync('user', u)
-          uni.reLaunch({ url: '/pages/D0300_driver_main' })
+        const token = data?.token
+        const u = data?.user || {}
+        if (!token) {
+          uni.showToast({ title: '登录失败：未返回 token', icon: 'none' })
+          return
         }
+        if (u.role !== 'driver') {
+          uni.showToast({
+            title: '当前账号不是司机，请用司机端注册或更换账号',
+            icon: 'none',
+            duration: 3500
+          })
+          return
+        }
+        this.saveRememberedLogin()
+        uni.setStorageSync('token', token)
+        uni.setStorageSync('user', u)
+        try {
+          await updateDriverStatus('online')
+        } catch (e) {
+          /* 上线失败不阻断登录，首页可手动切换 */
+        }
+        uni.reLaunch({ url: '/pages/D0300_driver_main' })
       } catch (e) {
         /* 封装内已提示 */
       }

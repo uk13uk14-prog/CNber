@@ -1,0 +1,44 @@
+{
+  "pages": [
+    {
+      "path": "pages/M0001_admin_login",
+      "style": { "navigationBarTitleText": "员工登录", "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/M0002_admin_dashboard",
+      "style": { "navigationBarTitleText": "今日工作台" }
+    },
+    {
+      "path": "pages/M0003_admin_dispatch",
+      "style": {
+        "navigationBarTitleText": "调度中心",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/M0004_admin_order_detail",
+      "style": { "navigationBarTitleText": "订单详情" }
+    },
+    {
+      "path": "pages/M0005_admin_tickets",
+      "style": {
+        "navigationBarTitleText": "客服工单",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/M0006_admin_ticket_detail",
+      "style": { "navigationBarTitleText": "工单详情" }
+    },
+    {
+      "path": "pages/M0007_admin_profile",
+      "style": { "navigationBarTitleText": "我的" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "CNber运营助手",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f6f8"
+  }
+}

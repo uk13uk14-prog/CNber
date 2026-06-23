@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
+const { isStaffRole } = require('../utils/staffRoles')
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -79,7 +80,16 @@ exports.login = async (req, res) => {
     throw e
   }
 
-  if (user.role === 'user') {
+  if (isStaffRole(user.role)) {
+    if (user.status === 'banned') {
+      const e = new Error('账号已禁用，请联系管理员')
+      e.code = 403
+      throw e
+    }
+    await User.findByIdAndUpdate(user._id, {
+      'adminProfile.lastLoginAt': new Date()
+    })
+  } else if (user.role === 'user') {
     await User.findByIdAndUpdate(user._id, {
       'passengerProfile.lastLoginAt': new Date()
     })
@@ -95,7 +105,9 @@ exports.login = async (req, res) => {
       user: {
         _id: user._id,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        status: user.status,
+        displayName: user.adminProfile?.displayName || ''
       }
     }
   })

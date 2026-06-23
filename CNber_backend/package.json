@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "init-data": "node scripts/initData.js"
+    "init-data": "node scripts/initData.js",
+    "smoke:p0": "node scripts/p0TrialFlowSmoke.js"
   },
   "author": "中步",
   "license": "MIT",

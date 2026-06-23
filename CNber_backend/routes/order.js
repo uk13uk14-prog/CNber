@@ -4,19 +4,27 @@ const Order = require('../models/Order')
 const ORDER_STATUS = Order.ORDER_STATUS
 const asyncHandler = require('../utils/asyncHandler')
 const orderController = require('../controllers/orderController')
+const orderPaymentController = require('../controllers/orderPaymentController')
+const orderRatingController = require('../controllers/orderRatingController')
 
 router.get('/detail/:id', asyncHandler(orderController.getOrderById))
+router.post('/rating', asyncHandler(orderRatingController.submitOrderRating))
+router.get('/:id/rating', asyncHandler(orderRatingController.getOrderRating))
 router.post('/quote', asyncHandler(orderController.quoteOrder))
 router.post('/auto-quote', asyncHandler(orderController.autoQuoteOrder))
 router.post('/confirm-price', asyncHandler(orderController.confirmPrice))
 router.post('/pay', asyncHandler(orderController.payOrder))
 
+router.post('/:id/payment-proof/upload', asyncHandler(orderPaymentController.uploadPaymentProof))
+router.post('/:id/deposit/submit', asyncHandler(orderPaymentController.submitDeposit))
+router.post('/:id/balance/submit', asyncHandler(orderPaymentController.submitBalance))
+
 router.post(
   '/create',
   (req, res, next) => {
     req.body.userId = req.user.userId
-    // 创建订单强制为待接单，禁止客户端篡改状态绕过状态机
-    req.body.status = ORDER_STATUS.PENDING
+    // 创建订单强制为已创建，禁止客户端篡改状态绕过状态机
+    req.body.status = ORDER_STATUS.CREATED
     next()
   },
   asyncHandler(orderController.createOrder)
@@ -50,8 +58,7 @@ router.get(
 
 /**
  * 接单：
- * 1) pending 池：抢单 → accepted，写入 driverId
- * 2) assigned 且 driverId 为本人：确认指派 → accepted（司机端 CNber_driver_admin_v1.0 已对接）
+ * assigned 且 driverId 为本人：确认指派 → driver_accepted
  */
 router.post(
   '/accept',
@@ -71,23 +78,15 @@ router.post(
         status: ORDER_STATUS.ASSIGNED,
         driverId: req.user.userId
       },
-      { $set: { status: ORDER_STATUS.ACCEPTED, updatedAt: new Date() } },
+      {
+        $set: {
+          status: ORDER_STATUS.DRIVER_ACCEPTED,
+          dispatchStatus: Order.DISPATCH_STATUS.ACCEPTED,
+          updatedAt: new Date()
+        }
+      },
       { new: true }
     )
-
-    if (!order) {
-      order = await Order.findOneAndUpdate(
-        { _id: orderId, status: ORDER_STATUS.PENDING },
-        {
-          $set: {
-            driverId: req.user.userId,
-            status: ORDER_STATUS.ACCEPTED,
-            updatedAt: new Date()
-          }
-        },
-        { new: true }
-      )
-    }
 
     if (!order) {
       throw { code: 400, message: 'Order already taken' }

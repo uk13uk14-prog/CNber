@@ -7,7 +7,7 @@
         <view class="label">订单状态</view>
         <view class="value status-line">
           <text class="badge">{{ formatStatus(order.status) }}</text>
-          <text v-if="isAssignedToMe" class="hint">已指派（待你确认）</text>
+          <text v-if="isAssignedToMe" class="hint">平台已派发，请确认收到任务</text>
         </view>
       </view>
 
@@ -26,14 +26,22 @@
         <view class="value">{{ order.destination }}</view>
       </view>
 
+      <view v-if="order.vehicleLabel" class="section">
+        <view class="label">车型</view>
+        <view class="value">{{ order.vehicleLabel }}</view>
+      </view>
+
       <view class="section">
         <view class="label">下单时间</view>
         <view class="value">{{ formatTime(order.createdAt) }}</view>
       </view>
 
-      <view class="section" v-if="order.amount != null">
-        <view class="label">订单金额</view>
-        <view class="value price">{{ formatAmount(order.amount) }}</view>
+      <view class="section" v-if="order._id">
+        <view class="label">本单结算</view>
+        <view class="value price">{{ driverPrimarySettlementLine(order) }}</view>
+        <view v-if="driverSecondarySettlementLine(order)" class="value sub-line">
+          {{ driverSecondarySettlementLine(order) }}
+        </view>
       </view>
 
       <view class="section">
@@ -41,23 +49,28 @@
         <view class="value">{{ formatPaymentStatus(order.paymentStatus) }}</view>
       </view>
 
+      <view class="section">
+        <view class="label">客户定金</view>
+        <view class="value">{{ depositLine }}</view>
+      </view>
+      <view class="section">
+        <view class="label">客户尾款</view>
+        <view class="value">{{ balanceLine }}</view>
+      </view>
+      <view class="section">
+        <view class="label">司机结算</view>
+        <view class="value">{{ settlementLine }}</view>
+      </view>
+
       <view class="button-group">
         <button class="btn-outline" @click="contact">联系乘客</button>
         <button
-          v-if="order.status === 'pending'"
+          v-if="isAssignedToMe"
           class="btn-primary"
           :disabled="acting"
           @click="doAccept"
         >
-          抢单
-        </button>
-        <button
-          v-else-if="isAssignedToMe"
-          class="btn-primary"
-          :disabled="acting"
-          @click="doAccept"
-        >
-          确认接单
+          确认收到任务
         </button>
         <button
           v-if="isAssignedToMe"
@@ -98,7 +111,11 @@
 
 <script>
 import { request } from '../utils/request.js'
-import { formatDriverOrderStatus } from '../utils/orderStatus.js'
+import { formatDriverOrderStatus, normalizeDriverOrderStatus } from '../utils/orderStatus.js'
+import {
+  driverPrimarySettlementLine,
+  driverSecondarySettlementLine
+} from '../utils/driverCurrencyDisplay.js'
 
 export default {
   name: 'D0102_driver_order_detail',
@@ -119,14 +136,40 @@ export default {
       return '—'
     },
     normalizedOrderStatus() {
-      return this.normalizeStatus(this.order.status)
+      return normalizeDriverOrderStatus(this.order.status)
     },
     isAssignedToMe() {
-      if (this.normalizedOrderStatus !== 'assigned' || !this.myUserId) return false
+      const status = normalizeDriverOrderStatus(
+        String(this.order.dispatchStatus || this.order.status || '')
+      )
+      if (status !== 'assigned' || !this.myUserId) return false
       const d = this.order.driverId
       if (!d) return false
       const id = typeof d === 'object' && d._id != null ? String(d._id) : String(d)
       return id === this.myUserId
+    },
+    depositLine() {
+      const o = this.order
+      if (!o || !o._id) return '—'
+      if (o.depositStatus === 'confirmed' || o.depositPaid) return '已收'
+      if (o.depositStatus === 'submitted') return '待平台确认'
+      return '未收'
+    },
+    balanceLine() {
+      const o = this.order
+      if (!o || !o._id) return '—'
+      if (o.balanceStatus === 'confirmed' || o.remainingPaid) return '已收'
+      if (o.paymentStage === 'balance_submitted') return '待平台确认'
+      if (o.paymentStage === 'balance_pending') return '待客户支付'
+      return '—'
+    },
+    settlementLine() {
+      const o = this.order
+      if (!o || !o._id) return '—'
+      const s = o.driverSettlementStatus || 'not_required'
+      if (s === 'paid') return '已结算'
+      if (s === 'pending') return '待结算'
+      return '—'
     }
   },
   onLoad(query) {
@@ -149,21 +192,13 @@ export default {
     formatStatus(s) {
       return formatDriverOrderStatus(s)
     },
-    normalizeStatus(status) {
-      const s = String(status || '').trim()
-      if (s === 'ongoing' || s === 'in_progress') return 'started'
-      return s
-    },
     formatTime(iso) {
       if (!iso) return '—'
       const d = new Date(iso)
       return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('zh-CN')
     },
-    formatAmount(amount) {
-      if (amount == null || amount === '') return '—'
-      const n = Number(amount)
-      return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-    },
+    driverPrimarySettlementLine,
+    driverSecondarySettlementLine,
     formatPaymentStatus(status) {
       const map = {
         unpaid: '未支付',
@@ -305,6 +340,12 @@ export default {
     .price {
       color: $color-primary;
       font-weight: bold;
+    }
+    .sub-line {
+      font-size: 24rpx;
+      color: $color-text-light;
+      font-weight: 400;
+      margin-top: 4rpx;
     }
   }
 

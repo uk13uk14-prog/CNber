@@ -65,6 +65,26 @@
         />
       </view>
 
+      <view class="field">
+        <text class="label">预约日期</text>
+        <picker mode="date" :start="minScheduleDate" @change="(e) => (scheduleDate = e.detail.value)">
+          <view class="address-input picker-like">{{ scheduleDate || '请选择日期' }}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <text class="label">预约时间</text>
+        <picker mode="time" @change="(e) => (scheduleTime = e.detail.value)">
+          <view class="address-input picker-like">{{ scheduleTime || '请选择时间' }}</view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="label">车型</text>
+        <picker mode="selector" :range="vehicleList" @change="onVehicleChange">
+          <view class="address-input picker-like">{{ selectedVehicleLabel || '请选择车型' }}</view>
+        </picker>
+      </view>
+
       <button class="submit-btn" :loading="submitting" @click="submitOrder">
         下单
       </button>
@@ -73,9 +93,21 @@
 </template>
 
 <script setup>
-import { onUnmounted, reactive, ref } from 'vue'
+import { onUnmounted, reactive, ref, onMounted } from 'vue'
 import { lookupAddressByPostcode } from '../utils/addressApi.js'
 import { createRideOrder } from '../utils/orderApi.js'
+import { validateScheduledAt24h, buildScheduledAtIso } from '../utils/clientBookingFlow.js'
+import { loadVehicleOptions, vehicleClassFromLabel } from '../utils/vehicleOptions.js'
+
+const vehicleList = ref([])
+const selectedVehicleLabel = ref('')
+
+const scheduleDate = ref('')
+const scheduleTime = ref('')
+const minScheduleDate = ref('')
+const today = new Date()
+today.setDate(today.getDate() + 1)
+minScheduleDate.value = today.toISOString().split('T')[0]
 
 const pickupAddress = reactive({
   postcode: '',
@@ -203,6 +235,10 @@ function onDropoffPostcodeInput() {
   )
 }
 
+function onVehicleChange(e) {
+  selectedVehicleLabel.value = vehicleList[e.detail.value] || ''
+}
+
 const submitOrder = async () => {
   const token = uni.getStorageSync('token')
 
@@ -221,26 +257,54 @@ const submitOrder = async () => {
     return
   }
 
+  if (!scheduleDate.value || !scheduleTime.value) {
+    uni.showToast({ title: '请选择预约日期和时间', icon: 'none' })
+    return
+  }
+
+  if (!selectedVehicleLabel.value) {
+    uni.showToast({ title: '请选择车型', icon: 'none' })
+    return
+  }
+
+  const scheduleCheck = validateScheduledAt24h(
+    buildScheduledAtIso(scheduleDate.value, scheduleTime.value)
+  )
+  if (!scheduleCheck.ok) {
+    uni.showToast({ title: scheduleCheck.message, icon: 'none' })
+    return
+  }
+
   submitting.value = true
 
   try {
-    await createRideOrder(
+    const data = await createRideOrder(
       pickupAddress.address,
       dropoffAddress.address,
       'point',
       {
         pickupPostcode: pickupAddress.postcode.trim(),
         dropoffPostcode: dropoffAddress.postcode.trim(),
-        pickupDetail: pickupAddress.detail.trim(),
-        dropoffDetail: dropoffAddress.detail.trim()
+        pickupDetail: `${pickupAddress.detail.trim()} | ${scheduleDate.value} ${scheduleTime.value}`.trim(),
+        dropoffDetail: dropoffAddress.detail.trim(),
+        scheduledAt: scheduleCheck.scheduledAt.toISOString(),
+        vehicleClass: vehicleClassFromLabel(selectedVehicleLabel.value),
+        vehicleLabel: selectedVehicleLabel.value
       }
     )
+    const oid = data?.order?._id
 
     uni.showToast({ title: '下单成功', icon: 'success' })
     setTimeout(() => {
-      uni.navigateTo({
-        url: '/pages/A0107_client_wait_driver_v01'
-      })
+      if (oid) {
+        uni.navigateTo({
+          url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+        })
+      } else {
+        uni.navigateTo({
+          url: '/pages/A0107_client_wait_driver_v01'
+        })
+      }
     }, 800)
   } catch (error) {
     /* 封装内已提示 */
@@ -252,6 +316,10 @@ const submitOrder = async () => {
 const goBack = () => {
   uni.navigateBack()
 }
+
+onMounted(async () => {
+  vehicleList.value = await loadVehicleOptions()
+})
 
 onUnmounted(() => {
   clearPostcodeTimer('pickup')

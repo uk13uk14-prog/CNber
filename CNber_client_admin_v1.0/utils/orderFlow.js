@@ -1,37 +1,12 @@
 import {
   normalizeOrderStatus,
   clientOrderFlowSlot,
-  clientPagePathForFlowSlot
+  clientPagePathForFlowSlot,
+  CLIENT_ORDER_PAGE_PATHS
 } from './orderStatus.js'
+import { pickActiveOrder } from './clientOrderGroups.js'
 
-/**
- * 从订单列表中选「当前应展示」的一单：
- * 优先 pending → assigned → accepted → started；无进行中则取最近一条终态（已完成/已取消）。
- */
-export function pickActiveOrder(orders) {
-  const list = Array.isArray(orders) ? orders.filter(Boolean) : []
-  if (!list.length) return null
-
-  const sorted = [...list].sort((a, b) => {
-    const ta = new Date(a.createdAt || 0).getTime()
-    const tb = new Date(b.createdAt || 0).getTime()
-    return tb - ta
-  })
-
-  const flow = ['pending', 'assigned', 'accepted', 'started']
-  for (const st of flow) {
-    const subset = sorted.filter((o) => normalizeOrderStatus(o.status) === st)
-    if (subset.length) return subset[0]
-  }
-
-  // 终态：按「创建时间倒序」取最近一条 completed 或 cancelled（二者不同时伪造优先级）
-  for (const o of sorted) {
-    const n = normalizeOrderStatus(o.status)
-    if (n === 'completed' || n === 'cancelled') return o
-  }
-
-  return sorted[0]
-}
+export { pickActiveOrder }
 
 /**
  * 按流程分组跳转页面；同组内（如 pending→assigned）不 redirect，避免闪屏。
@@ -54,6 +29,12 @@ export function applyClientOrderRoute(order, lastFlowSlotRef) {
   const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
   const currentRoute = pages.length ? pages[pages.length - 1].route : ''
   const currentPath = currentRoute ? `/${currentRoute}` : ''
+
+  const flowPaths = new Set(Object.values(CLIENT_ORDER_PAGE_PATHS || {}))
+  if (flowPaths.size && currentPath && !flowPaths.has(currentPath)) {
+    lastFlowSlotRef.value = slot
+    return
+  }
 
   if (currentPath !== targetUrl) {
     lastFlowSlotRef.value = slot

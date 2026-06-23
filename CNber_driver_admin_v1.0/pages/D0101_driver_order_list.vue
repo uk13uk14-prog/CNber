@@ -34,10 +34,16 @@
         <text class="arrow">→</text>
         <text>{{ order.destination || '—' }}</text>
       </view>
-      <view class="amount-line">{{ formatAmount(order.amount) }}</view>
+      <view class="amount-line">
+        <text>{{ driverPrimarySettlementLine(order) }}</text>
+        <text v-if="driverSecondarySettlementLine(order)" class="amount-sub">
+          {{ driverSecondarySettlementLine(order) }}
+        </text>
+      </view>
       <view v-if="order.paymentStatus !== 'paid'" class="unpaid-tip">未支付</view>
       <view class="meta-row">
         <text>状态：{{ formatStatus(order.status) }}</text>
+        <text v-if="order.vehicleLabel">车型：{{ order.vehicleLabel }}</text>
         <text>订单：#{{ shortId(order._id) }}</text>
       </view>
       <view v-if="primaryAction(order)" class="actions">
@@ -70,7 +76,11 @@ import {
   getDriverOrders,
   rejectAssignedOrder
 } from '../utils/driverApi.js'
-import { formatDriverOrderStatus } from '../utils/orderStatus.js'
+import { formatDriverOrderStatus, normalizeDriverOrderStatus } from '../utils/orderStatus.js'
+import {
+  driverPrimarySettlementLine,
+  driverSecondarySettlementLine
+} from '../utils/driverCurrencyDisplay.js'
 
 export default {
   name: 'D0101_driver_order_list',
@@ -90,7 +100,7 @@ export default {
   computed: {
     filteredOrders() {
       const list = this.orders.filter((order) => {
-        const status = this.normalizeStatus(order.status)
+        const status = normalizeDriverOrderStatus(order.status)
         if (this.currentFilter === 'assigned') {
           return this.isAssignedToMe(order)
         }
@@ -126,13 +136,13 @@ export default {
       }
     },
     normalizeStatus(status) {
-      const s = String(status || '').trim()
-      if (s === 'ongoing' || s === 'in_progress') return 'started'
-      return s
+      return normalizeDriverOrderStatus(status)
     },
     isAssignedToMe(order) {
-      const status = this.normalizeStatus(order.dispatchStatus || order.status)
-      if (status !== 'assigned' || !this.myUserId) return false
+      const rawStatus = String(order.status || '').trim()
+      const rawDispatch = String(order.dispatchStatus || '').trim()
+      if (!this.myUserId) return false
+      if (rawStatus !== 'assigned' && rawDispatch !== 'assigned') return false
       const d = order.assignedDriver || order.driverId
       if (!d) return false
       const id = typeof d === 'object' && d._id != null ? String(d._id) : String(d)
@@ -168,11 +178,8 @@ export default {
     formatStatus(status) {
       return formatDriverOrderStatus(status)
     },
-    formatAmount(amount) {
-      if (amount == null || amount === '') return '—'
-      const n = Number(amount)
-      return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-    },
+    driverPrimarySettlementLine,
+    driverSecondarySettlementLine,
     formatPaymentStatus(status) {
       const map = {
         unpaid: '未支付',
@@ -227,7 +234,7 @@ export default {
     primaryAction(order) {
       const status = this.normalizeStatus(order.status)
       if (this.isAssignedToMe(order)) {
-        return { label: '确认接单', action: 'accept', className: 'confirm-btn' }
+        return { label: '确认收到任务', action: 'accept', className: 'confirm-btn' }
       }
       if (status === 'accepted') {
         return { label: '开始行程', action: 'start', className: 'start-btn' }
@@ -437,6 +444,15 @@ export default {
       font-weight: bold;
       color: #f97316;
       margin-bottom: 12rpx;
+      display: flex;
+      flex-direction: column;
+      gap: 6rpx;
+    }
+
+    .amount-sub {
+      font-size: 24rpx;
+      font-weight: 400;
+      color: #64748b;
     }
 
     .unpaid-tip {

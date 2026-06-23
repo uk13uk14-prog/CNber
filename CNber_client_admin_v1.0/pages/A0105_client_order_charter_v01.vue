@@ -87,11 +87,17 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, onMounted } from 'vue'
 import { createRideOrder } from '../utils/orderApi.js'
+import { validateScheduledAt24h, buildScheduledAtIso } from '../utils/clientBookingFlow.js'
 import { lookupAddressByPostcode } from '../utils/addressApi.js'
+import { loadVehicleOptions, vehicleClassFromLabel } from '../utils/vehicleOptions.js'
 
-const vehicleList = ['5座', '7座', '8座', '9座']
+const vehicleList = ref([])
+
+onMounted(async () => {
+  vehicleList.value = await loadVehicleOptions()
+})
 const pickupAddress = ref({
   postcode: '',
   address: '',
@@ -254,19 +260,36 @@ async function submitOrder() {
   if (!form.value.vehicle) return uni.showToast({ title: '请选择车型', icon: 'none' })
   if (!form.value.phone) return uni.showToast({ title: '请输入电话', icon: 'none' })
 
+  const scheduleCheck = validateScheduledAt24h(
+    buildScheduledAtIso(form.value.pickupDate, form.value.pickupTime)
+  )
+  if (!scheduleCheck.ok) {
+    return uni.showToast({ title: scheduleCheck.message, icon: 'none' })
+  }
+
   const pickup = pickupAddress.value.address.trim()
   const destination = dropoffAddress.value.address.trim()
 
   try {
-    await createRideOrder(pickup, destination, 'charter', {
+    const data = await createRideOrder(pickup, destination, 'charter', {
       pickupPostcode: pickupAddress.value.postcode.trim(),
       dropoffPostcode: dropoffAddress.value.postcode.trim(),
       pickupDetail: `${pickupAddress.value.detail.trim()} | ${form.value.pickupDate} ${form.value.pickupTime} | ${form.value.vehicle} | 电话${form.value.phone}`.trim(),
-      dropoffDetail: dropoffAddress.value.detail.trim()
+      dropoffDetail: dropoffAddress.value.detail.trim(),
+      scheduledAt: scheduleCheck.scheduledAt.toISOString(),
+      vehicleClass: vehicleClassFromLabel(form.value.vehicle),
+      vehicleLabel: form.value.vehicle
     })
+    const oid = data?.order?._id
     uni.showToast({ title: '下单成功', icon: 'success' })
     setTimeout(() => {
-      uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+      if (oid) {
+        uni.navigateTo({
+          url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+        })
+      } else {
+        uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+      }
     }, 600)
   } catch (e) {
     /* request 内已 toast */

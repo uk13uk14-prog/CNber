@@ -25,8 +25,8 @@
           <tbody>
             <tr v-for="d in sec.rows" :key="d._id" @click="selectRow(d)">
               <td>{{ phoneOf(d.userId) }}</td>
-              <td>{{ driverStatusLabel(d.status) }}</td>
-              <td>{{ d.carPlate || '—' }}</td>
+              <td>{{ approvalStatusLabel(d) }}</td>
+              <td>{{ vehiclePlate(d) }}</td>
               <td>{{ d.score ?? '—' }}</td>
               <td>{{ d.totalOrders ?? 0 }}</td>
               <td><span class="pill">{{ layerFor(d) }}</span></td>
@@ -63,8 +63,8 @@
         <tbody>
           <tr v-for="d in flatDrivers" :key="d._id" @click="selectRow(d)">
             <td>{{ phoneOf(d.userId) }}</td>
-            <td>{{ driverStatusLabel(d.status) }}</td>
-            <td>{{ d.carPlate || '—' }}</td>
+            <td>{{ approvalStatusLabel(d) }}</td>
+            <td>{{ vehiclePlate(d) }}</td>
             <td>{{ d.score ?? '—' }}</td>
             <td>{{ d.totalOrders ?? 0 }}</td>
             <td><span class="pill">{{ layerFor(d) }}</span></td>
@@ -145,6 +145,34 @@ function phoneOf(ref) {
   if (!ref) return ''
   if (typeof ref === 'object' && ref.phone) return ref.phone
   return ''
+}
+
+function vehiclePlate(d) {
+  const profile = d.userId?.driverProfile || d.driverProfile || {}
+  return (
+    d.carPlate ||
+    profile.vehiclePlate ||
+    profile.vehicle?.plateNo ||
+    profile.vehicle?.vehiclePlate ||
+    '—'
+  )
+}
+
+function approvalStatusLabel(d) {
+  const profile = d.userId?.driverProfile || d.driverProfile || {}
+  const status =
+    profile.approvalStatus ||
+    profile.documents?.reviewStatus ||
+    d.approvalStatus ||
+    d.status ||
+    'pending'
+  const map = {
+    pending: '待审核',
+    approved: '已通过',
+    rejected: '已拒绝',
+    banned: '已封禁'
+  }
+  return map[status] || driverStatusLabel(status)
 }
 
 function uidOf(d) {

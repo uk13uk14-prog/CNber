@@ -42,24 +42,9 @@
     </view>
 
     <view v-if="order" class="payment-card">
-      <view>{{ priceLine }}</view>
-      <view>{{ paymentLine }}</view>
-      <button
-        v-if="canConfirmPrice"
-        class="pay-action"
-        :disabled="priceActing"
-        @click="confirmPrice"
-      >
-        确认价格
-      </button>
-      <button
-        v-else-if="canMockPay"
-        class="pay-action"
-        :disabled="priceActing"
-        @click="mockPay"
-      >
-        模拟支付
-      </button>
+      <view>订单状态：{{ bookingStatusLabel }}</view>
+      <view>订单金额：{{ amountLine }}</view>
+      <view class="hint-line">{{ waitingHint }}</view>
     </view>
 
     <!-- 操作按钮 -->
@@ -79,45 +64,25 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { confirmOrderPrice, fetchOrderList, payOrderMock } from '../utils/orderApi.js'
+import { fetchOrderList } from '../utils/orderApi.js'
 import { clientDriverInfoNotice } from '../utils/orderStatus.js'
+import { clientV1BookingStatusLabel, clientV1WaitingHint } from '../utils/clientBookingFlow.js'
 import { pickActiveOrder, driverDisplayFromOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
 
 const driver = ref(driverDisplayFromOrder(null))
 const order = ref(null)
 const lastFlowSlot = ref('')
-const priceActing = ref(false)
 let pollingTimer = null
 
 const noticeText = computed(() => clientDriverInfoNotice(order.value?.status))
+const bookingStatusLabel = computed(() => clientV1BookingStatusLabel(order.value))
+const waitingHint = computed(() => clientV1WaitingHint(order.value))
 const amountLine = computed(() => {
   const amount = order.value?.amount
   if (amount == null || amount === '') return '—'
   const n = Number(amount)
   return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
 })
-const priceLine = computed(() => {
-  const status = order.value?.priceStatus || 'pending'
-  if (status === 'quoted' && order.value?.quoteSource === 'matrix') {
-    return `机场固定价：${amountLine.value}`
-  }
-  if (status === 'quoted') return `报价：${amountLine.value}`
-  if (status === 'confirmed') return `价格已确认：${amountLine.value}`
-  return '等待后台报价'
-})
-const paymentLine = computed(() => {
-  const map = {
-    unpaid: '未支付',
-    pending: '待支付',
-    paid: '已支付，等待司机服务',
-    refunded: '已退款'
-  }
-  return map[order.value?.paymentStatus || 'unpaid'] || order.value?.paymentStatus
-})
-const canConfirmPrice = computed(() => order.value?.priceStatus === 'quoted')
-const canMockPay = computed(() =>
-  order.value?.priceStatus === 'confirmed' && order.value?.paymentStatus !== 'paid'
-)
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')
@@ -157,37 +122,16 @@ const callDriver = () => {
 }
 
 const callService = () => {
-  uni.makePhoneCall({
-    phoneNumber: '400-800-8888'
-  })
-}
-
-async function confirmPrice() {
-  if (!order.value?._id) return
-  priceActing.value = true
-  try {
-    await confirmOrderPrice(order.value._id)
-    uni.showToast({ title: '价格已确认', icon: 'success' })
-    await fetchOrders()
-  } catch (e) {
-    /* request 已提示 */
-  } finally {
-    priceActing.value = false
+  const oid = order.value?._id ? String(order.value._id) : ''
+  const ono = order.value?.orderNo ? String(order.value.orderNo) : ''
+  if (!oid) {
+    uni.navigateTo({ url: '/pages/A0408_client_submit_ticket_v01?type=other' })
+    return
   }
-}
-
-async function mockPay() {
-  if (!order.value?._id) return
-  priceActing.value = true
-  try {
-    await payOrderMock(order.value._id)
-    uni.showToast({ title: '支付成功（测试）', icon: 'success' })
-    await fetchOrders()
-  } catch (e) {
-    /* request 已提示 */
-  } finally {
-    priceActing.value = false
-  }
+  const q = ono
+    ? `type=driver_issue&orderId=${encodeURIComponent(oid)}&orderNo=${encodeURIComponent(ono)}&returnTo=order`
+    : `type=driver_issue&orderId=${encodeURIComponent(oid)}&returnTo=order`
+  uni.navigateTo({ url: `/pages/A0408_client_submit_ticket_v01?${q}` })
 }
 
 const goBack = () => {

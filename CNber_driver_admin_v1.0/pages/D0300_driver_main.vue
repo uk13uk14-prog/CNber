@@ -113,7 +113,7 @@
     <view class="entry-grid">
       <view class="entry-item" @click="goTo('/pages/D0101_driver_order_list')">
         <view class="entry-icon">📋</view>
-        <text class="entry-title">接单中心</text>
+        <text class="entry-title">我的任务</text>
         <text class="entry-desc">查看可接订单</text>
       </view>
       <view class="entry-item" @click="goTo('/pages/D0303_driver_trip_history')">
@@ -125,6 +125,11 @@
         <view class="entry-icon">£</view>
         <text class="entry-title">收入中心</text>
         <text class="entry-desc">收入与提现</text>
+      </view>
+      <view class="entry-item" @click="goTo('/pages/D0401_driver_support_center')">
+        <view class="entry-icon">💬</view>
+        <text class="entry-title">客服中心</text>
+        <text class="entry-desc">工单与帮助</text>
       </view>
       <view class="entry-item" @click="goTo('/pages/D0503_driver_settings')">
         <view class="entry-icon">⚙</view>
@@ -143,6 +148,7 @@ import {
   rejectAssignedOrder,
   updateDriverStatus
 } from '../utils/driverApi.js'
+import { formatDriverOrderStatus, normalizeDriverOrderStatus } from '../utils/orderStatus.js'
 
 export default {
   name: 'D0300_driver_main',
@@ -189,15 +195,7 @@ export default {
       return `${date} ${time}`
     },
     statusLabel(status) {
-      const map = {
-        pending: '待指派',
-        assigned: '已指派',
-        accepted: '已接单',
-        started: '行程中',
-        completed: '已完成',
-        cancelled: '已取消'
-      }
-      return map[status] || '订单状态'
+      return formatDriverOrderStatus(status)
     },
     dispatchStatusLabel(status) {
       const map = {
@@ -235,7 +233,10 @@ export default {
         const data = await getDriverOrders()
         const rows = Array.isArray(data?.orders) ? data.orders : []
         this.assignedOrders = rows.filter((item) => {
-          return ['assigned', 'accepted', 'started'].includes(item.dispatchStatus || item.status)
+          const ds = String(item.dispatchStatus || '')
+          const st = normalizeDriverOrderStatus(item.status)
+          if (['assigned', 'accepted', 'started'].includes(ds)) return true
+          return ['assigned', 'accepted', 'started'].includes(st)
         })
       } catch (error) {
         /* request 内已提示 */

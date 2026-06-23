@@ -20,7 +20,7 @@ const TEST_ACCOUNTS = [
   },
   {
     phone: '13900000001',
-    password: 'Driver123456',
+    password: '123456',
     role: 'driver',
     status: 'active'
   },

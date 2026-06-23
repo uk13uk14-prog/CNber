@@ -35,19 +35,26 @@
           </view>
           <view class="row">
             <view class="label">订单状态：</view>
-            <view class="value">{{ statusLabel }}</view>
+            <view class="value">{{ bookingStatusLabel }}</view>
           </view>
           <view class="row">
-            <view class="label">价格状态：</view>
-            <view class="value">{{ priceLine }}</view>
+            <view class="label">付款状态：</view>
+            <view class="value">{{ paymentStatusLabel }}</view>
           </view>
           <view class="row">
-            <view class="label">支付状态：</view>
-            <view class="value">{{ paymentLine }}</view>
+            <view class="label">车型：</view>
+            <view class="value">{{ order.vehicleLabel || '—' }}</view>
+          </view>
+          <view class="row amount-row">
+            <view class="label">订单金额：</view>
+            <view class="value amount-stack">
+              <text>{{ amountPrimary }}</text>
+              <text v-if="amountSecondary" class="amount-sub">{{ amountSecondary }}</text>
+            </view>
           </view>
           <view class="row">
             <view class="label">订单编号：</view>
-            <view class="value">{{ orderIdShort }}</view>
+            <view class="value">{{ orderDisplayNo }}</view>
           </view>
           <view class="row">
             <view class="label">司机：</view>
@@ -63,7 +70,7 @@
 
       <view v-if="driverInfo && showDriverPreviewCard" class="status-card driver-card">
         <view class="status-row">
-          <text class="status-title">{{ driverCardTitle }}</text>
+          <text class="status-title">司机信息</text>
         </view>
         <view class="order-info">
           <view class="row">
@@ -94,26 +101,25 @@
       <!-- 操作按钮 -->
       <view v-if="order" class="action-buttons">
         <button
-          v-if="canConfirmPrice"
+          v-if="primaryAction?.type === 'pay'"
           class="pay-btn"
-          :disabled="priceActing"
-          @click="confirmPrice"
+          @click="goPay"
         >
-          确认价格
+          {{ primaryAction.label }}
         </button>
         <button
-          v-else-if="canMockPay"
-          class="pay-btn"
-          :disabled="priceActing"
-          @click="mockPay"
+          v-else-if="primaryAction?.type === 'hint'"
+          class="pay-btn hint-btn"
+          disabled
         >
-          模拟支付
+          {{ primaryAction.label }}
         </button>
-        <button class="edit-btn" @click="editOrder">修改订单</button>
+        <button class="edit-btn" @click="goHistory">订单历史</button>
+        <button class="contact-btn" @click="contactService">联系客服</button>
         <button
           v-if="canCancelOrder"
           class="cancel-btn"
-          :disabled="priceActing"
+          :disabled="acting"
           @click="cancelOrder"
         >
           取消订单
@@ -125,24 +131,26 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
+import { onShow, onHide } from '@dcloudio/uni-app'
+import { cancelPassengerOrder, fetchOrderList } from '../utils/orderApi.js'
+import { normalizeOrderStatus } from '../utils/orderStatus.js'
 import {
-  cancelPassengerOrder,
-  confirmOrderPrice,
-  fetchOrderList,
-  payOrderMock
-} from '../utils/orderApi.js'
-import {
-  normalizeOrderStatus,
-  clientOrderStatusLabel,
-  clientWaitPageTitle,
-  clientOrderWaitingHint
-} from '../utils/orderStatus.js'
+  clientV1BookingStatusLabel,
+  clientV1PageTitle,
+  clientV1WaitingHint,
+  clientV1PrimaryAction,
+  clientV1PaymentLabel,
+  clientV1ShowDriverCard,
+  clientV1DriverSummary
+} from '../utils/clientBookingFlow.js'
 import { pickActiveOrder, driverDisplayFromOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
+import { clientPrimaryAmountLine, clientSecondaryAmountLine } from '../utils/currencyDisplay.js'
 
 const order = ref(null)
 const lastFlowSlot = ref('')
-const priceActing = ref(false)
+const acting = ref(false)
+const pageVisible = ref(false)
 const driverInfo = computed(() => {
   if (!order.value?.driverId) return null
   return driverDisplayFromOrder(order.value)
@@ -150,24 +158,13 @@ const driverInfo = computed(() => {
 
 const orderNorm = computed(() => normalizeOrderStatus(order.value?.status))
 
-const pageTitle = computed(() => clientWaitPageTitle(order.value?.status))
-const statusLabel = computed(() => clientOrderStatusLabel(order.value?.status))
-const waitingText = computed(() => clientOrderWaitingHint(order.value?.status))
-const amountLine = computed(() => {
-  const amount = order.value?.amount
-  if (amount == null || amount === '') return '—'
-  const n = Number(amount)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-})
-const priceLine = computed(() => {
-  const status = order.value?.priceStatus || 'pending'
-  if (status === 'quoted' && order.value?.quoteSource === 'matrix') {
-    return `机场固定价：${amountLine.value}`
-  }
-  if (status === 'quoted') return `报价：${amountLine.value}`
-  if (status === 'confirmed') return `价格已确认：${amountLine.value}`
-  return '等待后台报价'
-})
+const pageTitle = computed(() => clientV1PageTitle(order.value))
+const bookingStatusLabel = computed(() => clientV1BookingStatusLabel(order.value))
+const paymentStatusLabel = computed(() => clientV1PaymentLabel(order.value))
+const waitingText = computed(() => clientV1WaitingHint(order.value))
+const primaryAction = computed(() => clientV1PrimaryAction(order.value))
+const amountPrimary = computed(() => clientPrimaryAmountLine(order.value))
+const amountSecondary = computed(() => clientSecondaryAmountLine(order.value))
 const pickupAddressLines = computed(() =>
   addressLines(
     order.value?.pickupPostcode,
@@ -182,46 +179,29 @@ const dropoffAddressLines = computed(() =>
     order.value?.dropoffDetail
   )
 )
-const paymentLine = computed(() => {
-  const map = {
-    unpaid: '未支付',
-    pending: '待支付',
-    paid: '已支付，等待司机服务',
-    refunded: '已退款'
-  }
-  return map[order.value?.paymentStatus || 'unpaid'] || order.value?.paymentStatus
-})
-const canConfirmPrice = computed(() => order.value?.priceStatus === 'quoted')
-const canMockPay = computed(() =>
-  order.value?.priceStatus === 'confirmed' && order.value?.paymentStatus !== 'paid'
+const canCancelOrder = computed(() =>
+  [
+    'pending',
+    'assigned',
+    'created',
+    'quoted',
+    'confirmed',
+    'deposit_paid'
+  ].includes(orderNorm.value)
 )
-const canCancelOrder = computed(() => ['pending', 'assigned'].includes(orderNorm.value))
 
-const orderIdShort = computed(() => {
-  const id = order.value?._id
+const orderDisplayNo = computed(() => {
+  const o = order.value
+  if (o?.orderNo) return String(o.orderNo)
+  const id = o?._id
   if (!id) return '—'
   const s = String(id)
   return s.length > 12 ? `${s.slice(0, 8)}…` : s
 })
 
-const driverSummaryLine = computed(() => {
-  if (!order.value?.driverId) return '暂未分配司机'
-  const n = orderNorm.value
-  const d = driverDisplayFromOrder(order.value)
-  if (n === 'assigned') {
-    return d.phone && d.phone !== '—'
-      ? `已指派，待司机确认（尾号 ${String(d.phone).slice(-4)}）`
-      : '已指派，待司机确认'
-  }
-  if (d.phone && d.phone !== '—') return `尾号 ${String(d.phone).slice(-4)}`
-  return '已关联司机'
-})
+const driverSummaryLine = computed(() => clientV1DriverSummary(order.value))
 
-const showDriverPreviewCard = computed(() => orderNorm.value === 'assigned' && !!driverInfo.value)
-
-const driverCardTitle = computed(() =>
-  orderNorm.value === 'assigned' ? '指派司机（待对方确认）' : '司机信息'
-)
+const showDriverPreviewCard = computed(() => clientV1ShowDriverCard(order.value))
 
 let pollingTimer = null
 
@@ -244,7 +224,9 @@ const fetchOrders = async () => {
 
     const orders = Array.isArray(data?.orders) ? data.orders : []
     order.value = pickActiveOrder(orders)
-    applyClientOrderRoute(order.value, lastFlowSlot)
+    if (pageVisible.value) {
+      applyClientOrderRoute(order.value, lastFlowSlot)
+    }
   } catch (error) {
     uni.showToast({ title: '获取订单失败', icon: 'none' })
   }
@@ -259,9 +241,22 @@ const startPolling = () => {
 }
 
 const goBack = () => {
-  uni.navigateTo({
-    url: '/pages/A0106_client_payment_v01'
+  uni.navigateBack({
+    fail: () => {
+      uni.reLaunch({ url: '/pages/A0300_client_main_v01' })
+    }
   })
+}
+
+function goPay() {
+  if (!order.value?._id) return
+  uni.navigateTo({
+    url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(order.value._id)}`
+  })
+}
+
+function goHistory() {
+  uni.navigateTo({ url: '/pages/A0202_client_order_history_v01' })
 }
 
 const goHome = () => {
@@ -270,48 +265,40 @@ const goHome = () => {
   })
 }
 
-onMounted(() => {
+const stopPolling = () => {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+}
+
+onShow(() => {
+  pageVisible.value = true
   startPolling()
 })
 
+onHide(() => {
+  pageVisible.value = false
+  stopPolling()
+})
+
 const contactService = () => {
-  uni.makePhoneCall({
-    phoneNumber: '400-800-8888'
-  })
+  const oid = order.value?._id ? String(order.value._id) : ''
+  const ono = orderDisplayNo.value && orderDisplayNo.value !== '—' ? String(orderDisplayNo.value) : ''
+  if (!oid) {
+    uni.navigateTo({ url: '/pages/A0408_client_submit_ticket_v01?type=other' })
+    return
+  }
+  const q = ono
+    ? `type=other&orderId=${encodeURIComponent(oid)}&orderNo=${encodeURIComponent(ono)}&returnTo=order`
+    : `type=other&orderId=${encodeURIComponent(oid)}&returnTo=order`
+  uni.navigateTo({ url: `/pages/A0408_client_submit_ticket_v01?${q}` })
 }
 
 function editOrder() {
   uni.navigateTo({
     url: '/pages/A0108_client_edit_order_v01'
   })
-}
-
-async function confirmPrice() {
-  if (!order.value?._id) return
-  priceActing.value = true
-  try {
-    await confirmOrderPrice(order.value._id)
-    uni.showToast({ title: '价格已确认', icon: 'success' })
-    await fetchOrders()
-  } catch (e) {
-    /* request 已提示 */
-  } finally {
-    priceActing.value = false
-  }
-}
-
-async function mockPay() {
-  if (!order.value?._id) return
-  priceActing.value = true
-  try {
-    await payOrderMock(order.value._id)
-    uni.showToast({ title: '支付成功（测试）', icon: 'success' })
-    await fetchOrders()
-  } catch (e) {
-    /* request 已提示 */
-  } finally {
-    priceActing.value = false
-  }
 }
 
 async function cancelOrder() {
@@ -321,7 +308,7 @@ async function cancelOrder() {
     content: '取消后订单将进入订单历史，是否继续？',
     success: async (res) => {
       if (!res.confirm) return
-      priceActing.value = true
+      acting.value = true
       try {
         await cancelPassengerOrder(order.value._id)
         uni.showToast({ title: '订单已取消', icon: 'success' })
@@ -329,14 +316,15 @@ async function cancelOrder() {
       } catch (e) {
         /* request 已提示 */
       } finally {
-        priceActing.value = false
+        acting.value = false
       }
     }
   })
 }
 
 onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
+  pageVisible.value = false
+  stopPolling()
 })
 </script>
 
@@ -405,6 +393,19 @@ onUnmounted(() => {
 
 .value {
   color: #666;
+}
+
+.amount-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.amount-sub {
+  font-size: 22px;
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .address-value {

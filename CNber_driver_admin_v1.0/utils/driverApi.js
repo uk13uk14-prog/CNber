@@ -10,7 +10,7 @@ export function getDriverDashboard() {
 export function updateDriverStatus(status) {
   return request({
     url: '/driver/status',
-    method: 'PATCH',
+    method: 'POST',
     data: { status }
   })
 }
@@ -27,6 +27,29 @@ export function getDriverProfile() {
   return request({
     url: '/driver/profile',
     method: 'GET'
+  })
+}
+
+export function getDriverIncomeSummary() {
+  return request({
+    url: '/driver/income/summary',
+    method: 'GET'
+  })
+}
+
+export function getDriverSettlements(params = {}) {
+  return request({
+    url: '/driver/settlements',
+    method: 'GET',
+    data: params
+  })
+}
+
+export function getDriverRatings(params = {}) {
+  return request({
+    url: '/driver/ratings',
+    method: 'GET',
+    data: params
   })
 }
 

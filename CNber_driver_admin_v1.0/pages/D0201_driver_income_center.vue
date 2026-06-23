@@ -2,99 +2,207 @@
   <view class="income-page">
     <view class="title">收入中心</view>
 
-    <view class="summary-box">
-      <view class="summary-item">
-        <view class="label">今日收入</view>
-        <view class="value">£{{ income.today }}</view>
-      </view>
-      <view class="summary-item">
-        <view class="label">本周收入</view>
-        <view class="value">£{{ income.week }}</view>
-      </view>
-      <view class="summary-item">
-        <view class="label">本月收入</view>
-        <view class="value">£{{ income.month }}</view>
-      </view>
+    <view v-if="loadError" class="error-box">
+      <text>{{ loadError }}</text>
+      <button class="btn-retry" size="mini" @click="reload">重试</button>
     </view>
 
-    <view class="order-stat">
-      <view class="stat-item">
-        <view class="label">总接单数</view>
-        <view class="number">{{ stats.total }}</view>
+    <template v-else>
+      <view class="summary-box">
+        <view class="summary-item">
+          <view class="label">今日收入</view>
+          <view class="value">{{ formatGbp(summary.todayIncomeGbp) }}</view>
+        </view>
+        <view class="summary-item">
+          <view class="label">本周收入</view>
+          <view class="value">{{ formatGbp(summary.weekIncomeGbp) }}</view>
+        </view>
+        <view class="summary-item">
+          <view class="label">本月收入</view>
+          <view class="value">{{ formatGbp(summary.monthIncomeGbp) }}</view>
+        </view>
+        <view class="summary-item highlight">
+          <view class="label">累计收入</view>
+          <view class="value">{{ formatGbp(summary.totalIncomeGbp) }}</view>
+        </view>
       </view>
-      <view class="stat-item">
-        <view class="label">完成订单</view>
-        <view class="number">{{ stats.completed }}</view>
-      </view>
-      <view class="stat-item">
-        <view class="label">可提现余额</view>
-        <view class="number">£{{ stats.availableBalance }}</view>
-      </view>
-      <view class="stat-item">
-        <view class="label">已提现</view>
-        <view class="number">£{{ stats.withdrawnAmount }}</view>
-      </view>
-    </view>
 
-    <view class="btn-box">
-      <button class="btn-primary" @click="goWithdraw">提现</button>
-    </view>
+      <view class="settlement-cards">
+        <view class="card">
+          <view class="card-label">待结算</view>
+          <view class="card-value">{{ formatGbp(summary.pendingSettlementGbp) }}</view>
+          <view class="card-sub">{{ formatCny(summary.pendingSettlementCny) }}</view>
+          <view class="card-count">{{ summary.pendingSettlementCount }} 笔批次</view>
+        </view>
+        <view class="card">
+          <view class="card-label">已结算</view>
+          <view class="card-value">{{ formatGbp(summary.paidSettlementGbp) }}</view>
+          <view class="card-sub">{{ formatCny(summary.paidSettlementCny) }}</view>
+          <view class="card-count">{{ summary.paidSettlementCount }} 笔批次</view>
+        </view>
+      </view>
+
+      <view class="order-stat">
+        <view class="stat-item">
+          <view class="label">完成订单</view>
+          <view class="number">{{ summary.completedOrderCount }}</view>
+        </view>
+        <view class="stat-item">
+          <view class="label">当前汇率</view>
+          <view class="number rate">1£ = ¥{{ rateText }}</view>
+        </view>
+      </view>
+
+      <view class="section-title">结算明细</view>
+      <view v-if="settlementsLoading" class="hint">加载结算明细…</view>
+      <view v-else-if="!settlements.length" class="hint">暂无结算批次</view>
+      <view v-else class="settlement-list">
+        <view v-for="item in settlements" :key="item._id" class="settlement-item">
+          <view class="row top">
+            <text class="period">{{ item.periodLabel || periodRange(item) }}</text>
+            <text class="status" :class="item.status">{{ statusLabel(item.status) }}</text>
+          </view>
+          <view class="row">
+            <text class="meta">单数 {{ item.orderCount }}</text>
+            <text class="amount">{{ formatGbp(item.driverSettlementGbp) }} / {{ formatCny(item.payableCny) }}</text>
+          </view>
+          <view v-if="item.status === 'paid'" class="payment-info">
+            <view class="row paid-at">打款时间：{{ formatTime(item.paidAt) }}</view>
+            <view v-if="item.paymentMethod" class="row">打款方式：{{ paymentMethodLabel(item.paymentMethod) }}</view>
+            <view v-if="item.paymentReference" class="row">流水号：{{ item.paymentReference }}</view>
+            <view v-if="item.paymentProofUrl" class="row">
+              凭证：
+              <text class="link" @click.stop="openProof(item.paymentProofUrl)">查看</text>
+            </view>
+            <view v-if="item.paymentRemark" class="row">备注：{{ item.paymentRemark }}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="btn-box">
+        <button class="btn-primary" @click="goWithdraw">提现</button>
+      </view>
+    </template>
   </view>
 </template>
 
 <script>
-import { request } from '../utils/request.js'
+import { getDriverIncomeSummary, getDriverSettlements } from '../utils/driverApi.js'
+import { formatGbp, formatCny } from '../utils/driverCurrencyDisplay.js'
+import { paymentMethodLabel } from '../utils/driverSupportApi.js'
+
+const emptySummary = () => ({
+  todayIncomeGbp: 0,
+  weekIncomeGbp: 0,
+  monthIncomeGbp: 0,
+  totalIncomeGbp: 0,
+  pendingSettlementGbp: 0,
+  paidSettlementGbp: 0,
+  pendingSettlementCny: 0,
+  paidSettlementCny: 0,
+  exchangeRate: 10,
+  completedOrderCount: 0,
+  pendingSettlementCount: 0,
+  paidSettlementCount: 0
+})
 
 export default {
   name: 'D0201_driver_income_center',
   data() {
     return {
-      income: {
-        today: 0,
-        week: 0,
-        month: 0
-      },
-      stats: {
-        total: 0,
-        completed: 0,
-        availableBalance: 0,
-        withdrawnAmount: 0
-      }
+      summary: emptySummary(),
+      settlements: [],
+      loadError: '',
+      settlementsLoading: false
+    }
+  },
+  computed: {
+    rateText() {
+      const n = Number(this.summary.exchangeRate)
+      return Number.isFinite(n) ? n.toFixed(2) : '—'
     }
   },
   onShow() {
-    this.fetchIncomeSummary()
+    this.reload()
   },
   methods: {
+    formatGbp,
+    formatCny,
+    paymentMethodLabel,
     normalizeAmount(value) {
       const n = Number(value)
       return Number.isFinite(n) ? n : 0
     },
+    async reload() {
+      this.loadError = ''
+      await Promise.all([this.fetchIncomeSummary(), this.fetchSettlements()])
+    },
     async fetchIncomeSummary() {
       try {
-        const data = await request({
-          url: '/driver/income/summary',
-          method: 'GET'
-        })
-        this.income = {
-          today: this.normalizeAmount(data.todayIncome ?? data.today),
-          week: this.normalizeAmount(data.weekIncome ?? data.week),
-          month: this.normalizeAmount(data.monthIncome ?? data.month)
-        }
-        this.stats = {
-          total: this.normalizeAmount(data.totalOrders ?? data.total),
-          completed: this.normalizeAmount(data.totalCompletedOrders ?? data.completed),
-          availableBalance: this.normalizeAmount(data.availableBalance),
-          withdrawnAmount: this.normalizeAmount(data.withdrawnAmount)
+        const data = await getDriverIncomeSummary()
+        this.summary = {
+          ...emptySummary(),
+          todayIncomeGbp: this.normalizeAmount(data.todayIncomeGbp ?? data.todayIncome),
+          weekIncomeGbp: this.normalizeAmount(data.weekIncomeGbp ?? data.weekIncome),
+          monthIncomeGbp: this.normalizeAmount(data.monthIncomeGbp ?? data.monthIncome),
+          totalIncomeGbp: this.normalizeAmount(data.totalIncomeGbp ?? data.totalIncome),
+          pendingSettlementGbp: this.normalizeAmount(data.pendingSettlementGbp),
+          paidSettlementGbp: this.normalizeAmount(data.paidSettlementGbp),
+          pendingSettlementCny: this.normalizeAmount(data.pendingSettlementCny),
+          paidSettlementCny: this.normalizeAmount(data.paidSettlementCny),
+          exchangeRate: this.normalizeAmount(data.exchangeRate) || 10,
+          completedOrderCount: this.normalizeAmount(data.completedOrderCount ?? data.totalCompletedOrders),
+          pendingSettlementCount: this.normalizeAmount(data.pendingSettlementCount),
+          paidSettlementCount: this.normalizeAmount(data.paidSettlementCount)
         }
       } catch (error) {
-        /* request 已统一提示 */
+        this.loadError = error?.message || '收入数据加载失败，请稍后重试'
       }
+    },
+    async fetchSettlements() {
+      this.settlementsLoading = true
+      try {
+        const data = await getDriverSettlements({ page: 1, pageSize: 30 })
+        this.settlements = Array.isArray(data?.settlements) ? data.settlements : []
+      } catch {
+        if (!this.loadError) {
+          this.settlements = []
+        }
+      } finally {
+        this.settlementsLoading = false
+      }
+    },
+    statusLabel(status) {
+      return status === 'paid' ? '已结算' : '待结算'
+    },
+    periodRange(item) {
+      if (item.startDate && item.endDate && item.startDate !== item.endDate) {
+        return `${item.startDate} ~ ${item.endDate}`
+      }
+      return item.startDate || item.endDate || '—'
+    },
+    formatTime(value) {
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return '—'
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
     },
     goWithdraw() {
       uni.navigateTo({
         url: '/pages/D0202_driver_withdraw'
       })
+    },
+    openProof(url) {
+      if (!url) return
+      // #ifdef H5
+      window.open(url, '_blank')
+      // #endif
+      // #ifndef H5
+      uni.setClipboardData({
+        data: url,
+        success: () => uni.showToast({ title: '凭证链接已复制', icon: 'none' })
+      })
+      // #endif
     }
   }
 }
@@ -115,12 +223,30 @@ export default {
     margin-bottom: 30rpx;
   }
 
+  .error-box {
+    background: #fff5f5;
+    border: 1rpx solid #fecaca;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    color: #b91c1c;
+    font-size: 28rpx;
+    display: flex;
+    flex-direction: column;
+    gap: 16rpx;
+    align-items: flex-start;
+  }
+
+  .btn-retry {
+    background: #fff;
+    color: $color-primary;
+  }
+
   .summary-box {
     background-color: white;
     border-radius: 16rpx;
     padding: 30rpx;
     box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
-    margin-bottom: 40rpx;
+    margin-bottom: 24rpx;
 
     .summary-item {
       display: flex;
@@ -130,6 +256,10 @@ export default {
 
       &:last-child {
         border-bottom: none;
+      }
+
+      &.highlight .value {
+        color: #0d9488;
       }
 
       .label {
@@ -144,15 +274,48 @@ export default {
     }
   }
 
+  .settlement-cards {
+    display: flex;
+    gap: 20rpx;
+    margin-bottom: 24rpx;
+
+    .card {
+      flex: 1;
+      background: #fff;
+      border-radius: 16rpx;
+      padding: 24rpx;
+      box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+
+      .card-label {
+        font-size: 26rpx;
+        color: $color-text-light;
+        margin-bottom: 8rpx;
+      }
+      .card-value {
+        font-size: 34rpx;
+        font-weight: bold;
+        color: $color-text-main;
+      }
+      .card-sub {
+        font-size: 24rpx;
+        color: #64748b;
+        margin-top: 6rpx;
+      }
+      .card-count {
+        font-size: 22rpx;
+        color: #94a3b8;
+        margin-top: 10rpx;
+      }
+    }
+  }
+
   .order-stat {
     display: flex;
-    flex-wrap: wrap;
     gap: 24rpx;
-    justify-content: space-between;
-    margin-bottom: 40rpx;
+    margin-bottom: 28rpx;
 
     .stat-item {
-      width: calc(50% - 12rpx);
+      flex: 1;
       background-color: white;
       border-radius: 16rpx;
       padding: 24rpx;
@@ -170,12 +333,104 @@ export default {
         font-weight: bold;
         color: $color-text-main;
       }
+
+      .rate {
+        font-size: 26rpx;
+      }
+    }
+  }
+
+  .section-title {
+    font-size: 30rpx;
+    font-weight: 600;
+    color: $color-text-main;
+    margin-bottom: 16rpx;
+  }
+
+  .hint {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 26rpx;
+    padding: 24rpx 0 40rpx;
+  }
+
+  .settlement-list {
+    margin-bottom: 32rpx;
+  }
+
+  .settlement-item {
+    background: #fff;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16rpx;
+      margin-bottom: 8rpx;
+      font-size: 26rpx;
+      color: $color-text-light;
+
+      &.top {
+        margin-bottom: 12rpx;
+      }
+    }
+
+    .period {
+      font-size: 28rpx;
+      font-weight: 600;
+      color: $color-text-main;
+      flex: 1;
+    }
+
+    .status {
+      font-size: 24rpx;
+      padding: 4rpx 12rpx;
+      border-radius: 999rpx;
+      background: #fef3c7;
+      color: #b45309;
+
+      &.paid {
+        background: #d1fae5;
+        color: #047857;
+      }
+    }
+
+    .amount {
+      color: $color-primary;
+      font-weight: 600;
+    }
+
+    .paid-at {
+      font-size: 24rpx;
+      color: #64748b;
+      margin-bottom: 0;
+    }
+
+    .payment-info {
+      margin-top: 12rpx;
+      padding-top: 12rpx;
+      border-top: 1rpx dashed #e2e8f0;
+      font-size: 24rpx;
+      color: #64748b;
+
+      .row {
+        margin-bottom: 6rpx;
+      }
+
+      .link {
+        color: $color-primary;
+      }
     }
   }
 
   .btn-box {
     display: flex;
     justify-content: center;
+    padding-bottom: 40rpx;
 
     .btn-primary {
       width: 90%;

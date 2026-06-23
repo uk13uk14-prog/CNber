@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     role: {
       type: String,
-      enum: ['user', 'driver', 'admin'],
+      enum: ['user', 'driver', 'admin', 'operator', 'finance', 'support', 'dispatcher'],
       default: 'user'
     },
     /** 账号状态：封禁/解封由管理端写入，与 ban/unban 接口一致 */
@@ -15,6 +15,18 @@ const UserSchema = new mongoose.Schema(
       type: String,
       enum: ['active', 'banned'],
       default: 'active'
+    },
+    /** 乘客资料（role=user） */
+    passengerProfile: {
+      realName: String,
+      email: String,
+      lastLoginAt: Date
+    },
+    /** 后台员工资料（role=admin/operator/finance/support/dispatcher） */
+    adminProfile: {
+      displayName: { type: String, default: '', trim: true },
+      lastLoginAt: Date,
+      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
     },
     driverProfile: {
       status: {
@@ -30,7 +42,19 @@ const UserSchema = new mongoose.Schema(
       address: String,
 
       licenseNo: String,
+      licenseNumber: String,
       licenseExpireAt: Date,
+      insuranceValidUntil: Date,
+      motValidUntil: Date,
+      pcoLicenseNumber: String,
+      vehiclePhoto: String,
+      vehiclePlate: String,
+      vehicleModel: String,
+      approvalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
 
       payment: {
         defaultMethod: {
@@ -47,6 +71,9 @@ const UserSchema = new mongoose.Schema(
       vehicle: {
         plateNo: String,
         model: String,
+        vehiclePlate: String,
+        vehicleModel: String,
+        vehiclePhoto: String,
         seats: Number,
         motExpireAt: Date,
         insuranceExpireAt: Date

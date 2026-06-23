@@ -29,7 +29,7 @@
         :disabled="!canGoRating"
         @click="goRating"
       >
-        评价司机
+        {{ ratingButtonLabel }}
       </button>
       <button class="btn btn-history" @click="goOrderHistory">订单历史</button>
     </view>
@@ -47,12 +47,13 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { fetchOrderList } from '../utils/orderApi.js'
+import { fetchOrderList, fetchOrderRating } from '../utils/orderApi.js'
 import { clientOrderStatusLabel, normalizeOrderStatus } from '../utils/orderStatus.js'
 import { pickActiveOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
 
 const order = ref(null)
 const lastFlowSlot = ref('')
+const ratingStatus = ref('unrated')
 let pollingTimer = null
 
 const statusLabel = computed(() => clientOrderStatusLabel(order.value?.status))
@@ -64,6 +65,11 @@ const isCompletedOrder = computed(
 const canGoRating = computed(
   () => !!(order.value && order.value._id && isCompletedOrder.value)
 )
+
+const ratingButtonLabel = computed(() => {
+  if (ratingStatus.value === 'rated') return '查看评价'
+  return '评价司机'
+})
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')
@@ -79,6 +85,16 @@ const fetchOrders = async () => {
     const orders = Array.isArray(data?.orders) ? data.orders : []
     order.value = pickActiveOrder(orders)
     applyClientOrderRoute(order.value, lastFlowSlot)
+    if (order.value?._id && normalizeOrderStatus(order.value.status) === 'completed') {
+      try {
+        const rd = await fetchOrderRating(order.value._id)
+        ratingStatus.value = rd?.ratingStatus === 'rated' || rd?.rating ? 'rated' : 'unrated'
+      } catch {
+        ratingStatus.value = order.value.ratingStatus === 'rated' ? 'rated' : 'unrated'
+      }
+    } else {
+      ratingStatus.value = 'unrated'
+    }
   } catch (error) {
     uni.showToast({ title: '获取订单失败', icon: 'none' })
   }

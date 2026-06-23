@@ -1,0 +1,51 @@
+airport,postcodePrefix,serviceType,price,note,enabled,airportCode,direction,carType,driverPayout,nightSurcharge,peakSurcharge,active
+LHR,LONDON_Z1_2,pickup,65,airport; London Zone 1-2; LHR pickup; margin GBP17,true,LHR,pickup,standard,48,10,10,true
+LHR,LONDON_Z1_2,dropoff,58,airport; London Zone 1-2; LHR dropoff; margin GBP17,true,LHR,dropoff,standard,41,10,10,true
+LHR,E14,pickup,85,airport; E14 Canary Wharf; LHR pickup; margin GBP20,true,LHR,pickup,standard,65,10,15,true
+LHR,E14,dropoff,78,airport; E14 Canary Wharf; LHR dropoff; margin GBP20,true,LHR,dropoff,standard,58,10,15,true
+LHR,CB1_CB5,pickup,165,airport; Cambridge CB1-CB5; LHR pickup; margin GBP25,true,LHR,pickup,standard,140,15,10,true
+LHR,CB1_CB5,dropoff,155,airport; Cambridge CB1-CB5; LHR dropoff; margin GBP25,true,LHR,dropoff,standard,130,15,10,true
+LHR,OX1_OX4,pickup,160,airport; Oxford OX1-OX4; LHR pickup; margin GBP25,true,LHR,pickup,standard,135,15,10,true
+LHR,OX1_OX4,dropoff,150,airport; Oxford OX1-OX4; LHR dropoff; margin GBP25,true,LHR,dropoff,standard,125,15,10,true
+LHR,M1_M4,pickup,330,airport; Manchester M1-M4; LHR pickup; margin GBP35,true,LHR,pickup,standard,295,20,10,true
+LHR,M1_M4,dropoff,320,airport; Manchester M1-M4; LHR dropoff; margin GBP35,true,LHR,dropoff,standard,285,20,10,true
+LGW,LONDON_Z1_2,pickup,95,airport; London Zone 1-2; LGW pickup; margin GBP20,true,LGW,pickup,standard,75,10,10,true
+LGW,LONDON_Z1_2,dropoff,88,airport; London Zone 1-2; LGW dropoff; margin GBP20,true,LGW,dropoff,standard,68,10,10,true
+LGW,E14,pickup,105,airport; E14 Canary Wharf; LGW pickup; margin GBP21,true,LGW,pickup,standard,84,10,15,true
+LGW,E14,dropoff,98,airport; E14 Canary Wharf; LGW dropoff; margin GBP21,true,LGW,dropoff,standard,77,10,15,true
+LGW,CB1_CB5,pickup,220,airport; Cambridge CB1-CB5; LGW pickup; margin GBP30,true,LGW,pickup,standard,190,15,10,true
+LGW,CB1_CB5,dropoff,210,airport; Cambridge CB1-CB5; LGW dropoff; margin GBP30,true,LGW,dropoff,standard,180,15,10,true
+LGW,OX1_OX4,pickup,210,airport; Oxford OX1-OX4; LGW pickup; margin GBP30,true,LGW,pickup,standard,180,15,10,true
+LGW,OX1_OX4,dropoff,200,airport; Oxford OX1-OX4; LGW dropoff; margin GBP30,true,LGW,dropoff,standard,170,15,10,true
+LGW,M1_M4,pickup,360,airport; Manchester M1-M4; LGW pickup; margin GBP35,true,LGW,pickup,standard,325,20,10,true
+LGW,M1_M4,dropoff,350,airport; Manchester M1-M4; LGW dropoff; margin GBP35,true,LGW,dropoff,standard,315,20,10,true
+STN,LONDON_Z1_2,pickup,110,airport; London Zone 1-2; STN pickup; margin GBP22,true,STN,pickup,standard,88,10,10,true
+STN,LONDON_Z1_2,dropoff,102,airport; London Zone 1-2; STN dropoff; margin GBP22,true,STN,dropoff,standard,80,10,10,true
+STN,E14,pickup,100,airport; E14 Canary Wharf; STN pickup; margin GBP20,true,STN,pickup,standard,80,10,15,true
+STN,E14,dropoff,92,airport; E14 Canary Wharf; STN dropoff; margin GBP20,true,STN,dropoff,standard,72,10,15,true
+STN,CB1_CB5,pickup,115,airport; Cambridge CB1-CB5; STN pickup; margin GBP20,true,STN,pickup,standard,95,15,10,true
+STN,CB1_CB5,dropoff,107,airport; Cambridge CB1-CB5; STN dropoff; margin GBP20,true,STN,dropoff,standard,87,15,10,true
+STN,OX1_OX4,pickup,230,airport; Oxford OX1-OX4; STN pickup; margin GBP30,true,STN,pickup,standard,200,15,10,true
+STN,OX1_OX4,dropoff,220,airport; Oxford OX1-OX4; STN dropoff; margin GBP30,true,STN,dropoff,standard,190,15,10,true
+STN,M1_M4,pickup,300,airport; Manchester M1-M4; STN pickup; margin GBP35,true,STN,pickup,standard,265,20,10,true
+STN,M1_M4,dropoff,290,airport; Manchester M1-M4; STN dropoff; margin GBP35,true,STN,dropoff,standard,255,20,10,true
+LTN,LONDON_Z1_2,pickup,105,airport; London Zone 1-2; LTN pickup; margin GBP21,true,LTN,pickup,standard,84,10,10,true
+LTN,LONDON_Z1_2,dropoff,97,airport; London Zone 1-2; LTN dropoff; margin GBP21,true,LTN,dropoff,standard,76,10,10,true
+LTN,E14,pickup,115,airport; E14 Canary Wharf; LTN pickup; margin GBP23,true,LTN,pickup,standard,92,10,15,true
+LTN,E14,dropoff,107,airport; E14 Canary Wharf; LTN dropoff; margin GBP23,true,LTN,dropoff,standard,84,10,15,true
+LTN,CB1_CB5,pickup,155,airport; Cambridge CB1-CB5; LTN pickup; margin GBP25,true,LTN,pickup,standard,130,15,10,true
+LTN,CB1_CB5,dropoff,145,airport; Cambridge CB1-CB5; LTN dropoff; margin GBP25,true,LTN,dropoff,standard,120,15,10,true
+LTN,OX1_OX4,pickup,165,airport; Oxford OX1-OX4; LTN pickup; margin GBP25,true,LTN,pickup,standard,140,15,10,true
+LTN,OX1_OX4,dropoff,155,airport; Oxford OX1-OX4; LTN dropoff; margin GBP25,true,LTN,dropoff,standard,130,15,10,true
+LTN,M1_M4,pickup,260,airport; Manchester M1-M4; LTN pickup; margin GBP35,true,LTN,pickup,standard,225,20,10,true
+LTN,M1_M4,dropoff,250,airport; Manchester M1-M4; LTN dropoff; margin GBP35,true,LTN,dropoff,standard,215,20,10,true
+MAN,LONDON_Z1_2,pickup,310,airport; London Zone 1-2; MAN pickup; margin GBP35,true,MAN,pickup,standard,275,20,10,true
+MAN,LONDON_Z1_2,dropoff,300,airport; London Zone 1-2; MAN dropoff; margin GBP35,true,MAN,dropoff,standard,265,20,10,true
+MAN,E14,pickup,320,airport; E14 Canary Wharf; MAN pickup; margin GBP35,true,MAN,pickup,standard,285,20,15,true
+MAN,E14,dropoff,310,airport; E14 Canary Wharf; MAN dropoff; margin GBP35,true,MAN,dropoff,standard,275,20,15,true
+MAN,CB1_CB5,pickup,265,airport; Cambridge CB1-CB5; MAN pickup; margin GBP35,true,MAN,pickup,standard,230,20,10,true
+MAN,CB1_CB5,dropoff,255,airport; Cambridge CB1-CB5; MAN dropoff; margin GBP35,true,MAN,dropoff,standard,220,20,10,true
+MAN,OX1_OX4,pickup,250,airport; Oxford OX1-OX4; MAN pickup; margin GBP35,true,MAN,pickup,standard,215,20,10,true
+MAN,OX1_OX4,dropoff,240,airport; Oxford OX1-OX4; MAN dropoff; margin GBP35,true,MAN,dropoff,standard,205,20,10,true
+MAN,M1_M4,pickup,42,airport; Manchester M1-M4; MAN pickup; margin GBP10,true,MAN,pickup,standard,32,10,10,true
+MAN,M1_M4,dropoff,37,airport; Manchester M1-M4; MAN dropoff; margin GBP9,true,MAN,dropoff,standard,28,10,10,true

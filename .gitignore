@@ -1,27 +1,45 @@
+# OS
+.DS_Store
+**/.DS_Store
+
+# IDE / local tooling
+.vscode/
+**/.vscode/**
+.idea/
+**/.idea/**
+.hbuilderx/
+**/.hbuilderx/**
+*.local
+**/*.local
+
 # Dependencies
 node_modules/
+*/node_modules/
 **/node_modules/**
 
 # Build outputs and generated caches
 dist/
-build/
-unpackage/
-.vite/
-.cache/
-cache/
-coverage/
+*/dist/
 **/dist/**
+build/
 **/build/**
+unpackage/
+*/unpackage/
 **/unpackage/**
+.vite/
 **/.vite/**
+.cache/
 **/.cache/**
+cache/
 **/cache/**
+coverage/
 **/coverage/**
 
 # Logs
 logs/
-*.log
+*/logs/
 **/logs/**
+*.log
 **/*.log
 
 # Local environment files
@@ -29,23 +47,28 @@ logs/
 .env.*
 !.env.example
 
-# IDE and local tooling
-.vscode/
-.idea/
-.hbuilderx/
-.DS_Store
-*.local
-**/.vscode/**
-**/.idea/**
-**/.hbuilderx/**
-**/.DS_Store
-**/*.local
+# User-uploaded payment proof images (never commit)
+CNber_backend/public/uploads/
 
-# Temporary inspection files
+# Admin Web build artifacts (rebuild via npm run build)
+CNber_backend/public/admin/
+
+# Backups and temporary bundles
+backup*/
+CNber_*backup*/
+*.backup*
+*.save
+*.rtf
+m1-p0-bundle/
+CNber_backend/scripts/m1-p0-bundle/
+
+# Temporary inspection / tree dumps
 tree.txt
 123tree.txt
+cnber_tree.txt
 structure.txt
-cnber客服后台登陆.txt
 **/tree.txt
 **/123tree.txt
+**/cnber_tree.txt
 **/structure.txt
+cnber客服后台登陆.txt

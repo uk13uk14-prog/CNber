@@ -18,7 +18,13 @@ const faqList = ref([
   { title: '如何注册？', page: '/pages/A0405_client_help_register_v01' },
   { title: '如何登录？', page: '/pages/A0406_client_help_login_v01' },
   { title: '如何使用各项服务？', page: '/pages/A0407_client_help_usage_v01' },
-  { title: '联系客服通道', page: '/pages/A0301_client_customer_service_v01' }
+  { title: '提交工单', page: '/pages/A0408_client_submit_ticket_v01?returnTo=help' },
+  { title: '我的工单', page: '/pages/A0409_client_my_tickets_v01' },
+  { title: '联系客服', page: '/pages/A0408_client_submit_ticket_v01?type=other' },
+  { title: '提交投诉', page: '/pages/A0408_client_submit_ticket_v01?type=complaint&returnTo=help' },
+  { title: '遗失物品', page: '/pages/A0408_client_submit_ticket_v01?type=lost_item&returnTo=help' },
+  { title: '修改订单', page: '/pages/A0408_client_submit_ticket_v01?type=modify_order&returnTo=help' },
+  { title: '退款申请', page: '/pages/A0408_client_submit_ticket_v01?type=refund_request&returnTo=help' }
 ])
 
 const goToFaq = (item) => {

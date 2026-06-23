@@ -78,7 +78,7 @@ function handlePayment() {
     success: () => {
       uni.hideLoading()
       uni.showToast({
-        title: '支付成功',
+        title: '打赏成功',
         icon: 'success',
         success: () => {
           setTimeout(() => {

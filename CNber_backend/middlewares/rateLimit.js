@@ -1,5 +1,26 @@
 const rateLimit = require('express-rate-limit')
 
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    code: 429,
+    message: 'Too many registration attempts, please try again later'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.ip
+  },
+  handler: (req, res, _next, options) => {
+    const body =
+      options.message && typeof options.message === 'object'
+        ? options.message
+        : { code: 429, message: String(options.message || 'Too many requests') }
+    res.status(429).json(body)
+  }
+})
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -43,6 +64,7 @@ const apiLimiter = rateLimit({
 })
 
 module.exports = {
+  registerLimiter,
   loginLimiter,
   apiLimiter
 }

@@ -2,13 +2,28 @@
   <div>
     <h2>订单列表</h2>
     <div class="toolbar card">
+      <label>快捷筛选</label>
+      <select v-model="filters.quick" class="input" style="max-width: 160px">
+        <option value="">全部</option>
+        <option value="pending_confirm">待确认</option>
+        <option value="pending_deposit">待付订金</option>
+        <option value="pending_dispatch">待派单</option>
+        <option value="driver_response">待司机响应</option>
+        <option value="today">今日接送</option>
+        <option value="exception">异常订单</option>
+      </select>
       <label>状态</label>
       <select v-model="filters.status" class="input" style="max-width: 160px">
         <option value="">全部</option>
-        <option value="pending">待接单</option>
+        <option value="created">下单完成</option>
+        <option value="quoted">已自动报价</option>
+        <option value="confirmed">客户确认报价</option>
+        <option value="deposit_paid">已付订金</option>
         <option value="assigned">已指派</option>
-        <option value="accepted">已接单</option>
-        <option value="started">行程中</option>
+        <option value="driver_accepted">司机已接单</option>
+        <option value="ready_to_start">待出发</option>
+        <option value="in_progress">行程中</option>
+        <option value="arrived">已到达</option>
         <option value="completed">已完成</option>
         <option value="cancelled">已取消</option>
       </select>
@@ -22,6 +37,10 @@
         <option value="all">全部订单</option>
       </select>
       <button type="button" class="btn btn-primary" @click="page = 1; load()">查询</button>
+      <label class="show-deleted">
+        <input v-model="filters.showDeleted" type="checkbox" @change="page = 1; load()" />
+        显示已删除订单
+      </label>
     </div>
     <p v-if="success" class="toast">{{ success }}</p>
     <p v-if="error" class="muted">{{ error }}</p>
@@ -33,132 +52,124 @@
         <table class="data">
           <thead>
             <tr>
-              <th>订单</th>
-              <th>客户</th>
+              <th>订单号</th>
+              <th>客户手机</th>
+              <th>服务类型</th>
               <th>起点</th>
               <th>终点</th>
-              <th>状态</th>
-              <th>调度状态</th>
-              <th>金额</th>
-              <th>报价</th>
-              <th>报价来源</th>
-              <th>支付</th>
-              <th>已派司机</th>
-              <th>推荐司机</th>
-              <th>选择司机</th>
-              <th>创建时间</th>
-              <th />
+              <th>预约时间</th>
+              <th>主状态</th>
+              <th>付款状态</th>
+              <th>客户价</th>
+              <th>司机价</th>
+              <th>平台利润</th>
+              <th>司机信息</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="o in group.orders" :key="o._id">
+            <tr v-for="o in group.orders" :key="o._id" :class="{ 'row-deleted': o.isDeleted }">
               <td>
                 <div class="order-no">{{ orderDisplayNo(o) }}</div>
-                <div class="order-id">ID: {{ shortId(o._id) }}</div>
+                <span v-if="o.isDeleted" class="deleted-tag">已删除</span>
               </td>
               <td>{{ phoneOf(o.userId) }}</td>
+              <td>
+                <div>{{ serviceTypeLabel(o.serviceType) }}</div>
+                <div v-if="o.vehicleLabel" class="price-sub">{{ o.vehicleLabel }}</div>
+              </td>
               <td class="ellipsis">{{ o.pickup || '—' }}</td>
               <td class="ellipsis">{{ o.destination || '—' }}</td>
+              <td class="nowrap">{{ adminScheduledTimeLabel(o) }}</td>
               <td>
-                <span class="status-pill" :class="statusClass(o.status)">
-                  {{ orderStatusLabel(o.status) }}
+                <span class="status-pill" :class="adminBookingStatusClass(o)">
+                  {{ adminBookingStatusLabel(o) }}
                 </span>
               </td>
               <td>
-                <span class="status-pill" :class="dispatchStatusClass(o.dispatchStatus)">
-                  {{ dispatchStatusLabel(o.dispatchStatus) }}
-                </span>
-              </td>
-              <td>{{ amountLabel(o.amount) }}</td>
-              <td>
-                <span class="status-pill" :class="statusClass(o.priceStatus || 'pending')">
-                  {{ priceStatusLabel(o.priceStatus) }}
+                <span class="status-pill" :class="paymentStatusPillClass(o)">
+                  {{ adminPaymentStatusLabel(o) }}
                 </span>
               </td>
               <td>
-                <div>{{ quoteSourceLabel(o.quoteSource) }}</div>
-                <div v-if="isAutoQuoted(o)" class="auto-quote-line">
-                  {{ autoQuoteLine(o) }}
-                </div>
-                <div v-if="o.quoteBreakdown && o.quoteBreakdown.total != null" class="recommend-meta">
-                  规则总价 {{ amountLabel(o.quoteBreakdown.total) }}
+                <div class="price-cell">
+                  <div>{{ customerPriceCell(o).main }}</div>
+                  <div v-if="customerPriceCell(o).sub" class="price-sub">{{ customerPriceCell(o).sub }}</div>
                 </div>
               </td>
               <td>
-                <span class="status-pill" :class="statusClass(o.paymentStatus || 'unpaid')">
-                  {{ paymentStatusLabel(o.paymentStatus) }}
-                </span>
-              </td>
-              <td>{{ assignedDriverLine(o) }}</td>
-              <td>
-                <div class="recommend-line">{{ recommendedDriverLabel(o) }}</div>
-                <div v-if="getRecommendedDriver(o)" class="recommend-meta">
-                  模拟 {{ simulatedDistance(o, getRecommendedDriver(o)) }} km ·
-                  近单 {{ driverRecentOrderCount(getRecommendedDriver(o)) }}
+                <div class="price-cell">
+                  <div>{{ driverPriceCell(o).main }}</div>
+                  <div v-if="driverPriceCell(o).sub" class="price-sub">{{ driverPriceCell(o).sub }}</div>
                 </div>
               </td>
-              <td>
-                <select
-                  v-model="selectedDriverIds[o._id]"
-                  class="input driver-select"
-                  :disabled="o.paymentStatus !== 'paid' || o.status !== 'pending'"
-                >
-                  <option value="">请选择司机</option>
-                  <option
-                    v-for="driver in recommendedDriversForOrder(o)"
-                    :key="driverOptionValue(driver)"
-                    :value="driverOptionValue(driver)"
+              <td>{{ platformProfitCell(o) }}</td>
+              <td class="driver-info-cell">{{ driverInfoLine(o) }}</td>
+              <td class="ops-cell">
+                <template v-if="adminOrderUiStage(o) === 'await_payment'">
+                  <span class="ops-hint">待客户付款</span>
+                </template>
+                <template v-else-if="adminOrderUiStage(o) === 'payment_review'">
+                  <button
+                    type="button"
+                    class="btn btn-primary small"
+                    :disabled="confirmingDepositId === o._id"
+                    @click="onConfirmDeposit(o)"
                   >
-                    {{ driverOptionLabel(driver) }}
-                  </option>
-                </select>
-                <div v-if="o.paymentStatus !== 'paid'" class="dispatch-hint">未支付不可派单</div>
-              </td>
-              <td>{{ fmt(o.createdAt) }}</td>
-              <td>
+                    {{ confirmingDepositId === o._id ? '确认中…' : '确认付款' }}
+                  </button>
+                </template>
+                <template v-else-if="adminOrderUiStage(o) === 'ready_dispatch'">
+                  <select
+                    v-model="selectedDriverIds[o._id]"
+                    class="input driver-select ops-select"
+                  >
+                    <option value="">请选择司机</option>
+                    <option
+                      v-for="driver in selectableDriversForOrder(o)"
+                      :key="driverOptionValue(driver)"
+                      :value="driverOptionValue(driver)"
+                    >
+                      {{ driverOptionLabel(driver) }}
+                    </option>
+                  </select>
+                  <button
+                    type="button"
+                    class="btn btn-primary small"
+                    :disabled="!canOpenDispatch(o)"
+                    @click="openDispatchModal(o)"
+                  >
+                    派单
+                  </button>
+                  <button
+                    type="button"
+                    class="btn one-click small"
+                    :disabled="!canOneClickAssign(o)"
+                    @click="onOneClickAssign(o)"
+                  >
+                    一键派单
+                  </button>
+                </template>
+                <template v-else-if="adminOrderUiStage(o) === 'assigned'">
+                  <button
+                    type="button"
+                    class="btn small"
+                    :disabled="!canUnassign(o)"
+                    @click="onUnassign(o)"
+                  >
+                    取消派单
+                  </button>
+                </template>
+                <router-link :to="`/orders/${o._id}`" class="btn small link-btn">详情</router-link>
                 <button
-                  v-if="canEditQuote(o)"
+                  v-if="canAdminSoftDeleteOrder(o)"
                   type="button"
-                  class="btn small"
-                  :disabled="quotingId === o._id"
-                  @click="onQuote(o)"
+                  class="btn btn-danger small"
+                  :disabled="deletingId === o._id"
+                  @click="openDeleteModal(o)"
                 >
-                  人工报价
+                  删除
                 </button>
-                <button
-                  v-if="canEditQuote(o)"
-                  type="button"
-                  class="btn small"
-                  :disabled="quotingId === o._id"
-                  @click="onAutoQuote(o)"
-                >
-                  重新报价
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary small"
-                  :disabled="!canOpenDispatch(o)"
-                  @click="openDispatchModal(o)"
-                >
-                  派单
-                </button>
-                <button
-                  type="button"
-                  class="btn small"
-                  :disabled="!canUnassign(o)"
-                  @click="onUnassign(o)"
-                >
-                  取消派单
-                </button>
-                <button
-                  type="button"
-                  class="btn one-click small"
-                  :disabled="!canOneClickAssign(o)"
-                  @click="onOneClickAssign(o)"
-                >
-                  一键派单
-                </button>
-                <router-link :to="`/orders/${o._id}`">详情</router-link>
               </td>
             </tr>
           </tbody>
@@ -220,21 +231,82 @@
         </div>
       </div>
     </div>
+
+    <div v-if="deleteModalVisible" class="modal-mask">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>删除订单</h3>
+            <p class="muted">订单：{{ orderDisplayNo(deleteTarget || {}) }}</p>
+          </div>
+          <button type="button" class="btn small" @click="closeDeleteModal">关闭</button>
+        </div>
+        <p class="delete-warn">
+          此操作不会物理删除数据，但会从默认订单列表隐藏。请输入管理员密码确认。
+        </p>
+        <label class="field-label">删除原因</label>
+        <input
+          v-model="deleteReason"
+          class="input"
+          type="text"
+          placeholder="例如：测试订单清理"
+        />
+        <label class="field-label">管理员密码</label>
+        <input
+          v-model="deletePassword"
+          class="input"
+          type="password"
+          placeholder="当前登录管理员密码"
+          autocomplete="current-password"
+        />
+        <p v-if="deleteError" class="err">{{ deleteError }}</p>
+        <div class="modal-actions">
+          <button type="button" class="btn" @click="closeDeleteModal">取消</button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            :disabled="deleteSubmitting"
+            @click="submitDelete"
+          >
+            {{ deleteSubmitting ? '删除中…' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   assignDriver,
   autoQuoteOrder,
+  confirmOrderDeposit,
   fetchAvailableDrivers,
   fetchDrivers,
+  fetchDriversForDispatch,
   fetchOrders,
   quoteOrder,
+  softDeleteOrder,
   unassignDriver
 } from '@/api/admin'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import {
+  adminBookingStatusLabel,
+  adminBookingStatusClass,
+  adminPaymentStatusLabel,
+  adminOrderUiStage,
+  adminScheduledTimeLabel,
+  canAdminSoftDeleteOrder
+} from '@/utils/bookingStatus'
+import { depositConfirmedForDispatch } from '@/utils/depositDispatch'
+import { serviceTypeLabel } from '@/utils/serviceType'
+import {
+  customerPriceCell,
+  driverPriceCell,
+  platformProfitCell
+} from '@/utils/currencyDisplay'
 
 const orders = ref([])
 const drivers = ref([])
@@ -245,16 +317,46 @@ const error = ref('')
 const success = ref('')
 const quotingId = ref('')
 const assigningId = ref('')
+const confirmingDepositId = ref('')
 const selectedDriverIds = reactive({})
 const dispatchModalVisible = ref(false)
 const dispatchOrder = ref(null)
 const availableDrivers = ref([])
 const availableDriversLoading = ref(false)
+const route = useRoute()
+const deleteModalVisible = ref(false)
+const deleteTarget = ref(null)
+const deletePassword = ref('')
+const deleteReason = ref('')
+const deleteError = ref('')
+const deleteSubmitting = ref(false)
+const deletingId = ref('')
+
 const filters = reactive({
+  quick: '',
   status: '',
+  depositStatus: '',
   customerPhone: '',
-  range: '7d'
+  range: '7d',
+  showDeleted: false
 })
+
+function applyRouteQuery() {
+  const q = route.query
+  if (q.quick != null && q.quick !== '') filters.quick = String(q.quick)
+  if (q.status != null && q.status !== '') {
+    const s = String(q.status)
+    if (s === 'pending') {
+      filters.quick = 'pending_confirm'
+      filters.status = ''
+    } else {
+      filters.status = s
+    }
+  }
+  if (q.depositStatus != null && q.depositStatus !== '') {
+    filters.depositStatus = String(q.depositStatus)
+  }
+}
 
 const groupedOrders = computed(() => {
   const groups = []
@@ -322,6 +424,70 @@ function amountLabel(amount) {
   return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
 }
 
+function totalPrice(order) {
+  return order.priceBreakdown?.totalPrice ?? order.quoteBreakdown?.totalPrice ?? order.quoteBreakdown?.total ?? order.amount
+}
+
+function driverPayout(order) {
+  return order.priceBreakdown?.driverPayout ?? (Number(totalPrice(order) || 0) * 0.75)
+}
+
+function platformProfit(order) {
+  return order.priceBreakdown?.platformProfit ?? (Number(totalPrice(order) || 0) - Number(driverPayout(order) || 0))
+}
+
+function hasDeposit(order) {
+  return depositConfirmedForDispatch(order)
+}
+
+function hasDepositPaymentInfo(order) {
+  const info = order?.depositPaymentInfo
+  if (!info || typeof info !== 'object') return false
+  return Object.keys(info).length > 0
+}
+
+/** 订单列表内展示「确认定金」：与支付审核/详情页同一门禁，已确认则不显示 */
+function canShowConfirmDeposit(order) {
+  if (!order?._id || depositConfirmedForDispatch(order)) return false
+  if (order.depositStatus === 'submitted') return true
+  if (order.paymentStage === 'deposit_submitted') return true
+  if (order.paymentStatus === 'pending' && hasDepositPaymentInfo(order)) return true
+  return false
+}
+
+function paymentStageLabel(stage) {
+  const map = {
+    none: '—',
+    deposit_pending: '待付定金',
+    deposit_submitted: '定金待审',
+    deposit_confirmed: '定金已确',
+    balance_pending: '待付尾款',
+    balance_submitted: '尾款待审',
+    balance_confirmed: '尾款已确',
+    completed: '支付结束'
+  }
+  return map[stage || 'none'] || stage || '—'
+}
+
+function depositStatusLabel(s) {
+  const map = { unpaid: '未提交', submitted: '待确认', confirmed: '已确认', rejected: '驳回' }
+  return map[s || 'unpaid'] || s || '—'
+}
+
+function balanceStatusLabel(s) {
+  const map = { unpaid: '未提交', submitted: '待确认', confirmed: '已确认', rejected: '驳回' }
+  return map[s || 'unpaid'] || s || '—'
+}
+
+function driverSettlementLabel(s) {
+  const map = { not_required: '—', pending: '待结算', paid: '已结算' }
+  return map[s || 'not_required'] || s || '—'
+}
+
+function isDispatchable(order) {
+  return ['deposit_paid', 'pending', 'assigned'].includes(order.status)
+}
+
 function priceStatusLabel(status) {
   const map = {
     pending: '待报价',
@@ -365,8 +531,13 @@ function statusClass(status) {
     pending: 'status-gray',
     quoted: 'status-blue',
     confirmed: 'status-purple',
+    deposit_paid: 'status-green',
     paid: 'status-green',
     assigned: 'status-orange',
+    driver_accepted: 'status-blue',
+    ready_to_start: 'status-green',
+    in_progress: 'status-deep-blue',
+    arrived: 'status-blue',
     started: 'status-deep-blue',
     completed: 'status-deep-green'
   }
@@ -375,22 +546,26 @@ function statusClass(status) {
 
 function dispatchStatusLabel(status) {
   const map = {
+    pending: '未派单',
     unassigned: '未派单',
     assigned: '已派单',
     accepted: '司机已接',
     rejected: '司机拒绝',
-    completed: '已完成'
+    completed: '已完成',
+    cancelled: '派单取消'
   }
   return map[status || 'unassigned'] || status
 }
 
 function dispatchStatusClass(status) {
   const map = {
+    pending: 'status-gray',
     unassigned: 'status-gray',
     assigned: 'status-orange',
     accepted: 'status-blue',
     rejected: 'status-purple',
-    completed: 'status-deep-green'
+    completed: 'status-deep-green',
+    cancelled: 'status-purple'
   }
   return map[status || 'unassigned'] || 'status-gray'
 }
@@ -405,23 +580,129 @@ function assignedDriverLine(order) {
   return driverId ? `已派：${idOf(driverId)}` : '未派'
 }
 
+function driverInfoLine(order) {
+  if (!order?.driverId && !order?.assignedDriver) return '—'
+  const parts = []
+  const name = order.assignedDriverName || order.assignedDriver?.driverProfile?.realName
+  const phone =
+    order.assignedDriverPhone ||
+    phoneOf(order.assignedDriver) ||
+    phoneOf(order.driverId)
+  const plate =
+    order.assignedDriver?.driverProfile?.vehiclePlate ||
+    order.assignedDriver?.driverProfile?.vehicle?.plateNo ||
+    ''
+  if (name) parts.push(name)
+  if (phone) parts.push(phone)
+  if (plate) parts.push(plate)
+  return parts.length ? parts.join(' / ') : assignedDriverLine(order)
+}
+
+function paymentStatusPillClass(order) {
+  const label = adminPaymentStatusLabel(order)
+  if (label === '待付款') return 'status-orange'
+  if (label === '付款待确认') return 'status-blue'
+  if (label === '已付款') return 'status-green'
+  return 'status-gray'
+}
+
 function driverOptionValue(driver) {
-  return idOf(driver.userId || driver._id)
+  return idOf(driver.userId || driver.id || driver._id)
+}
+
+/** 兼容 available / for-dispatch / drivers 多种 API 返回结构 */
+function extractDriverRows(data) {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data.drivers)) return data.drivers
+  if (Array.isArray(data.items)) return data.items
+  if (Array.isArray(data.list)) return data.list
+  if (Array.isArray(data.external)) return data.external
+  return []
+}
+
+/** 统一 available / for-dispatch / drivers 列表字段，供下拉与派单弹窗使用 */
+function normalizeDriverForSelect(raw) {
+  if (!raw) return null
+  const userRef = raw.userId && typeof raw.userId === 'object' ? raw.userId : null
+  const userId = idOf(userRef || raw.userId || raw.id || raw._id)
+  if (!userId) return null
+  const profile = raw.driverProfile || userRef?.driverProfile || {}
+  const status = String(raw.status || profile.status || raw.serviceStatus || '').toLowerCase()
+  const serviceStatus = String(raw.serviceStatus || profile.status || status || '').toLowerCase()
+  const approvalStatus =
+    raw.approvalStatus ||
+    raw.reviewStatus ||
+    profile.approvalStatus ||
+    profile.documents?.reviewStatus ||
+    raw.verificationStatus ||
+    ''
+  const phone = raw.phone || profile.phone || phoneOf(userRef) || ''
+  const carPlate =
+    raw.carPlate ||
+    raw.vehiclePlate ||
+    profile.vehiclePlate ||
+    raw.vehicle?.plateNo ||
+    profile.vehicle?.plateNo ||
+    ''
+  const carModel =
+    raw.carModel ||
+    raw.vehicleModel ||
+    profile.vehicleModel ||
+    raw.vehicle?.model ||
+    profile.vehicle?.model ||
+    ''
+  const label = raw.label || `${phone} / ${carPlate || '—'} / ${carModel || '—'}`
+  return {
+    ...raw,
+    id: userId,
+    _id: userId,
+    userId: userRef || { _id: userId, phone, driverProfile: profile },
+    name: raw.name || profile.realName || '',
+    phone,
+    label,
+    status,
+    serviceStatus,
+    approvalStatus,
+    reviewStatus: approvalStatus,
+    carPlate,
+    carModel,
+    available:
+      raw.available === true ||
+      status === 'online' ||
+      serviceStatus === 'idle' ||
+      serviceStatus === 'available' ||
+      serviceStatus === 'online'
+  }
+}
+
+function normalizeDriverList(list) {
+  return (Array.isArray(list) ? list : [])
+    .map(normalizeDriverForSelect)
+    .filter(Boolean)
 }
 
 function driverOptionLabel(driver) {
-  const user = driver.userId
-  const phone = driver.phone || phoneOf(user)
-  const name = driver.name ? `${driver.name} · ` : ''
-  const id = driverOptionValue(driver)
-  const suffix = driver.status ? ` · ${driver.status}` : ''
-  return `${name}${phone || id}${suffix}`
+  const row = normalizeDriverForSelect(driver) || driver
+  if (row.label) return row.label
+  const phone = row.phone || phoneOf(row.userId)
+  const id = driverOptionValue(row)
+  return `${phone || id}`
 }
 
 function activeDriverIds() {
   const ids = new Set()
   for (const order of orders.value) {
-    if (!['assigned', 'accepted', 'started'].includes(order.status)) continue
+    if (
+      ![
+        'assigned',
+        'accepted',
+        'driver_accepted',
+        'ready_to_start',
+        'started',
+        'in_progress'
+      ].includes(order.status)
+    ) continue
     const id = idOf(order.driverId)
     if (id) ids.add(id)
   }
@@ -429,9 +710,20 @@ function activeDriverIds() {
 }
 
 function isDriverAvailable(driver) {
-  const status = driver.status || ''
-  // 兼容当前后端 Driver.status=approved 的历史数据；有 available 时优先按 available 使用。
-  return status === 'available' || status === 'approved'
+  const row = normalizeDriverForSelect(driver) || driver
+  if (row.available === true) return true
+  const status = String(row.status || '').toLowerCase()
+  if (['online', 'available', 'approved', 'idle', 'active'].includes(status)) return true
+  const serviceStatus = String(row.serviceStatus || '').toLowerCase()
+  if (['idle', 'available', 'online'].includes(serviceStatus)) return true
+  const approval = String(
+    row.approvalStatus || row.reviewStatus || row.verificationStatus || ''
+  ).toLowerCase()
+  if (['approved', 'passed', 'verified'].includes(approval)) {
+    if (['offline', 'rejected', 'blocked'].includes(status)) return false
+    return true
+  }
+  return false
 }
 
 function driverRecentOrderCount(driver) {
@@ -459,6 +751,20 @@ function recommendedDriversForOrder(order) {
       if (recentDiff !== 0) return recentDiff
       return Number(simulatedDistance(order, a)) - Number(simulatedDistance(order, b))
     })
+}
+
+/** 推荐为空时仍展示全部可用司机，避免下拉被清空 */
+function selectableDriversForOrder(order) {
+  const recommended = recommendedDriversForOrder(order)
+  if (recommended.length) return recommended
+  const busyIds = activeDriverIds()
+  return drivers.value
+    .filter((driver) => isDriverAvailable(driver))
+    .filter(
+      (driver) =>
+        !busyIds.has(driverOptionValue(driver)) ||
+        driverOptionValue(driver) === idOf(order.driverId)
+    )
 }
 
 function getRecommendedDriver(order) {
@@ -494,8 +800,8 @@ function canEditQuote(order) {
 
 function canAssign(order) {
   return (
-    order.paymentStatus === 'paid' &&
-    order.status === 'pending' &&
+    hasDeposit(order) &&
+    isDispatchable(order) &&
     !!selectedDriverIds[order._id] &&
     assigningId.value !== order._id
   )
@@ -503,7 +809,9 @@ function canAssign(order) {
 
 function canOpenDispatch(order) {
   return (
-    ['pending', 'assigned'].includes(order.status) &&
+    adminOrderUiStage(order) === 'ready_dispatch' &&
+    hasDeposit(order) &&
+    isDispatchable(order) &&
     assigningId.value !== order._id
   )
 }
@@ -511,16 +819,17 @@ function canOpenDispatch(order) {
 function canUnassign(order) {
   return (
     !!(order.assignedDriver || order.driverId) &&
-    ['assigned', 'unassigned'].includes(order.dispatchStatus || 'unassigned') &&
-    !['accepted', 'started', 'completed', 'cancelled'].includes(order.status) &&
+    ['assigned', 'unassigned', 'pending'].includes(order.dispatchStatus || 'pending') &&
+    !['accepted', 'driver_accepted', 'started', 'in_progress', 'completed', 'cancelled'].includes(order.status) &&
     assigningId.value !== order._id
   )
 }
 
 function canOneClickAssign(order) {
   return (
-    order.paymentStatus === 'paid' &&
-    order.status === 'pending' &&
+    adminOrderUiStage(order) === 'ready_dispatch' &&
+    hasDeposit(order) &&
+    isDispatchable(order) &&
     !!getRecommendedDriver(order) &&
     assigningId.value !== order._id
   )
@@ -562,9 +871,24 @@ async function onAutoQuote(order) {
   }
 }
 
+async function onConfirmDeposit(order) {
+  confirmingDepositId.value = order._id
+  error.value = ''
+  success.value = ''
+  try {
+    await confirmOrderDeposit(order._id)
+    success.value = '付款已确认'
+    await load()
+  } catch (e) {
+    error.value = e.message || '确认定金失败'
+  } finally {
+    confirmingDepositId.value = ''
+  }
+}
+
 async function onAssign(order) {
-  if (order.paymentStatus !== 'paid') {
-    error.value = '未支付不可派单'
+  if (!hasDeposit(order)) {
+    error.value = '定金未确认，不能派单'
     return
   }
 
@@ -601,7 +925,7 @@ async function openDispatchModal(order) {
   success.value = ''
   try {
     const data = await fetchAvailableDrivers()
-    availableDrivers.value = Array.isArray(data) ? data : data.drivers || []
+    availableDrivers.value = normalizeDriverList(extractDriverRows(data))
   } catch (e) {
     error.value = e.message || '加载在线司机失败'
     availableDrivers.value = []
@@ -612,12 +936,17 @@ async function openDispatchModal(order) {
 
 async function assignFromModal(driver) {
   const order = dispatchOrder.value
-  if (!order || !driver?._id) return
+  const driverUserId = driverOptionValue(driver)
+  if (!order || !driverUserId) return
+  if (!hasDeposit(order)) {
+    error.value = '定金未确认，不能派单'
+    return
+  }
   assigningId.value = order._id
   error.value = ''
   success.value = ''
   try {
-    await assignDriver(order._id, driver._id)
+    await assignDriver(order._id, driverUserId)
     success.value = '派单成功'
     closeDispatchModal()
     await Promise.all([loadDrivers(), load()])
@@ -669,14 +998,20 @@ async function onOneClickAssign(order) {
 
 async function loadDrivers() {
   try {
-    let data = await fetchAvailableDrivers()
-    let rows = Array.isArray(data) ? data : data.drivers || []
+    let rows = normalizeDriverList(extractDriverRows(await fetchAvailableDrivers()))
     if (!rows.length) {
-      data = await fetchDrivers({ page: 1, pageSize: 100, status: 'approved' })
-      rows = data.drivers || []
+      const fd = await fetchDriversForDispatch()
+      rows = normalizeDriverList(extractDriverRows(fd))
+    }
+    if (!rows.length) {
+      const data = await fetchDrivers({ page: 1, pageSize: 100, status: 'approved' })
+      rows = normalizeDriverList(extractDriverRows(data))
     }
     drivers.value = rows
     applyRecommendedDrivers()
+    console.log('[OrdersView] availableDrivers', rows)
+    console.log('[OrdersView] recommendedDrivers', rows.filter((d) => isDriverAvailable(d)))
+    console.log('[OrdersView] selectedDriverId', { ...selectedDriverIds })
   } catch (e) {
     error.value = e.message || '加载司机失败'
     drivers.value = []
@@ -690,8 +1025,11 @@ async function load() {
       page: page.value,
       pageSize: pageSize.value,
       status: filters.status || undefined,
+      quick: filters.quick || undefined,
+      depositStatus: filters.depositStatus || undefined,
       customerPhone: filters.customerPhone || undefined,
-      range: filters.range
+      range: filters.showDeleted ? 'all' : filters.range,
+      showDeleted: filters.showDeleted ? '1' : undefined
     })
     orders.value = data.orders || []
     total.value = data.total ?? 0
@@ -702,9 +1040,66 @@ async function load() {
   }
 }
 
+function openDeleteModal(order) {
+  deleteTarget.value = order
+  deletePassword.value = ''
+  deleteReason.value = ''
+  deleteError.value = ''
+  deleteModalVisible.value = true
+}
+
+function closeDeleteModal() {
+  deleteModalVisible.value = false
+  deleteTarget.value = null
+  deletePassword.value = ''
+  deleteReason.value = ''
+  deleteError.value = ''
+}
+
+async function submitDelete() {
+  const order = deleteTarget.value
+  if (!order?._id) return
+  if (!deleteReason.value.trim()) {
+    deleteError.value = '请填写删除原因'
+    return
+  }
+  if (!deletePassword.value) {
+    deleteError.value = '请输入管理员密码'
+    return
+  }
+  deleteSubmitting.value = true
+  deletingId.value = order._id
+  deleteError.value = ''
+  error.value = ''
+  try {
+    await softDeleteOrder(order._id, {
+      adminPassword: deletePassword.value,
+      reason: deleteReason.value.trim()
+    })
+    success.value = '订单已归档删除'
+    closeDeleteModal()
+    await load()
+  } catch (e) {
+    deleteError.value = e.message || '删除失败'
+  } finally {
+    deleteSubmitting.value = false
+    deletingId.value = ''
+  }
+}
+
 onMounted(async () => {
+  applyRouteQuery()
   await Promise.all([loadDrivers(), load()])
 })
+
+watch(
+  () => route.query,
+  () => {
+    applyRouteQuery()
+    page.value = 1
+    load()
+  }
+)
 </script>
 
 <style scoped>
@@ -885,5 +1280,98 @@ h2 {
 .status-deep-green {
   background: #bbf7d0;
   color: #166534;
+}
+.ops-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 180px;
+}
+.ops-select {
+  min-width: 140px;
+  max-width: 180px;
+}
+.ops-hint {
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 600;
+}
+.driver-info-cell {
+  font-size: 13px;
+  max-width: 160px;
+}
+.nowrap {
+  white-space: nowrap;
+  font-size: 13px;
+}
+.link-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.price-cell {
+  white-space: nowrap;
+}
+.price-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+.show-deleted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.row-deleted {
+  opacity: 0.85;
+  background: #fef2f2;
+}
+.deleted-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.delete-warn {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.field-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.err {
+  margin-top: 10px;
+  color: var(--danger);
+  font-size: 13px;
 }
 </style>

@@ -30,6 +30,10 @@
 
     // 客服与紧急机制
     { "path": "pages/D0301_driver_customer_service", "style": { "navigationBarTitleText": "客服中心" } },
+    { "path": "pages/D0401_driver_support_center", "style": { "navigationBarTitleText": "客服中心" } },
+    { "path": "pages/D0402_driver_submit_ticket", "style": { "navigationBarTitleText": "提交工单" } },
+    { "path": "pages/D0403_driver_my_tickets", "style": { "navigationBarTitleText": "我的工单" } },
+    { "path": "pages/D0404_driver_ticket_detail", "style": { "navigationBarTitleText": "工单详情" } },
     { "path": "pages/D0304_driver_sos", "style": { "navigationBarTitleText": "紧急求助" } },
 
     // 设置与通知

@@ -4,6 +4,45 @@ const User = require('../models/User')
 const PricingRule = require('../models/PricingRule')
 const PriceMatrix = require('../models/PriceMatrix')
 const ORDER_STATUS = Order.ORDER_STATUS
+const DISPATCH_STATUS = Order.DISPATCH_STATUS
+const {
+  buildQuotePatch,
+  buildPaymentFields,
+  paymentSummary,
+  roundMoney
+} = require('../utils/pricing')
+const {
+  fireProfileSync,
+  syncProfilesAfterOrderCompleted,
+  syncProfilesAfterOrderCancelled
+} = require('../utils/profileSync')
+const {
+  canDispatchByDeposit,
+  newOrderManualPaymentDefaults,
+  quotedManualPaymentAmounts,
+  applyReadyToStartStatus
+} = require('../utils/orderPaymentFlow')
+const { attachPaymentToOrder, legacyDepositStatus } = require('../utils/orderPaymentSync')
+const { logPushPayload } = require('../utils/operationLog')
+const { presentOrderForApi, presentOrdersForApi } = require('../utils/orderPresentation')
+const { buildRouteOrderQuote } = require('../utils/routePricing')
+const { activeOrdersFilter } = require('../utils/orderSoftDelete')
+
+const QUOTABLE_STATUSES = new Set([
+  ORDER_STATUS.CREATED,
+  ORDER_STATUS.QUOTED,
+  ORDER_STATUS.PENDING
+])
+
+const DRIVER_ACCEPTED_STATUSES = new Set([
+  ORDER_STATUS.DRIVER_ACCEPTED,
+  ORDER_STATUS.ACCEPTED
+])
+
+const IN_PROGRESS_STATUSES = new Set([
+  ORDER_STATUS.IN_PROGRESS,
+  ORDER_STATUS.STARTED
+])
 
 const AIRPORT_ALIASES = {
   LHR: 'LHR',
@@ -176,6 +215,7 @@ async function calculateQuoteByRule(order) {
 
   return {
     amount: total,
+    driverPayout: roundMoney(total * 0.75),
     quoteBreakdown: {
       baseFare,
       distanceMiles,
@@ -185,7 +225,10 @@ async function calculateQuoteByRule(order) {
       airportSurcharge,
       nightSurcharge,
       serviceMultiplier,
-      total
+      total,
+      totalPrice: total,
+      driverPayout: roundMoney(total * 0.75),
+      platformProfit: roundMoney(total * 0.25)
     }
   }
 }
@@ -206,6 +249,7 @@ async function calculateQuoteByMatrix(order) {
 
   return {
     amount: Number(record.price),
+    driverPayout: record.driverPayout,
     quoteSource: 'matrix',
     quoteBreakdown: {
       type: 'fixed_matrix',
@@ -213,12 +257,26 @@ async function calculateQuoteByMatrix(order) {
       postcodePrefix: record.postcodePrefix,
       serviceType,
       matrixId: record._id,
-      price: Number(record.price)
+      price: Number(record.price),
+      totalPrice: Number(record.price),
+      driverPayout:
+        record.driverPayout != null
+          ? Number(record.driverPayout)
+          : roundMoney(Number(record.price) * 0.75),
+      platformProfit: roundMoney(
+        Number(record.price) -
+          (record.driverPayout != null
+            ? Number(record.driverPayout)
+            : Number(record.price) * 0.75)
+      )
     }
   }
 }
 
 async function calculateBestQuote(order) {
+  const routeQuote = await buildRouteOrderQuote(order)
+  if (routeQuote) return routeQuote
+
   const matrixQuote = await calculateQuoteByMatrix(order)
   if (matrixQuote) return matrixQuote
 
@@ -229,6 +287,8 @@ async function calculateBestQuote(order) {
     quoteSource: 'rule'
   }
 }
+
+const { assertScheduledPickup24h } = require('../utils/scheduledPickup')
 
 exports.createOrder = async (req, res) => {
   const { userId, pickup, destination, status } = req.body
@@ -249,6 +309,8 @@ exports.createOrder = async (req, res) => {
     throw e
   }
 
+  assertScheduledPickup24h(req.body)
+
   const baseOrder = {
     userId,
     pickup,
@@ -265,6 +327,8 @@ exports.createOrder = async (req, res) => {
     postcode: req.body.postcode,
     addressPostcode: req.body.addressPostcode,
     destinationPostcode: req.body.destinationPostcode,
+    vehicleClass: String(req.body.vehicleClass || 'standard_5').trim() || 'standard_5',
+    vehicleLabel: String(req.body.vehicleLabel || '5座普通').trim() || '5座普通',
     status
   }
 
@@ -274,7 +338,8 @@ exports.createOrder = async (req, res) => {
     try {
       order = await Order.create({
         ...baseOrder,
-        ...(await nextOrderNoPayload())
+        ...(await nextOrderNoPayload()),
+        ...newOrderManualPaymentDefaults()
       })
       break
     } catch (e) {
@@ -287,15 +352,40 @@ exports.createOrder = async (req, res) => {
   try {
     const quote = await calculateBestQuote(order)
     if (quote) {
+      const quotePatch =
+        quote.pricingMode === 'fixed' || quote.quoteSource === 'fixed' || quote.quoteSource === 'route_fixed'
+          ? {
+              amount: quote.amount,
+              pricingMode: 'fixed',
+              pricingSource: quote.pricingSource || quote.quoteSource,
+              customerPriceCny: quote.customerPriceCny,
+              driverPriceGbp: quote.driverPriceGbp,
+              exchangeRate: quote.exchangeRate,
+              driverSettlementCny: quote.driverSettlementCny,
+              platformProfitCny: quote.platformProfitCny,
+              priceBreakdown: quote.priceBreakdown,
+              quoteBreakdown: quote.quoteBreakdown,
+              driverSettlementAmount: quote.driverSettlementAmount,
+              totalAmount: quote.totalAmount,
+              vehicleClass: quote.vehicleClass || baseOrder.vehicleClass,
+              vehicleLabel: quote.vehicleLabel || baseOrder.vehicleLabel,
+              routeFromLabel: quote.routeFromLabel || '',
+              routeToLabel: quote.routeToLabel || '',
+              ...quotedManualPaymentAmounts(quote.amount)
+            }
+          : {
+              ...buildQuotePatch(quote.amount, quote),
+              ...quotedManualPaymentAmounts(quote.amount)
+            }
       order = await Order.findByIdAndUpdate(
         order._id,
         {
           $set: {
-            amount: quote.amount,
+            ...quotePatch,
             priceStatus: 'quoted',
+            status: ORDER_STATUS.QUOTED,
             paymentStatus: 'unpaid',
             quoteSource: quote.quoteSource,
-            quoteBreakdown: quote.quoteBreakdown,
             updatedAt: new Date()
           }
         },
@@ -312,12 +402,13 @@ exports.createOrder = async (req, res) => {
   res.status(201).json({
     code: 0,
     message: 'success',
-    data: { order }
+    data: { order: await presentOrderForApi(order, { withPayment: false }) }
   })
 }
 
 exports.listOrders = async (req, res) => {
   let query = { ...(req.orderQuery || {}) }
+  query.$and = (query.$and || []).concat([activeOrdersFilter()])
 
   if (req.user.role === 'driver') {
     // 后台派单模式：司机端列表只返回明确指派给自己的订单。
@@ -377,10 +468,12 @@ exports.listOrders = async (req, res) => {
     .populate('userId', 'phone')
     .populate('driverId', 'phone')
 
+  const enrichedOrders = await presentOrdersForApi(orders)
+
   res.json({
     code: 0,
     message: 'success',
-    data: { orders }
+    data: { orders: enrichedOrders }
   })
 }
 
@@ -406,7 +499,7 @@ exports.quoteOrder = async (req, res) => {
     e.code = 404
     throw e
   }
-  if (current.status !== ORDER_STATUS.PENDING) {
+  if (!QUOTABLE_STATUSES.has(current.status)) {
     const e = new Error('当前状态不可报价')
     e.code = 400
     throw e
@@ -422,12 +515,15 @@ exports.quoteOrder = async (req, res) => {
     {
       $set: {
         amount,
+        ...buildQuotePatch(amount, {}),
         priceStatus: 'quoted',
+        status: ORDER_STATUS.QUOTED,
         paymentStatus: current.paymentStatus || 'unpaid',
         quoteSource: 'manual',
-        quoteBreakdown: {},
+        quoteBreakdown: { totalPrice: amount },
         updatedAt: new Date()
-      }
+      },
+      $push: logPushPayload(req, 'manual_quote', `手动报价 £${amount}`)
     },
     { new: true }
   )
@@ -437,7 +533,7 @@ exports.quoteOrder = async (req, res) => {
   res.json({
     code: 0,
     message: '报价成功',
-    data: { order }
+    data: { order: await presentOrderForApi(order, { withPayment: false }) }
   })
 }
 
@@ -457,7 +553,7 @@ exports.autoQuoteOrder = async (req, res) => {
     e.code = 404
     throw e
   }
-  if (current.status !== ORDER_STATUS.PENDING) {
+  if (!QUOTABLE_STATUSES.has(current.status)) {
     const e = new Error('当前状态不可报价')
     e.code = 400
     throw e
@@ -475,17 +571,57 @@ exports.autoQuoteOrder = async (req, res) => {
     throw e
   }
 
+  const sourceLabel =
+    quote.quoteSource === 'fixed'
+      ? 'V1固定报价'
+      : quote.quoteSource === 'matrix'
+        ? '价格表'
+        : '规则'
+
+  const quoteSet =
+    quote.pricingMode === 'fixed' || quote.quoteSource === 'fixed' || quote.quoteSource === 'route_fixed'
+      ? {
+          amount: quote.amount,
+          pricingMode: 'fixed',
+          pricingSource: quote.pricingSource || quote.quoteSource,
+          customerPriceCny: quote.customerPriceCny,
+          driverPriceGbp: quote.driverPriceGbp,
+          exchangeRate: quote.exchangeRate,
+          driverSettlementCny: quote.driverSettlementCny,
+          platformProfitCny: quote.platformProfitCny,
+          priceBreakdown: quote.priceBreakdown,
+          quoteBreakdown: quote.quoteBreakdown,
+          driverSettlementAmount: quote.driverSettlementAmount,
+          totalAmount: quote.totalAmount,
+          vehicleClass: quote.vehicleClass,
+          vehicleLabel: quote.vehicleLabel,
+          routeFromLabel: quote.routeFromLabel || '',
+          routeToLabel: quote.routeToLabel || '',
+          ...buildPaymentFields(quote.amount)
+        }
+      : {
+          ...buildQuotePatch(quote.amount, quote),
+          quoteBreakdown: quote.quoteBreakdown
+        }
+
   const order = await Order.findByIdAndUpdate(
     orderId,
     {
       $set: {
-        amount: quote.amount,
+        ...quoteSet,
         priceStatus: 'quoted',
+        status: ORDER_STATUS.QUOTED,
         paymentStatus: 'unpaid',
         quoteSource: quote.quoteSource,
-        quoteBreakdown: quote.quoteBreakdown,
         updatedAt: new Date()
-      }
+      },
+      $push: logPushPayload(
+        req,
+        'auto_quote',
+        quote.quoteSource === 'fixed'
+          ? `自动重算报价（${sourceLabel}）¥${quote.customerPriceCny} / £${quote.driverPriceGbp}`
+          : `自动重算报价（${sourceLabel}）£${quote.amount}`
+      )
     },
     { new: true }
   )
@@ -495,7 +631,7 @@ exports.autoQuoteOrder = async (req, res) => {
   res.json({
     code: 0,
     message: '重新报价成功',
-    data: { order }
+    data: { order: await presentOrderForApi(order, { withPayment: false }) }
   })
 }
 
@@ -527,6 +663,7 @@ exports.confirmPrice = async (req, res) => {
     {
       $set: {
         priceStatus: 'confirmed',
+        status: ORDER_STATUS.CONFIRMED,
         paymentStatus: 'pending',
         updatedAt: new Date()
       }
@@ -539,7 +676,7 @@ exports.confirmPrice = async (req, res) => {
   res.json({
     code: 0,
     message: '价格已确认',
-    data: { order }
+    data: { order: await presentOrderForApi(order, { withPayment: false }) }
   })
 }
 
@@ -555,7 +692,7 @@ exports.payOrder = async (req, res) => {
   }
   assertOrderOwner(current, req)
 
-  if (current.paymentStatus === 'paid') {
+  if (current.paymentStatus === 'paid' && current.depositPaid && current.remainingPaid) {
     const order = await current.populate([
       { path: 'userId', select: 'phone role' },
       { path: 'driverId', select: 'phone role' }
@@ -578,13 +715,65 @@ exports.payOrder = async (req, res) => {
     throw e
   }
 
+  const summary = paymentSummary(current)
+  const requestedType = String(req.body?.paymentType || '').trim()
+  const paymentType =
+    requestedType || (summary.depositPaid ? 'remaining' : 'deposit')
+  const patch = { updatedAt: new Date() }
+
+  if (paymentType === 'deposit') {
+    if (!['unpaid', 'rejected'].includes(current.depositStatus || 'unpaid')) {
+      const e = new Error('当前不可提交定金信息')
+      e.code = 400
+      throw e
+    }
+    const depAmt = roundMoney(summary.depositAmount)
+    patch.depositAmount = depAmt
+    patch.remainingAmount = summary.remainingAmount
+    patch.balanceAmount = roundMoney(summary.balanceAmount)
+    patch.depositStatus = legacyDepositStatus('pending')
+    patch.paymentStage = 'deposit_submitted'
+    patch.paymentStatus = 'pending'
+    patch.paidAmount = depAmt
+    patch['payment.depositStatus'] = 'pending'
+    patch['payment.depositAmount'] = depAmt
+  } else if (paymentType === 'remaining') {
+    if (!canDispatchByDeposit(current)) {
+      const e = new Error('定金未确认，无法提交尾款')
+      e.code = 400
+      throw e
+    }
+    if (!['unpaid', 'rejected'].includes(current.balanceStatus || 'unpaid')) {
+      const e = new Error('当前不可提交尾款信息')
+      e.code = 400
+      throw e
+    }
+    const balAmt = roundMoney(summary.balanceAmount)
+    patch.depositAmount = roundMoney(summary.depositAmount)
+    patch.remainingAmount = summary.remainingAmount
+    patch.balanceAmount = balAmt
+    patch.balanceStatus = legacyDepositStatus('pending')
+    patch.paymentStage = 'balance_submitted'
+    patch.paymentStatus = 'pending'
+    patch.paidAmount = roundMoney(summary.depositAmount)
+    patch['payment.balanceStatus'] = 'pending'
+    patch['payment.balanceAmount'] = balAmt
+  } else if (paymentType === 'full') {
+    const e = new Error('paymentType=full 已停用，请分别使用 deposit 与 remaining')
+    e.code = 400
+    throw e
+  } else {
+    const e = new Error('paymentType 必须为 deposit、remaining 或 full')
+    e.code = 400
+    throw e
+  }
+
+  const safePatch = applyReadyToStartStatus(current, patch)
+
   const order = await Order.findByIdAndUpdate(
     orderId,
     {
-      $set: {
-        paymentStatus: 'paid',
-        updatedAt: new Date()
-      }
+      $set: safePatch
     },
     { new: true }
   )
@@ -620,18 +809,27 @@ exports.getOrderById = async (req, res) => {
     throw e
   }
 
+  if (order.isDeleted && req.user.role !== 'admin') {
+    const e = new Error('订单不存在')
+    e.code = 404
+    throw e
+  }
+
   const role = req.user.role
   const uid = String(req.user.userId)
 
   if (role === 'driver') {
     const driverOid = order.driverId && (order.driverId._id || order.driverId)
     const driverStr = driverOid ? String(driverOid) : ''
-    const inPool = order.status === ORDER_STATUS.PENDING
+    const inPool = [ORDER_STATUS.PENDING, ORDER_STATUS.DEPOSIT_PAID].includes(order.status)
     const mineActive =
       driverStr === uid &&
       [
         ORDER_STATUS.ASSIGNED,
+        ORDER_STATUS.DRIVER_ACCEPTED,
         ORDER_STATUS.ACCEPTED,
+        ORDER_STATUS.READY_TO_START,
+        ORDER_STATUS.IN_PROGRESS,
         ORDER_STATUS.STARTED
       ].includes(order.status)
     if (!inPool && !mineActive) {
@@ -655,7 +853,7 @@ exports.getOrderById = async (req, res) => {
   res.json({
     code: 0,
     message: 'success',
-    data: { order }
+    data: { order: await presentOrderForApi(order) }
   })
 }
 
@@ -682,7 +880,14 @@ exports.rejectOrder = async (req, res) => {
     {
       $set: {
         driverId: null,
-        status: ORDER_STATUS.PENDING,
+        assignedDriver: null,
+        assignedDriverName: '',
+        assignedDriverPhone: '',
+        assignedAt: null,
+        status: ORDER_STATUS.DEPOSIT_PAID,
+        dispatchStatus: DISPATCH_STATUS.REJECTED,
+        exceptionType: 'driver_rejected',
+        serviceStatus: 'exception',
         updatedAt: new Date()
       }
     },
@@ -727,22 +932,28 @@ exports.startOrder = async (req, res) => {
     e.code = 400
     throw e
   }
-  if (current.status !== ORDER_STATUS.ACCEPTED) {
+  if (!DRIVER_ACCEPTED_STATUSES.has(current.status) && current.status !== ORDER_STATUS.READY_TO_START) {
     const e = new Error('当前状态不可开始行程')
     e.code = 400
     throw e
   }
-  if (current.paymentStatus !== 'paid') {
-    const e = new Error('用户未支付，不能开始行程')
+  const summary = paymentSummary(current)
+  const balanceOk =
+    summary.remainingPaid ||
+    current.balanceStatus === 'confirmed' ||
+    current.paymentStage === 'balance_confirmed'
+  if (!balanceOk) {
+    const e = new Error('未支付尾款，不能开始行程')
     e.code = 400
     throw e
   }
 
   const order = await Order.findByIdAndUpdate(
     current._id,
-    { status: ORDER_STATUS.STARTED, updatedAt: new Date() },
+    { status: ORDER_STATUS.IN_PROGRESS, updatedAt: new Date() },
     { new: true }
   )
+  console.log(`订单状态变化：${order._id} -> ${order.status}`)
 
   res.json({
     code: 0,
@@ -776,17 +987,33 @@ exports.completeOrder = async (req, res) => {
     e.code = 400
     throw e
   }
-  if (current.status !== ORDER_STATUS.STARTED) {
+  if (!IN_PROGRESS_STATUSES.has(current.status) && current.status !== ORDER_STATUS.ARRIVED) {
     const e = new Error('当前状态不可完成订单')
     e.code = 400
     throw e
   }
 
+  const payout = roundMoney(
+    current.priceBreakdown?.driverPayout ??
+      current.quoteBreakdown?.driverPayout ??
+      paymentSummary(current).totalPrice * 0.75
+  )
   const order = await Order.findByIdAndUpdate(
     current._id,
-    { status: ORDER_STATUS.COMPLETED, updatedAt: new Date() },
+    {
+      $set: {
+        status: ORDER_STATUS.COMPLETED,
+        paymentStage: 'completed',
+        driverSettlementStatus: 'pending',
+        driverSettlementAmount: payout,
+        updatedAt: new Date()
+      }
+    },
     { new: true }
   )
+  console.log(`订单状态变化：${order._id} -> ${order.status}`)
+
+  fireProfileSync(syncProfilesAfterOrderCompleted, order, 'completeOrder')
 
   res.json({
     code: 0,
@@ -813,7 +1040,14 @@ exports.cancelOrder = async (req, res) => {
     {
       _id: orderId,
       driverId: req.user.userId,
-      status: { $in: [ORDER_STATUS.ACCEPTED, ORDER_STATUS.STARTED] }
+      status: {
+        $in: [
+          ORDER_STATUS.ACCEPTED,
+          ORDER_STATUS.DRIVER_ACCEPTED,
+          ORDER_STATUS.STARTED,
+          ORDER_STATUS.IN_PROGRESS
+        ]
+      }
     },
     {
       $set: {
@@ -829,6 +1063,8 @@ exports.cancelOrder = async (req, res) => {
     e.code = 400
     throw e
   }
+
+  fireProfileSync(syncProfilesAfterOrderCancelled, order, 'cancelOrder')
 
   res.json({
     code: 0,
@@ -855,7 +1091,16 @@ exports.cancelPassengerOrder = async (req, res) => {
   }
   assertOrderOwner(current, req)
 
-  if (![ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED].includes(current.status)) {
+  if (
+    ![
+      ORDER_STATUS.CREATED,
+      ORDER_STATUS.QUOTED,
+      ORDER_STATUS.CONFIRMED,
+      ORDER_STATUS.DEPOSIT_PAID,
+      ORDER_STATUS.PENDING,
+      ORDER_STATUS.ASSIGNED
+    ].includes(current.status)
+  ) {
     const e = new Error('仅待接单或已指派订单可由乘客取消')
     e.code = 400
     throw e
@@ -869,6 +1114,8 @@ exports.cancelPassengerOrder = async (req, res) => {
     .populate('userId', 'phone role')
     .populate('driverId', 'phone role')
     .populate('assignedDriver', 'phone role driverProfile')
+
+  fireProfileSync(syncProfilesAfterOrderCancelled, order, 'cancelPassengerOrder')
 
   res.json({
     code: 0,

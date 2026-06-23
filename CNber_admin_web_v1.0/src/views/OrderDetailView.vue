@@ -10,7 +10,14 @@
         <p><strong>订单号</strong> {{ order._id }}</p>
         <p>
           <strong>状态</strong>
-          <span class="badge">{{ orderStatusLabel(order.status) }}</span>
+          <span class="badge">{{ orderStatusDisplayLabel(order.status, order) }}</span>
+        </p>
+        <p v-if="depositSubmittedPendingConfirm(order)" class="hint">
+          定金已提交，待 admin 确认后方可派单。
+          <router-link :to="{ name: 'payment-reviews', query: { stage: 'deposit' } }">前往支付审核</router-link>
+        </p>
+        <p v-else-if="!depositConfirmedForDispatch(order) && ['pending', 'deposit_paid'].includes(order.status)" class="hint">
+          定金未确认，不能派单。请在下方「人工支付」确认客户定金。
         </p>
         <p v-if="order.status === 'assigned'" class="hint">
           已指派司机，等待司机在司机端确认接单（POST /api/order/accept）。
@@ -21,11 +28,184 @@
         <p><strong>客户手机</strong> {{ phoneOf(order.userId) }}</p>
         <p><strong>上车</strong> {{ order.pickup }}</p>
         <p><strong>下车</strong> {{ order.destination }}</p>
-        <p><strong>服务类型</strong> {{ order.serviceType || 'ride' }}</p>
-        <p><strong>金额</strong> {{ order.amount != null ? `¥${order.amount}` : '—' }}</p>
-        <p><strong>支付</strong> {{ order.paymentStatus === 'paid' ? '已支付' : '未支付' }}</p>
+        <p><strong>服务类型</strong> {{ serviceTypeLabel(order.serviceType) }}</p>
+        <p v-if="order.vehicleLabel"><strong>车型</strong> {{ order.vehicleLabel }}</p>
+        <p><strong>客户总价</strong> {{ money(totalPrice) }}</p>
+        <template v-if="order.couponCode">
+          <p><strong>优惠码</strong> {{ order.couponCode }}</p>
+          <p><strong>原价 (CNY)</strong> {{ formatCny(order.originalAmountCny ?? order.customerPriceCny) }}</p>
+          <p><strong>优惠金额</strong> -{{ formatCny(order.discountAmountCny) }}</p>
+          <p><strong>实付 (CNY)</strong> {{ formatCny(order.payableAmountCny) }}</p>
+        </template>
+        <p><strong>支付概要</strong> {{ paymentSummaryLabel(order) }}</p>
+        <p><strong>订金 / 尾款</strong> {{ depositRemainingSummaryLabel(order) }}</p>
+        <p><strong>调度状态</strong> {{ dispatchStatusLabel(order.dispatchStatus) }}</p>
         <p><strong>司机</strong> {{ phoneOf(order.driverId) || '未分配' }}</p>
         <p class="muted">创建：{{ fmt(order.createdAt) }} · 更新：{{ fmt(order.updatedAt) }}</p>
+      </div>
+
+      <div v-if="orderRating" class="card">
+        <h3>乘客评价</h3>
+        <p><strong>司机评分</strong> {{ orderRating.driverStars }} / 5</p>
+        <p><strong>服务评分</strong> {{ orderRating.serviceStars }} / 5</p>
+        <p v-if="orderRating.comment"><strong>评价内容</strong> {{ orderRating.comment }}</p>
+        <p v-if="orderRating.tags?.length">
+          <strong>标签</strong>
+          {{ orderRating.tags.join('、') }}
+        </p>
+        <p class="muted">评价时间：{{ fmt(orderRating.createdAt) }}</p>
+      </div>
+      <div v-else-if="order.ratingStatus === 'rated'" class="card muted">
+        <p>乘客已评价（详情加载中或暂无明细）</p>
+      </div>
+
+      <h3>财务信息</h3>
+      <div class="card finance">
+        <p><strong>客户总价</strong> {{ money(totalPrice) }}</p>
+        <template v-if="order.couponCode">
+          <p><strong>优惠码</strong> {{ order.couponCode }}</p>
+          <p><strong>原价 (CNY)</strong> {{ formatCny(order.originalAmountCny ?? order.customerPriceCny) }}</p>
+          <p><strong>优惠</strong> -{{ formatCny(order.discountAmountCny) }}</p>
+          <p><strong>实付 (CNY)</strong> {{ formatCny(order.payableAmountCny) }}</p>
+        </template>
+        <p><strong>订金 10%</strong> {{ money(depositAmount) }} · {{ depositDisplayLabel(order) }}</p>
+        <p><strong>尾款 90%</strong> {{ money(remainingAmount) }} · {{ order.remainingPaid ? '已付' : '未付' }}</p>
+        <p><strong>已付金额</strong> {{ money(order.paidAmount || 0) }}</p>
+        <p><strong>司机结算价</strong> {{ money(driverPayout) }}</p>
+        <p><strong>平台毛利</strong> {{ money(platformProfit) }}</p>
+        <div class="pay-actions">
+          <button type="button" class="btn" :disabled="paying || order.depositPaid" @click="markDeposit">
+            标记订金已付
+          </button>
+          <button type="button" class="btn" :disabled="paying || !order.depositPaid || order.remainingPaid" @click="markRemaining">
+            标记尾款已付
+          </button>
+        </div>
+        <p v-if="payErr" class="err">{{ payErr }}</p>
+      </div>
+
+      <h3>人工支付</h3>
+      <div class="card pay-flow">
+        <p class="muted">不接第三方支付；客户线下转账后由运营在后台确认到账。</p>
+        <p v-if="paymentFlowErr" class="err">{{ paymentFlowErr }}</p>
+
+        <h4>定金</h4>
+        <p>
+          <strong>状态</strong> {{ depositStatusLabel(payDepositStatus) }} ·
+          <strong>应付定金</strong> {{ money(payDepositAmount) }}
+        </p>
+        <p v-if="order.payment?.depositConfirmedAt" class="muted">
+          确认时间：{{ fmt(order.payment.depositConfirmedAt) }}
+        </p>
+        <template v-if="order.depositPaymentInfo && (order.depositPaymentInfo.payerName || order.depositPaymentInfo.submittedAt)">
+          <p><strong>付款人</strong> {{ order.depositPaymentInfo.payerName || '—' }}</p>
+          <p v-if="order.depositPaymentInfo.transactionRef">
+            <strong>付款流水号</strong> {{ order.depositPaymentInfo.transactionRef }}
+          </p>
+          <p><strong>定金付款方式</strong> {{ depositPaymentMethodLine }}</p>
+          <p><strong>定金收款账户</strong> {{ depositPaymentAccountLine }}</p>
+          <p><strong>定金付款备注</strong> {{ depositPaymentNoteLine }}</p>
+          <p><strong>付款金额</strong> {{ money(order.depositPaymentInfo.paidAmount) }}</p>
+          <p><strong>提交时间</strong> {{ fmt(order.depositPaymentInfo.submittedAt) || '—' }}</p>
+          <p v-if="depositProofUrl">
+            <strong>支付截图</strong>
+            <a :href="depositProofUrl" target="_blank" rel="noopener">查看凭证</a>
+          </p>
+          <p v-if="order.depositPaymentInfo.rejectedReason" class="err">
+            驳回原因：{{ order.depositPaymentInfo.rejectedReason }}
+          </p>
+        </template>
+        <div v-if="canShowDepositConfirmActions" class="pay-actions">
+          <button type="button" class="btn btn-primary" :disabled="flowBusy" @click="onConfirmDeposit">
+            {{ depositSubmittedPendingConfirm(order) ? '确认定金到账' : '确认已收定金' }}
+          </button>
+          <template v-if="depositSubmittedPendingConfirm(order)">
+            <input v-model="rejectDepositReason" class="input inline-reason" placeholder="驳回原因（可选）" />
+            <button type="button" class="btn btn-danger" :disabled="flowBusy" @click="onRejectDeposit">驳回定金</button>
+          </template>
+        </div>
+
+        <h4>尾款</h4>
+        <p>
+          <strong>状态</strong> {{ balanceStatusLabel(payBalanceStatus) }} ·
+          <strong>应付尾款</strong> {{ money(payBalanceAmount) }}
+        </p>
+        <p v-if="order.payment?.balanceConfirmedAt" class="muted">
+          确认时间：{{ fmt(order.payment.balanceConfirmedAt) }}
+        </p>
+        <p v-if="order.payment?.paymentNote" class="muted">备注：{{ order.payment.paymentNote }}</p>
+        <template v-if="order.balancePaymentInfo && (order.balancePaymentInfo.payerName || order.balancePaymentInfo.submittedAt)">
+          <p><strong>付款人</strong> {{ order.balancePaymentInfo.payerName || '—' }}</p>
+          <p v-if="order.balancePaymentInfo.transactionRef">
+            <strong>付款流水号</strong> {{ order.balancePaymentInfo.transactionRef }}
+          </p>
+          <p><strong>尾款付款方式</strong> {{ balancePaymentMethodLine }}</p>
+          <p><strong>尾款收款账户</strong> {{ balancePaymentAccountLine }}</p>
+          <p><strong>尾款付款备注</strong> {{ balancePaymentNoteLine }}</p>
+          <p><strong>付款金额</strong> {{ money(order.balancePaymentInfo.paidAmount) }}</p>
+          <p><strong>提交时间</strong> {{ fmt(order.balancePaymentInfo.submittedAt) || '—' }}</p>
+          <p v-if="balanceProofUrl">
+            <strong>支付截图</strong>
+            <a :href="balanceProofUrl" target="_blank" rel="noopener">查看凭证</a>
+          </p>
+          <p v-if="order.balancePaymentInfo.rejectedReason" class="err">
+            驳回原因：{{ order.balancePaymentInfo.rejectedReason }}
+          </p>
+        </template>
+        <div class="pay-actions">
+          <button
+            type="button"
+            class="btn"
+            :disabled="flowBusy || !canRequestBalance"
+            @click="onRequestBalance"
+          >
+            发起尾款收款
+          </button>
+          <button
+            v-if="canConfirmBalanceMvp"
+            type="button"
+            class="btn btn-primary"
+            :disabled="flowBusy"
+            @click="onConfirmBalance"
+          >
+            确认已收尾款
+          </button>
+          <button
+            v-else-if="order.balanceStatus === 'submitted'"
+            type="button"
+            class="btn btn-primary"
+            :disabled="flowBusy"
+            @click="onConfirmBalance"
+          >
+            确认尾款到账
+          </button>
+          <input v-model="rejectBalanceReason" class="input inline-reason" placeholder="驳回尾款原因（可选）" />
+          <button
+            v-if="order.balanceStatus === 'submitted'"
+            type="button"
+            class="btn btn-danger"
+            :disabled="flowBusy"
+            @click="onRejectBalance"
+          >
+            驳回尾款
+          </button>
+        </div>
+
+        <h4>司机结算</h4>
+        <p>
+          <strong>状态</strong> {{ settlementLabel(order.driverSettlementStatus) }} ·
+          <strong>金额</strong> {{ money(order.driverSettlementAmount ?? driverPayout) }}
+        </p>
+        <div v-if="order.status === 'completed'" class="pay-actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="flowBusy || order.driverSettlementStatus === 'paid'"
+            @click="onConfirmDriverSettlement"
+          >
+            确认已给司机结算
+          </button>
+        </div>
       </div>
 
       <h3>订单时间线</h3>
@@ -55,6 +235,23 @@
           </li>
         </ul>
         <p v-else class="muted">暂无跟进备注</p>
+      </div>
+
+      <h3>运营日志</h3>
+      <div class="card">
+        <p v-if="!operationLogs.length" class="muted">暂无运营操作记录</p>
+        <ul v-else class="op-logs">
+          <li v-for="(log, idx) in operationLogs" :key="idx">
+            <div class="op-head">
+              <strong>{{ actionLabel(log.action) }}</strong>
+              <span class="muted">{{ fmt(log.createdAt) }}</span>
+            </div>
+            <div class="op-meta muted">
+              {{ log.operatorPhone || '—' }}
+            </div>
+            <div v-if="log.message" class="op-msg">{{ log.message }}</div>
+          </li>
+        </ul>
       </div>
 
       <h3>跟进备注</h3>
@@ -99,14 +296,73 @@
         <p v-if="noteErr" class="err">{{ noteErr }}</p>
       </div>
 
+      <h3>客服 SOP（试运营）</h3>
+      <div class="card sop">
+        <p v-if="order.exceptionType">
+          <strong>异常</strong> {{ exceptionLabel(order.exceptionType) }}
+          <span v-if="order.exceptionReason"> · {{ order.exceptionReason }}</span>
+        </p>
+        <p>
+          <strong>服务状态</strong> {{ serviceStatusLabel(order.serviceStatus) }}
+          <span v-if="order.nextAction"> · 下一步：{{ order.nextAction }}</span>
+          <span v-if="order.nextActionAt" class="muted">（{{ fmt(order.nextActionAt) }}）</span>
+        </p>
+        <label class="lbl">下一步动作</label>
+        <input v-model="sopNextAction" class="input" placeholder="如：等待客户上传定金截图" />
+        <label class="lbl">内部备注</label>
+        <textarea v-model="sopInternalDraft" class="ta" rows="2" />
+        <button type="button" class="btn" :disabled="p0Busy" @click="saveSopInternal">保存内部备注</button>
+        <label class="lbl">客户沟通</label>
+        <textarea v-model="sopCustomerDraft" class="ta" rows="2" />
+        <button type="button" class="btn" :disabled="p0Busy" @click="saveSopCustomer">记录客户沟通</button>
+        <label class="lbl">司机沟通</label>
+        <textarea v-model="sopDriverDraft" class="ta" rows="2" />
+        <button type="button" class="btn" :disabled="p0Busy" @click="saveSopDriver">记录司机沟通</button>
+        <button type="button" class="btn btn-primary" :disabled="p0Busy" @click="saveSopMeta">更新下一步</button>
+        <p v-if="p0Err" class="err">{{ p0Err }}</p>
+        <ul v-if="mergedSopLogs.length" class="notes">
+          <li v-for="(row, i) in mergedSopLogs" :key="i">
+            <span class="pill">{{ row.kind }}</span>
+            <strong>{{ row.author }}</strong>
+            <span class="muted">{{ row.time }}</span>
+            <div>{{ row.body }}</div>
+          </li>
+        </ul>
+      </div>
+
+      <h3>异常与人工处理</h3>
+      <div class="card pay-actions">
+        <button type="button" class="btn btn-danger" :disabled="p0Busy" @click="onAdminCancel">后台取消</button>
+        <button type="button" class="btn" :disabled="p0Busy" @click="onChangePrice">改价</button>
+        <button type="button" class="btn" :disabled="p0Busy" @click="onRefundPending">标记待退款</button>
+        <button type="button" class="btn" :disabled="p0Busy" @click="onRefundConfirm">确认退款</button>
+        <button type="button" class="btn" :disabled="p0Busy" @click="onDisputeOpen">开启争议</button>
+        <button type="button" class="btn" :disabled="p0Busy" @click="onDisputeClose">关闭争议</button>
+        <button type="button" class="btn btn-primary" :disabled="p0Busy" @click="onCloseOrder">运营结案</button>
+        <router-link
+          v-if="order._id"
+          :to="{ name: 'order-dispatch', params: { id: order._id } }"
+          class="btn"
+        >
+          重新派司机
+        </router-link>
+      </div>
+
       <div class="actions">
         <router-link
-          v-if="order.status === 'pending'"
+          v-if="['pending', 'deposit_paid'].includes(order.status) && depositConfirmedForDispatch(order)"
           :to="`/orders/${order._id}/dispatch`"
           class="btn btn-primary"
         >
           分配司机
         </router-link>
+        <span
+          v-else-if="['pending', 'deposit_paid'].includes(order.status)"
+          class="btn btn-primary disabled-link"
+          :title="depositSubmittedPendingConfirm(order) ? '定金已提交，待 admin 确认' : '定金未确认，不能派单'"
+        >
+          分配司机（{{ depositSubmittedPendingConfirm(order) ? '定金待确认' : '定金未确认' }}）
+        </span>
         <template v-else-if="order.status === 'assigned'">
           <button
             type="button"
@@ -128,8 +384,41 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchOrderById, postOrderNote, postAdminOrderStatus } from '@/api/admin'
+import {
+  fetchOrderById,
+  markOrderDepositPaid,
+  markOrderRemainingPaid,
+  postOrderNote,
+  postAdminOrderStatus,
+  confirmOrderDeposit,
+  rejectOrderDeposit,
+  requestOrderBalance,
+  confirmOrderBalance,
+  rejectOrderBalance,
+  confirmDriverSettlement,
+  adminCancelOrder,
+  adminChangePrice,
+  adminRefundOrder,
+  adminDisputeOrder,
+  adminCloseOrder,
+  patchOrderSop,
+  postOrderInternalNote,
+  postOrderCustomerLog,
+  postOrderDriverLog
+} from '@/api/admin'
 import { orderStatusLabel } from '@/utils/orderStatus'
+import {
+  depositConfirmedForDispatch,
+  depositSubmittedPendingConfirm,
+  depositDisplayLabel,
+  orderStatusDisplayLabel,
+  paymentSummaryLabel,
+  depositRemainingSummaryLabel
+} from '@/utils/depositDispatch'
+import { serviceTypeLabel } from '@/utils/serviceType'
+import { EXCEPTION_LABELS, SERVICE_STATUS_LABELS } from '@/utils/p0Labels'
+import { paymentMethodLabel, paymentAccountLabel } from '@/utils/paymentDisplay'
+import { formatCny } from '@/utils/currencyDisplay'
 
 const route = useRoute()
 const order = ref({})
@@ -139,6 +428,79 @@ const noteSaving = ref(false)
 const noteErr = ref('')
 const revoking = ref(false)
 const revokeErr = ref('')
+const paying = ref(false)
+const payErr = ref('')
+const flowBusy = ref(false)
+const paymentFlowErr = ref('')
+const rejectDepositReason = ref('')
+const rejectBalanceReason = ref('')
+const finance = ref(null)
+const orderRating = ref(null)
+const p0Busy = ref(false)
+const p0Err = ref('')
+const sopNextAction = ref('')
+const sopInternalDraft = ref('')
+const sopCustomerDraft = ref('')
+const sopDriverDraft = ref('')
+
+const depositProofUrl = computed(
+  () => order.value.depositProofImage || order.value.depositPaymentInfo?.proofImage || ''
+)
+const balanceProofUrl = computed(
+  () => order.value.balanceProofImage || order.value.balancePaymentInfo?.proofImage || ''
+)
+
+function paymentInfoLines(info, fallbackNote) {
+  const method = paymentMethodLabel(info?.paymentMethod || info?.method)
+  const account = paymentAccountLabel(info?.paymentAccount)
+  const note = String(info?.remark || fallbackNote || '').trim() || '—'
+  return { method, account, note }
+}
+
+const depositPaymentMethodLine = computed(() =>
+  paymentInfoLines(order.value.depositPaymentInfo, order.value.depositNote).method
+)
+const depositPaymentAccountLine = computed(() =>
+  paymentInfoLines(order.value.depositPaymentInfo, order.value.depositNote).account
+)
+const depositPaymentNoteLine = computed(() =>
+  paymentInfoLines(order.value.depositPaymentInfo, order.value.depositNote).note
+)
+const balancePaymentMethodLine = computed(() =>
+  paymentInfoLines(order.value.balancePaymentInfo, order.value.balanceNote).method
+)
+const balancePaymentAccountLine = computed(() =>
+  paymentInfoLines(order.value.balancePaymentInfo, order.value.balanceNote).account
+)
+const balancePaymentNoteLine = computed(() =>
+  paymentInfoLines(order.value.balancePaymentInfo, order.value.balanceNote).note
+)
+
+function exceptionLabel(t) {
+  return EXCEPTION_LABELS[t] || t || '—'
+}
+function serviceStatusLabel(s) {
+  return SERVICE_STATUS_LABELS[s] || s || '—'
+}
+
+const mergedSopLogs = computed(() => {
+  const rows = []
+  const push = (kind, list) => {
+    for (const n of list || []) {
+      rows.push({
+        kind,
+        author: n.authorDisplay || '—',
+        time: fmt(n.createdAt),
+        body: n.content,
+        ts: new Date(n.createdAt).getTime()
+      })
+    }
+  }
+  push('内部', order.value.internalNotes)
+  push('客户', order.value.customerCommunicationLogs)
+  push('司机', order.value.driverCommunicationLogs)
+  return rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))
+})
 
 const notePhrases = [
   '客户已确认',
@@ -149,6 +511,15 @@ const notePhrases = [
   '已取消'
 ]
 
+const operationLogs = computed(() => {
+  const list = order.value.operationLogs || []
+  return [...list].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime()
+    const tb = new Date(b.createdAt).getTime()
+    return tb - ta
+  })
+})
+
 const sortedNotes = computed(() => {
   const list = order.value.followUpNotes || []
   return [...list].sort((a, b) => {
@@ -157,6 +528,20 @@ const sortedNotes = computed(() => {
     return tb - ta
   })
 })
+
+function actionLabel(action) {
+  const map = {
+    confirm_deposit: '确认定金',
+    confirm_balance: '确认尾款',
+    assign_driver: '派单',
+    reassign_driver: '改派',
+    unassign_driver: '取消派单',
+    update_status: '修改状态',
+    manual_quote: '手动报价',
+    auto_quote: '自动报价'
+  }
+  return map[action] || action || '操作'
+}
 
 /** 备注按时间正序，便于时间线阅读 */
 const notesAsc = computed(() => {
@@ -176,6 +561,82 @@ const notesTimeline = computed(() => {
   }))
 })
 
+const totalPrice = computed(() => {
+  const o = order.value || {}
+  return o.priceBreakdown?.totalPrice ?? o.quoteBreakdown?.totalPrice ?? o.quoteBreakdown?.total ?? o.amount ?? 0
+})
+
+const depositAmount = computed(() => {
+  const v = order.value.depositAmount
+  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) * 0.1
+})
+
+const remainingAmount = computed(() => {
+  const v = order.value.remainingAmount
+  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) - Number(depositAmount.value || 0)
+})
+
+const driverPayout = computed(() => {
+  const v = order.value.priceBreakdown?.driverPayout
+  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) * 0.75
+})
+
+const platformProfit = computed(() => {
+  const v = order.value.priceBreakdown?.platformProfit
+  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) - Number(driverPayout.value || 0)
+})
+
+function mvpStatus(raw, legacy) {
+  if (raw === 'submitted') return 'pending'
+  if (raw === 'rejected') return 'unpaid'
+  if (['unpaid', 'pending', 'confirmed'].includes(raw)) return raw
+  if (legacy === 'submitted') return 'pending'
+  if (legacy === 'rejected') return 'unpaid'
+  if (['unpaid', 'pending', 'confirmed'].includes(legacy)) return legacy
+  return 'unpaid'
+}
+
+const payDepositStatus = computed(() =>
+  mvpStatus(order.value.payment?.depositStatus, order.value.depositStatus)
+)
+const payBalanceStatus = computed(() =>
+  mvpStatus(order.value.payment?.balanceStatus, order.value.balanceStatus)
+)
+const payDepositAmount = computed(() =>
+  Number(order.value.payment?.depositAmount ?? order.value.depositAmount ?? depositAmount.value)
+)
+const payBalanceAmount = computed(() =>
+  Number(order.value.payment?.balanceAmount ?? order.value.balanceAmount ?? remainingAmount.value)
+)
+
+const canShowDepositConfirmActions = computed(() => {
+  const o = order.value
+  if (!o._id || depositConfirmedForDispatch(o)) return false
+  if (depositSubmittedPendingConfirm(o)) return true
+  if (!o.paymentStage || o.paymentStage === 'none') {
+    return payDepositStatus.value !== 'confirmed' && !o.depositPaid
+  }
+  return false
+})
+
+const canConfirmBalanceMvp = computed(() => {
+  const o = order.value
+  if (!o._id) return false
+  if (payDepositStatus.value !== 'confirmed' && !o.depositPaid) return false
+  return payBalanceStatus.value !== 'confirmed' && !o.remainingPaid
+})
+
+const canRequestBalance = computed(() => {
+  const o = order.value
+  if (!o._id) return false
+  const stage = o.paymentStage || 'none'
+  if (['balance_pending', 'balance_submitted', 'balance_confirmed', 'completed'].includes(stage)) return false
+  if (o.depositStatus === 'confirmed') return true
+  if (o.depositPaid) return true
+  if (o.paymentStatus === 'paid') return true
+  return false
+})
+
 const systemTimeline = computed(() => {
   const o = order.value
   if (!o || !o._id) return []
@@ -189,7 +650,15 @@ const systemTimeline = computed(() => {
   const st = o.status
   const hasDriver = !!(o.driverId && (typeof o.driverId === 'object' ? o.driverId._id || o.driverId.phone : o.driverId))
 
-  if (hasDriver && st !== 'pending') {
+  if (['quoted', 'confirmed', 'deposit_paid', 'assigned', 'driver_accepted', 'ready_to_start', 'in_progress', 'arrived', 'completed'].includes(st)) {
+    rows.push({
+      label: orderStatusLabel(st),
+      time: fmt(o.updatedAt),
+      note: ''
+    })
+  }
+
+  if (hasDriver && !['created', 'quoted', 'confirmed', 'deposit_paid', 'pending'].includes(st)) {
     rows.push({
       label: '已关联司机（后台指派或抢单写入）',
       time: '—',
@@ -197,7 +666,7 @@ const systemTimeline = computed(() => {
     })
   }
 
-  if (['accepted', 'started', 'completed'].includes(st)) {
+  if (['accepted', 'driver_accepted', 'ready_to_start', 'started', 'in_progress', 'arrived', 'completed'].includes(st)) {
     rows.push({
       label: '司机已接单',
       time: '—',
@@ -205,7 +674,7 @@ const systemTimeline = computed(() => {
     })
   }
 
-  if (['started', 'completed'].includes(st)) {
+  if (['started', 'in_progress', 'arrived', 'completed'].includes(st)) {
     rows.push({
       label: '行程已开始',
       time: '—',
@@ -250,9 +719,151 @@ function fmt(iso) {
   return isNaN(d.getTime()) ? '' : d.toLocaleString('zh-CN')
 }
 
+function money(value) {
+  const n = Number(value || 0)
+  return Number.isFinite(n) ? `£${n.toFixed(2)}` : '£0.00'
+}
+
+function dispatchStatusLabel(status) {
+  const map = {
+    pending: '未派单',
+    unassigned: '未派单',
+    assigned: '已指派',
+    accepted: '司机已接',
+    rejected: '司机拒绝/超时',
+    cancelled: '派单取消',
+    completed: '已完成'
+  }
+  return map[status || 'pending'] || status
+}
+
+function paymentStageLabel(stage) {
+  const map = {
+    none: '—',
+    deposit_pending: '待付定金',
+    deposit_submitted: '定金待审核',
+    deposit_confirmed: '定金已确认',
+    balance_pending: '待付尾款',
+    balance_submitted: '尾款待审核',
+    balance_confirmed: '尾款已确认',
+    completed: '支付流程已结束'
+  }
+  return map[stage || 'none'] || stage || '—'
+}
+
+function depositStatusLabel(s) {
+  const map = {
+    unpaid: '未付',
+    pending: '待确认',
+    submitted: '待确认',
+    confirmed: '已确认',
+    rejected: '已驳回'
+  }
+  return map[s || 'unpaid'] || s || '—'
+}
+
+function balanceStatusLabel(s) {
+  const map = {
+    unpaid: '未付',
+    pending: '待确认',
+    submitted: '待确认',
+    confirmed: '已确认',
+    rejected: '已驳回'
+  }
+  return map[s || 'unpaid'] || s || '—'
+}
+
+function settlementLabel(s) {
+  const map = { not_required: '无需', pending: '待结算', paid: '已结算' }
+  return map[s || 'not_required'] || s || '—'
+}
+
 function appendPhrase(text) {
   const t = noteDraft.value.trim()
   noteDraft.value = t ? `${t} ${text}` : text
+}
+
+function applyOrderData(data) {
+  order.value = data.order || data || {}
+  finance.value = data.finance || null
+  orderRating.value = data.rating || null
+  sopNextAction.value = order.value.nextAction || ''
+}
+
+async function runP0(fn) {
+  p0Busy.value = true
+  p0Err.value = ''
+  try {
+    const data = await fn()
+    applyOrderData(data)
+  } catch (e) {
+    p0Err.value = e.message || '操作失败'
+  } finally {
+    p0Busy.value = false
+  }
+}
+
+async function saveSopInternal() {
+  if (!sopInternalDraft.value.trim()) return
+  await runP0(() => postOrderInternalNote(route.params.id, sopInternalDraft.value.trim()))
+  sopInternalDraft.value = ''
+}
+async function saveSopCustomer() {
+  if (!sopCustomerDraft.value.trim()) return
+  await runP0(() => postOrderCustomerLog(route.params.id, sopCustomerDraft.value.trim()))
+  sopCustomerDraft.value = ''
+}
+async function saveSopDriver() {
+  if (!sopDriverDraft.value.trim()) return
+  await runP0(() => postOrderDriverLog(route.params.id, sopDriverDraft.value.trim()))
+  sopDriverDraft.value = ''
+}
+async function saveSopMeta() {
+  await runP0(() =>
+    patchOrderSop(route.params.id, {
+      nextAction: sopNextAction.value,
+      serviceStatus: order.value.serviceStatus || 'active'
+    })
+  )
+}
+
+async function onAdminCancel() {
+  const reason = window.prompt('取消原因', '') || ''
+  if (!window.confirm('确认后台取消该订单？')) return
+  await runP0(() => adminCancelOrder(route.params.id, { by: 'admin', reason }))
+}
+async function onChangePrice() {
+  const raw = window.prompt('新总价（£）', String(totalPrice.value || ''))
+  if (raw == null) return
+  const amount = Number(raw)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    p0Err.value = '金额无效'
+    return
+  }
+  const reason = window.prompt('改价原因', '') || ''
+  await runP0(() => adminChangePrice(route.params.id, { amount, reason }))
+}
+async function onRefundPending() {
+  const reason = window.prompt('退款说明', '') || ''
+  await runP0(() => adminRefundOrder(route.params.id, { target: 'full', reason, confirm: false }))
+}
+async function onRefundConfirm() {
+  const reason = window.prompt('确认退款说明', '') || ''
+  if (!window.confirm('确认已退款？')) return
+  await runP0(() => adminRefundOrder(route.params.id, { target: 'full', reason, confirm: true }))
+}
+async function onDisputeOpen() {
+  const note = window.prompt('争议说明', '') || ''
+  await runP0(() => adminDisputeOrder(route.params.id, { action: 'open', note }))
+}
+async function onDisputeClose() {
+  const note = window.prompt('结案说明', '') || ''
+  await runP0(() => adminDisputeOrder(route.params.id, { action: 'close', note }))
+}
+async function onCloseOrder() {
+  const note = window.prompt('结案备注', '试运营结案') || ''
+  if (!window.confirm('确认运营结案？')) return
+  await runP0(() => adminCloseOrder(route.params.id, { note }))
 }
 
 async function load() {
@@ -260,7 +871,7 @@ async function load() {
   noteErr.value = ''
   try {
     const data = await fetchOrderById(route.params.id)
-    order.value = data.order || {}
+    applyOrderData(data)
   } catch (e) {
     error.value = e.message || '加载失败'
   }
@@ -278,6 +889,116 @@ async function submitNote() {
     noteErr.value = e.message || '保存失败'
   } finally {
     noteSaving.value = false
+  }
+}
+
+async function markDeposit() {
+  paying.value = true
+  payErr.value = ''
+  try {
+    const data = await markOrderDepositPaid(route.params.id)
+    order.value = data.order || order.value
+  } catch (e) {
+    payErr.value = e.message || '标记订金失败'
+  } finally {
+    paying.value = false
+  }
+}
+
+async function markRemaining() {
+  paying.value = true
+  payErr.value = ''
+  try {
+    const data = await markOrderRemainingPaid(route.params.id)
+    order.value = data.order || order.value
+  } catch (e) {
+    payErr.value = e.message || '标记尾款失败'
+  } finally {
+    paying.value = false
+  }
+}
+
+async function onConfirmDeposit() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await confirmOrderDeposit(route.params.id)
+    order.value = data.order || order.value
+  } catch (e) {
+    paymentFlowErr.value = e.message || '确认失败'
+  } finally {
+    flowBusy.value = false
+  }
+}
+
+async function onRejectDeposit() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await rejectOrderDeposit(route.params.id, {
+      reason: rejectDepositReason.value.trim()
+    })
+    order.value = data.order || order.value
+    rejectDepositReason.value = ''
+  } catch (e) {
+    paymentFlowErr.value = e.message || '驳回失败'
+  } finally {
+    flowBusy.value = false
+  }
+}
+
+async function onRequestBalance() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await requestOrderBalance(route.params.id)
+    order.value = data.order || order.value
+  } catch (e) {
+    paymentFlowErr.value = e.message || '发起失败'
+  } finally {
+    flowBusy.value = false
+  }
+}
+
+async function onConfirmBalance() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await confirmOrderBalance(route.params.id)
+    order.value = data.order || order.value
+  } catch (e) {
+    paymentFlowErr.value = e.message || '确认失败'
+  } finally {
+    flowBusy.value = false
+  }
+}
+
+async function onRejectBalance() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await rejectOrderBalance(route.params.id, {
+      reason: rejectBalanceReason.value.trim()
+    })
+    order.value = data.order || order.value
+    rejectBalanceReason.value = ''
+  } catch (e) {
+    paymentFlowErr.value = e.message || '驳回失败'
+  } finally {
+    flowBusy.value = false
+  }
+}
+
+async function onConfirmDriverSettlement() {
+  flowBusy.value = true
+  paymentFlowErr.value = ''
+  try {
+    const data = await confirmDriverSettlement(route.params.id, {})
+    order.value = data.order || order.value
+  } catch (e) {
+    paymentFlowErr.value = e.message || '操作失败'
+  } finally {
+    flowBusy.value = false
   }
 }
 
@@ -310,6 +1031,22 @@ watch(
   align-items: center;
   gap: 12px;
 }
+.finance {
+  margin-bottom: 20px;
+}
+.pay-flow h4 {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+.pay-flow .inline-reason {
+  min-width: 160px;
+  margin-left: 8px;
+}
+.pay-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
 .err {
   color: var(--danger);
 }
@@ -317,6 +1054,11 @@ a.btn {
   display: inline-block;
   text-decoration: none;
   line-height: 1.2;
+}
+.disabled-link {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .hint {
   font-size: 13px;
@@ -385,6 +1127,32 @@ a.btn {
 }
 .note-body {
   white-space: pre-wrap;
+  line-height: 1.5;
+}
+.op-logs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.op-logs li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.op-logs li:last-child {
+  border-bottom: none;
+}
+.op-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.op-meta {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.op-msg {
+  margin-top: 6px;
   line-height: 1.5;
 }
 .lbl {

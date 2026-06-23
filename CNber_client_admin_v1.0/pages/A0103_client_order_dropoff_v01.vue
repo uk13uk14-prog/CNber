@@ -88,9 +88,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, onMounted } from 'vue'
 import { createRideOrder } from '../utils/orderApi.js'
+import { validateScheduledAt24h, buildScheduledAtIso } from '../utils/clientBookingFlow.js'
 import { lookupAddressByPostcode } from '../utils/addressApi.js'
+import { loadVehicleOptions, vehicleClassFromLabel } from '../utils/vehicleOptions.js'
 
 const airportList = [
   { zh: '希思罗机场', terminals: ['T2', 'T3', 'T4', 'T5'] },
@@ -116,7 +118,11 @@ const airportCodeMap = {
   贝尔法斯特国际机场: 'BFS'
 }
 const airportDisplayList = computed(() => airportList.map(item => item.zh))
-const vehicleList = ['5座', '7座', '8座', '9座']
+const vehicleList = ref([])
+
+onMounted(async () => {
+  vehicleList.value = await loadVehicleOptions()
+})
 
 const selectedAirport = ref('')
 const terminalOptions = ref([])
@@ -262,6 +268,13 @@ async function submitOrder() {
   if (!form.value.vehicle) return uni.showToast({ title: '请选择车型', icon: 'none' })
   if (!form.value.phone) return uni.showToast({ title: '请输入电话', icon: 'none' })
 
+  const scheduleCheck = validateScheduledAt24h(
+    buildScheduledAtIso(form.value.pickupDate, form.value.pickupTime)
+  )
+  if (!scheduleCheck.ok) {
+    return uni.showToast({ title: scheduleCheck.message, icon: 'none' })
+  }
+
   const term = selectedTerminal.value ? ` ${selectedTerminal.value}` : ''
   const airportCode = airportCodeMap[selectedAirport.value] || selectedAirport.value
   dropoffAddress.value = {
@@ -273,17 +286,27 @@ async function submitOrder() {
   const destination = dropoffAddress.value.address
 
   try {
-    await createRideOrder(pickup, destination, 'dropoff', {
+    const data = await createRideOrder(pickup, destination, 'dropoff', {
       airport: airportCode,
       dropoffAirport: airportCode,
       pickupPostcode: pickupAddress.value.postcode.trim(),
       dropoffPostcode: dropoffAddress.value.postcode,
-      pickupDetail: pickupAddress.value.detail.trim(),
-      dropoffDetail: dropoffAddress.value.detail
+      pickupDetail: `${form.value.pickupDate} ${form.value.pickupTime} ${pickupAddress.value.detail}`.trim(),
+      dropoffDetail: dropoffAddress.value.detail,
+      scheduledAt: scheduleCheck.scheduledAt.toISOString(),
+      vehicleClass: vehicleClassFromLabel(form.value.vehicle),
+      vehicleLabel: form.value.vehicle
     })
+    const oid = data?.order?._id
     uni.showToast({ title: '下单成功', icon: 'success' })
     setTimeout(() => {
-      uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+      if (oid) {
+        uni.navigateTo({
+          url: `/pages/A0106_client_payment_v01?orderId=${encodeURIComponent(oid)}`
+        })
+      } else {
+        uni.navigateTo({ url: '/pages/A0107_client_wait_driver_v01' })
+      }
     }, 600)
   } catch (e) {
     /* request 内已 toast */

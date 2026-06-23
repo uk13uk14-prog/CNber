@@ -13,6 +13,7 @@
 
 <script>
 import { request } from '../utils/request.js'
+import { updateDriverStatus } from '../utils/driverApi.js'
 
 export default {
   name: 'D0003_driver_register',
@@ -47,6 +48,11 @@ export default {
         if (data?.token) {
           uni.setStorageSync('token', data.token)
           uni.setStorageSync('user', data.user || {})
+          try {
+            await updateDriverStatus('online')
+          } catch (e) {
+            /* ignore */
+          }
           uni.showToast({ title: '注册成功', icon: 'success' })
           setTimeout(() => {
             uni.reLaunch({ url: '/pages/D0300_driver_main' })
