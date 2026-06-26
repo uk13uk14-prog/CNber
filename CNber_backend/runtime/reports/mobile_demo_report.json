@@ -1,0 +1,12 @@
+{
+  "agent": "mobile_demo_agent",
+  "startedAt": "2026-06-26T13:08:52.401Z",
+  "finishedAt": "2026-06-26T13:08:52.411Z",
+  "result": "SKIPPED",
+  "skipped": true,
+  "skipReason": "No Android device detected.",
+  "device": null,
+  "packageName": null,
+  "screenshots": [],
+  "steps": []
+}

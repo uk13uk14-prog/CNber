@@ -1,0 +1,121 @@
+{
+  "agent": "operations_agent",
+  "startedAt": "2026-06-26T13:08:50.770Z",
+  "finishedAt": "2026-06-26T13:08:50.857Z",
+  "result": "WARN",
+  "thresholds": {
+    "undispatchMs": 7200000,
+    "unpaidMs": 86400000,
+    "incompleteMs": 172800000,
+    "driverIdleMs": 3600000
+  },
+  "orders": {
+    "longUndispatched": {
+      "count": 3,
+      "thresholdHours": 2,
+      "samples": [
+        {
+          "orderNo": "SMOKE-ST-1782214302683",
+          "status": "pending",
+          "dispatchStatus": "pending",
+          "updatedAt": "2026-06-23T11:31:42.688Z"
+        },
+        {
+          "orderNo": "SMOKE-MT-C-1782241381817",
+          "status": "pending",
+          "dispatchStatus": "pending",
+          "updatedAt": "2026-06-23T19:03:01.822Z"
+        },
+        {
+          "orderNo": "SMOKE-MA-1782242064285",
+          "status": "pending",
+          "dispatchStatus": "pending",
+          "updatedAt": "2026-06-23T19:14:24.291Z"
+        }
+      ]
+    },
+    "longUnpaid": {
+      "count": 1,
+      "thresholdHours": 24,
+      "samples": [
+        {
+          "orderNo": "SMOKE-MA-1782242064285",
+          "status": "pending",
+          "depositStatus": "submitted",
+          "balanceStatus": "unpaid",
+          "updatedAt": "2026-06-23T19:14:24.291Z"
+        }
+      ]
+    },
+    "longIncomplete": {
+      "count": 2,
+      "thresholdHours": 48,
+      "samples": [
+        {
+          "orderNo": "CNB-20260429-002",
+          "status": "assigned",
+          "updatedAt": "2026-04-29T18:56:23.628Z"
+        },
+        {
+          "orderNo": "CNB-20260429-004",
+          "status": "accepted",
+          "updatedAt": "2026-04-29T20:14:52.333Z"
+        }
+      ]
+    }
+  },
+  "drivers": {
+    "online": 3,
+    "offline": 4,
+    "longIdleOnline": {
+      "count": 0,
+      "thresholdMinutes": 60,
+      "samples": []
+    }
+  },
+  "jobQueue": {
+    "pending": 0,
+    "running": 0,
+    "failed": 0,
+    "success": 0,
+    "total": 0
+  },
+  "database": {
+    "ok": true,
+    "state": "connected",
+    "pingMs": 10
+  },
+  "api": {
+    "status": {
+      "ok": true,
+      "httpStatus": 200,
+      "message": "CNber backend is running"
+    },
+    "health": {
+      "ok": false,
+      "endpoint": "/api/admin/system-health",
+      "httpStatus": 401,
+      "note": "需要管理员 Token（仅检查 HTTP 可达）"
+    }
+  },
+  "alerts": [
+    {
+      "level": "warn",
+      "message": "3 笔订单长时间未派单",
+      "category": "orders.undispatched",
+      "at": "2026-06-26T13:08:50.839Z"
+    },
+    {
+      "level": "warn",
+      "message": "1 笔订单长时间未支付/待审",
+      "category": "orders.unpaid",
+      "at": "2026-06-26T13:08:50.839Z"
+    },
+    {
+      "level": "warn",
+      "message": "2 笔订单长时间未完成",
+      "category": "orders.incomplete",
+      "at": "2026-06-26T13:08:50.839Z"
+    }
+  ]
+}

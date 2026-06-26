@@ -1,0 +1,43 @@
+{
+  "startedAt": "2026-06-26T13:08:49.095Z",
+  "finishedAt": "2026-06-26T13:08:52.420Z",
+  "result": "PASS",
+  "agents": [
+    {
+      "key": "qa",
+      "name": "QA Demo Agent",
+      "exitCode": 0,
+      "durationMs": 1155,
+      "result": "PASS",
+      "skipped": false,
+      "verdict": null
+    },
+    {
+      "key": "ops",
+      "name": "Operations Agent",
+      "exitCode": 0,
+      "durationMs": 623,
+      "result": "WARN",
+      "skipped": false,
+      "verdict": null
+    },
+    {
+      "key": "monitor",
+      "name": "Monitoring Agent",
+      "exitCode": 0,
+      "durationMs": 1447,
+      "result": "WARN",
+      "skipped": false,
+      "verdict": "System Warning"
+    },
+    {
+      "key": "mobile",
+      "name": "Mobile Demo Agent",
+      "exitCode": 0,
+      "durationMs": 93,
+      "result": "SKIPPED",
+      "skipped": true,
+      "verdict": null
+    }
+  ]
+}

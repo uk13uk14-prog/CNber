@@ -1,0 +1,122 @@
+{
+  "agent": "monitoring_agent",
+  "startedAt": "2026-06-26T13:08:51.386Z",
+  "finishedAt": "2026-06-26T13:08:52.308Z",
+  "verdict": "System Warning",
+  "result": "WARN",
+  "checks": {
+    "backend": {
+      "ok": true,
+      "httpStatus": 200
+    },
+    "mongo": {
+      "ok": true,
+      "state": 1,
+      "pingMs": 13
+    },
+    "jobWorker": {
+      "ok": true,
+      "queue": {
+        "pending": 0,
+        "running": 0,
+        "success": 0,
+        "failed": 0,
+        "total": 0
+      },
+      "recentWorkerLog": false,
+      "note": "未在近期日志中发现 jobWorker（可能未启动或日志轮转）"
+    },
+    "resources": {
+      "memoryPercent": 19,
+      "memoryUsedMB": 12453,
+      "memoryTotalMB": 65430,
+      "cpuUsage": 0,
+      "diskUsagePercent": 94,
+      "uptimeHours": 1.8,
+      "platform": "win32"
+    }
+  },
+  "logs": {
+    "errors": [
+      {
+        "file": "app.log",
+        "line": "2026-04-23 16:14:22 [error] Forbidden | ip=::1 | code=403 | stack=Error: Forbidden"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-04-23 16:14:22 [error] Forbidden | ip=::1 | code=403 | stack=Error: Forbidden"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-04-29 22:01:09 [error] 缺少或无效的 driverId | ip=::1 | code=400 | stack=Error: 缺少或无效的 driverId"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-06-23 11:52:46 [error] profile sync failed [closeOrder]: Server is closed | stack=MongoServerClosedError: Server is closed"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-06-23 11:52:46 [error] profile sync failed [completeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-06-26 13:51:35 [error] profile sync failed [closeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-06-26 14:08:42 [error] profile sync failed [closeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "app.log",
+        "line": "2026-06-26 14:08:50 [error] 无效登录 | ip=::ffff:127.0.0.1 | code=401 | stack=Error: 无效登录"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-04-23 16:14:22 [error] Forbidden | ip=::1 | code=403 | stack=Error: Forbidden"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-04-23 16:14:22 [error] Forbidden | ip=::1 | code=403 | stack=Error: Forbidden"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-04-29 22:01:09 [error] 缺少或无效的 driverId | ip=::1 | code=400 | stack=Error: 缺少或无效的 driverId"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-06-23 11:52:46 [error] profile sync failed [closeOrder]: Server is closed | stack=MongoServerClosedError: Server is closed"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-06-23 11:52:46 [error] profile sync failed [completeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-06-26 13:51:35 [error] profile sync failed [closeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-06-26 14:08:42 [error] profile sync failed [closeOrder]: Client must be connected before running operations | stack=MongoNotConnectedError: Client must be connected before running operations"
+      },
+      {
+        "file": "error.log",
+        "line": "2026-06-26 14:08:50 [error] 无效登录 | ip=::ffff:127.0.0.1 | code=401 | stack=Error: 无效登录"
+      }
+    ],
+    "warnings": [],
+    "errorCount": 16,
+    "warningCount": 0
+  },
+  "issues": [
+    {
+      "level": "warn",
+      "message": "日志中发现 16 条 ERROR（最近 500 行）",
+      "at": "2026-06-26T13:08:51.389Z"
+    },
+    {
+      "level": "warn",
+      "message": "磁盘使用率 94% >= 90%",
+      "at": "2026-06-26T13:08:52.308Z"
+    }
+  ]
+}
