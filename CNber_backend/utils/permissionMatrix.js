@@ -26,7 +26,8 @@ const PERMISSION_MODULES = [
   'trial_operations',
   'audit_logs',
   'backup_center',
-  'system_health'
+  'system_health',
+  'job_queue'
 ]
 
 const MODULE_LABELS = {
@@ -52,7 +53,8 @@ const MODULE_LABELS = {
   trial_operations: '试运营看板',
   audit_logs: '操作日志',
   backup_center: '数据备份',
-  system_health: '系统状态'
+  system_health: '系统状态',
+  job_queue: '任务队列'
 }
 
 const ACTION_LABELS = {
@@ -79,7 +81,8 @@ const DEFAULT_ROLE_PERMISSIONS = {
     campaigns: ['view'],
     crm: ['view', 'export'],
     trial_operations: ['view'],
-    system_health: ['view']
+    system_health: ['view'],
+    job_queue: ['view']
   },
   finance: {
     dashboard: ['view'],

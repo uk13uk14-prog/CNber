@@ -1,68 +1,80 @@
 <template>
-  <view class="page">
-    <view v-if="loading" class="center muted">加载中…</view>
-    <view v-else-if="error" class="center error">{{ error }}</view>
-    <template v-else-if="ticket._id">
-      <view class="card">
-        <view class="head">
+  <scroll-view scroll-y class="page">
+    <view class="pad">
+      <view v-if="loading" class="center muted">加载中…</view>
+      <view v-else-if="error" class="center error">{{ error }}</view>
+      <template v-else-if="ticket._id">
+        <view class="head-card">
           <text class="ticket-no">{{ ticket.ticketNo }}</text>
-          <text class="pill">{{ ticketStatusLabel(ticket.status) }}</text>
+          <AdminStatusBadge
+            :label="statusMeta.label"
+            :color="statusMeta.color"
+            :bg="statusMeta.bg"
+          />
         </view>
-        <view class="row"><text class="dt">类型</text><text class="dd">{{ ticketTypeLabel(ticket.type) }}</text></view>
-        <view class="row"><text class="dt">优先级</text><text class="dd">{{ ticketPriorityLabel(ticket.priority) }}</text></view>
-        <view class="row"><text class="dt">标题</text><text class="dd">{{ ticket.title }}</text></view>
-        <view class="row"><text class="dt">客户手机</text><text class="dd link" @click="callCustomer">{{ ticket.requesterPhone || '—' }}</text></view>
-        <view class="row">
-          <text class="dt">订单号</text>
-          <text v-if="ticket.orderId" class="dd link" @click="goOrder">{{ ticket.orderNo || ticket.orderId }}</text>
-          <text v-else class="dd">—</text>
-        </view>
-        <view class="row"><text class="dt">创建时间</text><text class="dd">{{ fmtTime(ticket.createdAt) }}</text></view>
-      </view>
 
-      <view class="card">
-        <view class="title">问题描述</view>
-        <text class="desc">{{ ticket.description || '—' }}</text>
-        <view v-if="ticket.resolution" class="resolution">
-          <text class="title">处理结果</text>
-          <text>{{ ticket.resolution }}</text>
+        <AdminSectionTitle title="基本信息" />
+        <view class="card">
+          <view class="row"><text class="dt">类型</text><text class="dd">{{ ticketTypeLabel(ticket.type) }}</text></view>
+          <view class="row"><text class="dt">优先级</text><text class="dd">{{ ticketPriorityLabel(ticket.priority) }}</text></view>
+          <view class="row"><text class="dt">标题</text><text class="dd">{{ ticket.title }}</text></view>
+          <view class="row"><text class="dt">客户手机</text><text class="dd link" @click="callCustomer">{{ ticket.requesterPhone || '—' }}</text></view>
+          <view class="row">
+            <text class="dt">订单号</text>
+            <text v-if="ticket.orderId" class="dd link" @click="goOrder">{{ ticket.orderNo || ticket.orderId }}</text>
+            <text v-else class="dd">—</text>
+          </view>
+          <view class="row"><text class="dt">创建时间</text><text class="dd">{{ fmtTime(ticket.createdAt) }}</text></view>
         </view>
-      </view>
 
-      <view class="card">
-        <view class="title">处理记录</view>
-        <view v-if="sortedLogs.length">
-          <view v-for="(log, idx) in sortedLogs" :key="log._id || idx" class="log-item">
-            <view class="log-head">
-              <text class="author">{{ log.authorName || '—' }}</text>
-              <text class="time">{{ fmtTime(log.createdAt) }}</text>
-            </view>
-            <text class="log-content">{{ log.content }}</text>
+        <AdminSectionTitle title="问题描述" />
+        <view class="card">
+          <text class="desc">{{ ticket.description || '—' }}</text>
+          <view v-if="ticket.resolution" class="resolution">
+            <text class="sub-title">处理结果</text>
+            <text class="desc">{{ ticket.resolution }}</text>
           </view>
         </view>
-        <text v-else class="muted">暂无记录</text>
-      </view>
 
-      <view v-if="canUpdate" class="card">
-        <view class="title">操作</view>
-        <picker mode="selector" :range="statusLabels" :value="statusPickerIndex" @change="onStatusPick">
-          <view class="picker-btn">状态：{{ ticketStatusLabel(nextStatus) }}</view>
-        </picker>
-        <input v-model="resolutionDraft" class="input" placeholder="处理结果（可选）" />
-        <button class="btn primary" :loading="saving" @click="updateStatus">更新状态</button>
-        <textarea v-model="commentDraft" class="textarea" placeholder="添加处理记录…" />
-        <button class="btn" :loading="saving" @click="submitComment">添加记录</button>
-      </view>
+        <AdminSectionTitle title="处理记录" />
+        <view class="card">
+          <view v-if="sortedLogs.length">
+            <view v-for="(log, idx) in sortedLogs" :key="log._id || idx" class="log-item">
+              <view class="log-head">
+                <text class="author">{{ log.authorName || '—' }}</text>
+                <text class="time">{{ fmtTime(log.createdAt) }}</text>
+              </view>
+              <text class="log-content">{{ log.content }}</text>
+            </view>
+          </view>
+          <text v-else class="muted">暂无记录</text>
+        </view>
 
-      <view class="footer">
-        <button class="btn" @click="callCustomer">拨打客户</button>
-        <button class="btn" @click="goBack">返回列表</button>
-      </view>
-    </template>
-  </view>
+        <template v-if="canUpdate">
+          <AdminSectionTitle title="操作" />
+          <view class="card">
+            <picker mode="selector" :range="statusLabels" :value="statusPickerIndex" @change="onStatusPick">
+              <view class="picker-btn">状态：{{ ticketStatusLabel(nextStatus) }}</view>
+            </picker>
+            <input v-model="resolutionDraft" class="input" placeholder="处理结果（可选）" />
+            <button class="btn primary" :loading="saving" @click="updateStatus">更新状态</button>
+            <textarea v-model="commentDraft" class="textarea" placeholder="添加处理记录…" />
+            <button class="btn ghost" :loading="saving" @click="submitComment">添加记录</button>
+          </view>
+        </template>
+
+        <view class="footer">
+          <button class="btn ghost" @click="callCustomer">拨打客户</button>
+          <button class="btn primary" @click="goBack">返回列表</button>
+        </view>
+      </template>
+    </view>
+  </scroll-view>
 </template>
 
 <script>
+import AdminSectionTitle from '@/components/AdminSectionTitle.vue'
+import AdminStatusBadge from '@/components/AdminStatusBadge.vue'
 import {
   fetchSupportTicketDetail,
   updateSupportTicketStatus,
@@ -74,10 +86,12 @@ import {
   ticketStatusLabel,
   ticketPriorityLabel
 } from '@/utils/supportTicketLabels'
+import { getTicketStatusMeta } from '@/config/statusMeta'
 import { canUpdateTickets } from '@/stores/auth'
 import { callPhone, fmtTime, showToast } from '@/utils/phone'
 
 export default {
+  components: { AdminSectionTitle, AdminStatusBadge },
   data() {
     return {
       ticketId: '',
@@ -104,6 +118,9 @@ export default {
     sortedLogs() {
       const list = this.ticket?.operationLogs || []
       return [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    },
+    statusMeta() {
+      return getTicketStatusMeta(this.ticket.status)
     }
   },
   onLoad(query) {
@@ -176,38 +193,56 @@ export default {
       }
     },
     goBack() {
-      uni.navigateBack({ fail: () => uni.navigateTo({ url: '/pages/M0005_admin_tickets' }) })
+      uni.navigateBack({
+        fail: () => uni.switchTab({ url: '/pages/M0005_admin_tickets' })
+      })
     }
   }
 }
 </script>
 
-<style scoped>
-.page { padding: 24rpx; padding-bottom: 120rpx; }
-.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
-.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
-.ticket-no { font-weight: 600; font-size: 30rpx; }
-.pill { font-size: 22rpx; padding: 4rpx 12rpx; background: #eef2ff; color: #1a5cff; border-radius: 8rpx; }
-.title { font-weight: 600; margin-bottom: 12rpx; display: block; }
+<style scoped lang="scss">
+@import '../styles/theme.scss';
+
+.page { height: 100vh; }
+.pad { padding: $admin-page-pad; padding-bottom: 120rpx; }
+.head-card {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; border-radius: $admin-card-radius; padding: 28rpx 24rpx;
+  border: 1rpx solid $admin-border; margin-bottom: 8rpx;
+}
+.ticket-no { font-size: 32rpx; font-weight: 700; color: $admin-text; }
+.card {
+  background: #fff; border-radius: $admin-card-radius; padding: 24rpx;
+  border: 1rpx solid $admin-border; margin-bottom: 8rpx;
+}
 .row { display: flex; margin-bottom: 10rpx; font-size: 26rpx; }
-.dt { width: 140rpx; color: #6b7280; flex-shrink: 0; }
-.dd { flex: 1; word-break: break-all; }
-.link { color: #1a5cff; }
-.desc { font-size: 28rpx; line-height: 1.6; }
-.resolution { margin-top: 20rpx; padding-top: 16rpx; border-top: 1px solid #f0f0f0; }
-.log-item { padding: 16rpx 0; border-bottom: 1px solid #f5f5f5; }
+.dt { width: 140rpx; color: $admin-text-secondary; flex-shrink: 0; }
+.dd { flex: 1; word-break: break-all; color: $admin-text; }
+.link { color: $admin-primary; }
+.desc { font-size: 28rpx; line-height: 1.6; color: $admin-text; }
+.sub-title { font-weight: 600; margin-bottom: 8rpx; display: block; color: $admin-text; }
+.resolution { margin-top: 20rpx; padding-top: 16rpx; border-top: 1rpx solid $admin-border; }
+.log-item { padding: 16rpx 0; border-bottom: 1rpx solid $admin-border; }
 .log-head { display: flex; justify-content: space-between; margin-bottom: 8rpx; }
-.author { font-weight: 500; }
-.time { color: #9ca3af; font-size: 24rpx; }
-.log-content { font-size: 26rpx; line-height: 1.5; }
-.picker-btn { padding: 16rpx; background: #f3f4f6; border-radius: 12rpx; margin-bottom: 16rpx; font-size: 28rpx; }
-.input, .textarea { width: 100%; border: 1px solid #e5e7eb; border-radius: 12rpx; padding: 16rpx; margin-bottom: 16rpx; box-sizing: border-box; font-size: 28rpx; }
+.author { font-weight: 500; color: $admin-text; }
+.time { color: $admin-text-secondary; font-size: 24rpx; }
+.log-content { font-size: 26rpx; line-height: 1.5; color: $admin-text; }
+.picker-btn {
+  padding: 16rpx; background: $admin-bg; border: 1rpx solid $admin-border;
+  border-radius: 12rpx; margin-bottom: 16rpx; font-size: 28rpx; color: $admin-text;
+}
+.input, .textarea {
+  width: 100%; border: 1rpx solid $admin-border; border-radius: 12rpx;
+  padding: 16rpx; margin-bottom: 16rpx; box-sizing: border-box; font-size: 28rpx;
+}
 .textarea { min-height: 140rpx; }
-.btn { margin: 0 0 16rpx; font-size: 28rpx; }
-.btn.primary { background: #1a5cff; color: #fff; }
-.footer { display: flex; gap: 16rpx; }
+.btn { margin: 0 0 16rpx; font-size: 28rpx; border-radius: 12rpx; }
+.btn.primary { background: $admin-primary; color: #fff; }
+.btn.ghost { background: #fff; color: $admin-primary; border: 1rpx solid $admin-border; }
+.footer { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .footer .btn { flex: 1; }
 .center { text-align: center; padding: 80rpx; }
-.muted { color: #6b7280; }
-.error { color: #e11; }
+.muted { color: $admin-text-secondary; }
+.error { color: $admin-danger; }
 </style>

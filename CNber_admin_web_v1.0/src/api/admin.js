@@ -517,3 +517,19 @@ export function runBackup() {
 export function fetchSystemHealth() {
   return http.get('/admin/system-health')
 }
+
+export function fetchOperationsDashboardOverview() {
+  return http.get('/admin/dashboard/overview')
+}
+
+export function fetchSystemHealthMetrics() {
+  return http.get('/admin/system/health')
+}
+
+export function fetchJobQueueStats() {
+  return http.get('/admin/jobs/stats')
+}
+
+export function fetchRecentJobs(params = {}) {
+  return http.get('/admin/jobs/recent', { params })
+}

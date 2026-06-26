@@ -3,7 +3,7 @@
     <aside class="aside">
       <div class="brand">
         CNber 后台
-        <span class="sidebar-version">权限 V2</span>
+        <span class="sidebar-version">菜单 V3</span>
       </div>
       <nav class="nav">
         <router-link
@@ -13,6 +13,14 @@
           active-class="nav-active"
         >
           工作台
+        </router-link>
+
+        <router-link
+          to="/operations-dashboard"
+          class="nav-item nav-top"
+          active-class="nav-active"
+        >
+          运营驾驶舱
         </router-link>
 
         <div v-for="group in visibleMenuGroups" :key="group.title" class="nav-group">

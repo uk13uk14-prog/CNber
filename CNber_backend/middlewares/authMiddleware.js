@@ -1,6 +1,12 @@
 const jwt = require('jsonwebtoken')
+const User = require('../models/User')
 
 const JWT_SECRET = process.env.JWT_SECRET
+
+function touchLastSeen(userId) {
+  if (!userId) return
+  User.updateOne({ _id: userId }, { $set: { lastSeen: new Date() } }).catch(() => {})
+}
 
 const verifyToken = (req, res, next) => {
   try {
@@ -20,6 +26,7 @@ const verifyToken = (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET)
     req.user = decoded
+    touchLastSeen(decoded.userId)
     next()
   } catch (error) {
     const e = new Error('无效登录')

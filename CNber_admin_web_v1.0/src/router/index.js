@@ -160,10 +160,22 @@ const routes = [
         meta: { module: 'backup_center', title: '数据备份' }
       },
       {
+        path: 'operations-dashboard',
+        name: 'operations-dashboard',
+        component: () => import('@/views/OperationsDashboardView.vue'),
+        meta: { module: 'dashboard', title: '运营驾驶舱' }
+      },
+      {
         path: 'system-health',
         name: 'system-health',
         component: () => import('@/views/SystemHealthView.vue'),
         meta: { module: 'system_health', title: '系统状态' }
+      },
+      {
+        path: 'job-queue',
+        name: 'job-queue',
+        component: () => import('@/views/JobQueueView.vue'),
+        meta: { module: 'job_queue', title: '任务队列' }
       },
       {
         path: 'payment-settings',

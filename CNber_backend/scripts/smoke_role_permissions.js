@@ -86,7 +86,7 @@ async function upsertUser({ phone, password, role }) {
 }
 
 async function main() {
-  assert.strictEqual(PERMISSION_MODULES.length, 19)
+  assert.strictEqual(PERMISSION_MODULES.length, 20)
   assert.strictEqual(PERMISSION_ACTIONS.length, 6)
   assert.ok(DEFAULT_ROLE_PERMISSIONS.operator.orders.includes('update'))
 

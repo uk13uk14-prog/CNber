@@ -34,7 +34,11 @@
           <view v-for="order in visibleOrders" :key="order._id" class="order-card card">
             <view class="card-head">
               <text class="order-no">{{ orderDisplayNo(order) }}</text>
-              <text class="pill">{{ adminBookingStatusLabel(order) }}</text>
+              <AdminStatusBadge
+                :label="statusMeta(order).label"
+                :color="statusMeta(order).color"
+                :bg="statusMeta(order).bg"
+              />
             </view>
 
             <view class="row"><text class="dt">客户</text><text class="dd">{{ customerPhone(order) }}</text></view>
@@ -136,8 +140,12 @@ import {
 import { depositConfirmedForDispatch } from '@/utils/depositDispatch'
 import { canViewDispatch, canConfirmPayment, canDispatchUpdate } from '@/stores/auth'
 import { callPhone, showToast } from '@/utils/phone'
+import AdminStatusBadge from '@/components/AdminStatusBadge.vue'
+import { getBookingStatusMeta } from '@/config/statusMeta'
+import { DISPATCH_TAB_PRESET_KEY } from '@/config/navPreset'
 
 export default {
+  components: { AdminStatusBadge },
   data() {
     return {
       tabs: DISPATCH_MOBILE_TABS,
@@ -171,6 +179,15 @@ export default {
     }
   },
   onShow() {
+    try {
+      const preset = uni.getStorageSync(DISPATCH_TAB_PRESET_KEY)
+      if (preset && DISPATCH_MOBILE_TABS.some((t) => t.id === preset)) {
+        this.activeTab = preset
+        uni.removeStorageSync(DISPATCH_TAB_PRESET_KEY)
+      }
+    } catch (e) {
+      /* ignore */
+    }
     if (this.canView) this.reload()
   },
   onPullDownRefresh() {
@@ -186,6 +203,9 @@ export default {
     customerPriceCell,
     driverPriceCell,
     canUnassignOrder,
+    statusMeta(order) {
+      return getBookingStatusMeta(order)
+    },
     customerPhone(order) {
       return phoneOf(order.userId) || '—'
     },
@@ -332,26 +352,36 @@ export default {
 }
 </script>
 
-<style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; background: #f5f6f8; }
-.tabs-wrap { background: #fff; border-bottom: 1px solid #eee; flex-shrink: 0; }
+<style scoped lang="scss">
+@import '../styles/theme.scss';
+
+.page { display: flex; flex-direction: column; height: 100vh; background: $admin-bg; }
+.tabs-wrap { background: #fff; border-bottom: 1rpx solid $admin-border; flex-shrink: 0; }
 .tabs { display: flex; white-space: nowrap; padding: 12rpx 16rpx; }
-.tab { display: inline-flex; align-items: center; padding: 16rpx 24rpx; margin-right: 12rpx; border-radius: 999rpx; background: #f3f4f6; font-size: 26rpx; }
-.tab.active { background: #1a5cff; color: #fff; }
+.tab {
+  display: inline-flex; align-items: center; padding: 16rpx 24rpx; margin-right: 12rpx;
+  border-radius: 999rpx; background: $admin-bg; font-size: 26rpx; color: $admin-text-secondary;
+  &.active { background: $admin-primary; color: #fff; }
+}
 .count { margin-left: 8rpx; font-size: 22rpx; opacity: 0.85; }
 .list-scroll { flex: 1; height: 0; padding: 20rpx; box-sizing: border-box; }
 .cards { padding-bottom: 40rpx; }
-.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.card {
+  background: #fff; border-radius: $admin-card-radius; padding: 24rpx; margin-bottom: 20rpx;
+  border: 1rpx solid $admin-border;
+}
 .order-card .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
-.order-no { font-weight: 600; font-size: 30rpx; }
-.pill { font-size: 22rpx; padding: 4rpx 12rpx; background: #eef2ff; color: #1a5cff; border-radius: 8rpx; }
+.order-no { font-weight: 600; font-size: 30rpx; color: $admin-text; }
 .row { display: flex; margin-bottom: 10rpx; font-size: 26rpx; }
-.dt { width: 120rpx; color: #6b7280; flex-shrink: 0; }
-.dd { flex: 1; word-break: break-all; }
-.actions { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 20rpx; }
-.btn { margin: 0; font-size: 24rpx; }
-.btn.primary { background: #1a5cff; color: #fff; }
-.picker-btn { padding: 12rpx 20rpx; background: #f3f4f6; border-radius: 8rpx; font-size: 24rpx; max-width: 360rpx; overflow: hidden; text-overflow: ellipsis; }
-.empty, .center { text-align: center; padding: 80rpx 24rpx; color: #6b7280; }
-.muted { color: #6b7280; }
+.dt { width: 120rpx; color: $admin-text-secondary; flex-shrink: 0; }
+.dd { flex: 1; word-break: break-all; color: $admin-text; }
+.actions { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 20rpx; padding-top: 16rpx; border-top: 1rpx solid $admin-border; }
+.btn { margin: 0; font-size: 24rpx; border-radius: 12rpx; background: $admin-bg; border: 1rpx solid $admin-border; }
+.btn.primary { background: $admin-primary; color: #fff; border-color: $admin-primary; }
+.picker-btn {
+  padding: 12rpx 20rpx; background: $admin-bg; border: 1rpx solid $admin-border;
+  border-radius: 12rpx; font-size: 24rpx; max-width: 360rpx; overflow: hidden; text-overflow: ellipsis;
+}
+.empty, .center { text-align: center; padding: 80rpx 24rpx; color: $admin-text-secondary; }
+.muted { color: $admin-text-secondary; }
 </style>

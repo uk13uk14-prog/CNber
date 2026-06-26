@@ -16,6 +16,11 @@ const UserSchema = new mongoose.Schema(
       enum: ['active', 'banned'],
       default: 'active'
     },
+    /** 最近一次已登录 API 访问时间，用于在线/活跃统计 */
+    lastSeen: {
+      type: Date,
+      default: null
+    },
     /** 乘客资料（role=user） */
     passengerProfile: {
       realName: String,

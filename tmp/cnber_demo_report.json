@@ -1,0 +1,245 @@
+{
+  "tag": "cnber_demo_agent",
+  "startedAt": "2026-06-26T12:51:42.907Z",
+  "finishedAt": "2026-06-26T12:51:43.499Z",
+  "result": "PASS",
+  "host": "127.0.0.1",
+  "port": 3100,
+  "accounts": {
+    "customer": {
+      "phone": "cnber_demo_agent_customer@cnber.local",
+      "userId": "6a3e75da7e78521583c4ce75",
+      "password": "CnberDemo_cnber_demo_agent_dev"
+    },
+    "driver": {
+      "phone": "cnber_demo_agent_driver@cnber.local",
+      "userId": "6a3e75da7e78521583c4ce76",
+      "password": "CnberDemo_cnber_demo_agent_dev"
+    },
+    "admin": {
+      "phone": "cnber_demo_agent_admin@cnber.local",
+      "userId": "6a3e75da7e78521583c4ce77",
+      "password": "CnberDemo_cnber_demo_agent_dev"
+    }
+  },
+  "order": {
+    "orderId": "6a3e75df742a6afb7d057ff0",
+    "orderNo": "CNB-20260626-003",
+    "finalStatus": "completed",
+    "finalStatusLabel": "已完成",
+    "customerPhone": "cnber_demo_agent_customer@cnber.local",
+    "driverUserId": "6a3e75da7e78521583c4ce76",
+    "scheduledAt": "2026-06-27T13:51:43.335Z",
+    "depositStatus": "confirmed",
+    "balanceStatus": "confirmed"
+  },
+  "statusFlow": [
+    {
+      "status": "quoted",
+      "label": "已自动报价",
+      "at": "2026-06-26T12:51:43.362Z",
+      "note": "创建订单"
+    },
+    {
+      "status": "confirmed",
+      "label": "客户确认报价",
+      "at": "2026-06-26T12:51:43.372Z",
+      "note": "确认报价"
+    },
+    {
+      "status": "confirmed",
+      "label": "客户确认报价",
+      "at": "2026-06-26T12:51:43.386Z",
+      "note": "定金已提交 depositStatus=submitted"
+    },
+    {
+      "status": "deposit_paid",
+      "label": "已付订金",
+      "at": "2026-06-26T12:51:43.400Z",
+      "note": "定金已确认"
+    },
+    {
+      "status": "assigned",
+      "label": "已指派司机",
+      "at": "2026-06-26T12:51:43.414Z",
+      "note": "已派单"
+    },
+    {
+      "status": "driver_accepted",
+      "label": "司机已接单",
+      "at": "2026-06-26T12:51:43.422Z",
+      "note": "司机已接单"
+    },
+    {
+      "status": "driver_accepted",
+      "label": "司机已接单",
+      "at": "2026-06-26T12:51:43.463Z",
+      "note": "尾款已确认"
+    },
+    {
+      "status": "ready_to_start",
+      "label": "待出发",
+      "at": "2026-06-26T12:51:43.472Z",
+      "note": "待出发"
+    },
+    {
+      "status": "in_progress",
+      "label": "行程中",
+      "at": "2026-06-26T12:51:43.480Z",
+      "note": "行程中"
+    },
+    {
+      "status": "completed",
+      "label": "已完成",
+      "at": "2026-06-26T12:51:43.486Z",
+      "note": "已完成"
+    }
+  ],
+  "steps": [
+    {
+      "name": "创建/更新 Demo 测试账号",
+      "api": "mongodb://users",
+      "method": "UPSERT",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "customer / driver / admin + 收款账户"
+    },
+    {
+      "name": "检查后端健康",
+      "api": "/api/status",
+      "method": "GET",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "127.0.0.1:3100"
+    },
+    {
+      "name": "客户登录",
+      "api": "/api/auth/login",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "cnber_demo_agent_customer@cnber.local"
+    },
+    {
+      "name": "司机登录",
+      "api": "/api/auth/login",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "cnber_demo_agent_driver@cnber.local"
+    },
+    {
+      "name": "管理员登录",
+      "api": "/api/auth/login",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "cnber_demo_agent_admin@cnber.local"
+    },
+    {
+      "name": "创建预约订单",
+      "api": "/api/order/create",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 201,
+      "detail": "CNB-20260626-003 scheduledAt=2026-06-27T13:51:43.335Z"
+    },
+    {
+      "name": "客户确认报价",
+      "api": "/api/order/confirm-price",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "confirmed"
+    },
+    {
+      "name": "客户提交定金",
+      "api": "/api/order/6a3e75df742a6afb7d057ff0/deposit/submit",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "£9"
+    },
+    {
+      "name": "后台确认定金",
+      "api": "/api/admin/orders/6a3e75df742a6afb7d057ff0/payment/deposit/confirm",
+      "method": "PATCH",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "confirmed"
+    },
+    {
+      "name": "后台派单",
+      "api": "/api/admin/orders/6a3e75df742a6afb7d057ff0/assign-driver",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "driver=6a3e75da7e78521583c4ce76"
+    },
+    {
+      "name": "司机确认接单",
+      "api": "/api/order/accept",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "driver_accepted"
+    },
+    {
+      "name": "后台发起尾款",
+      "api": "/api/admin/orders/6a3e75df742a6afb7d057ff0/balance/request",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "balance_pending"
+    },
+    {
+      "name": "客户提交尾款",
+      "api": "/api/order/6a3e75df742a6afb7d057ff0/balance/submit",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "£81"
+    },
+    {
+      "name": "后台确认尾款",
+      "api": "/api/admin/orders/6a3e75df742a6afb7d057ff0/payment/balance/confirm",
+      "method": "PATCH",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "confirmed"
+    },
+    {
+      "name": "推进至待出发",
+      "api": "/api/admin/orders/6a3e75df742a6afb7d057ff0/pay-remaining",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "ready_to_start"
+    },
+    {
+      "name": "司机开始行程",
+      "api": "/api/order/start",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "in_progress"
+    },
+    {
+      "name": "司机完成订单",
+      "api": "/api/order/complete",
+      "method": "POST",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "completed"
+    },
+    {
+      "name": "读取并验证订单详情",
+      "api": "/api/order/detail/6a3e75df742a6afb7d057ff0",
+      "method": "GET",
+      "ok": true,
+      "statusCode": 200,
+      "detail": "CNB-20260626-003 → completed"
+    }
+  ],
+  "failure": null
+}

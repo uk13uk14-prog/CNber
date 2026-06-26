@@ -1,4 +1,4 @@
-import { BASE_URL, LOGIN_PATH } from '@/config/api'
+import { getBaseUrl, LOGIN_PATH } from '@/config/api'
 import { TOKEN_KEY } from '@/config/authConstants'
 
 function unwrapBody(res) {
@@ -15,7 +15,7 @@ export function request(options) {
   const token = uni.getStorageSync(TOKEN_KEY)
   return new Promise((resolve, reject) => {
     uni.request({
-      url: `${BASE_URL}${options.url}`,
+      url: `${getBaseUrl()}${options.url}`,
       method: options.method || 'GET',
       data: options.data,
       header: {

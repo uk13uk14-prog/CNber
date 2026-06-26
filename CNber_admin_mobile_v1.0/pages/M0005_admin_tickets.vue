@@ -32,7 +32,11 @@
           <view v-for="row in rows" :key="row._id" class="ticket-card card">
             <view class="head">
               <text class="ticket-no">{{ row.ticketNo }}</text>
-              <text class="pill">{{ ticketStatusLabel(row.status) }}</text>
+              <AdminStatusBadge
+                :label="ticketMeta(row.status).label"
+                :color="ticketMeta(row.status).color"
+                :bg="ticketMeta(row.status).bg"
+              />
             </view>
             <view class="row"><text class="dt">类型</text><text class="dd">{{ ticketTypeLabel(row.type) }}</text></view>
             <view class="row"><text class="dt">优先级</text><text class="dd">{{ ticketPriorityLabel(row.priority) }}</text></view>
@@ -58,8 +62,12 @@ import { fetchSupportTickets } from '@/services/adminApi'
 import { TICKET_STATUS_OPTIONS, ticketTypeLabel, ticketStatusLabel, ticketPriorityLabel } from '@/utils/supportTicketLabels'
 import { canViewTickets } from '@/stores/auth'
 import { callPhone, fmtTime, showToast } from '@/utils/phone'
+import AdminStatusBadge from '@/components/AdminStatusBadge.vue'
+import { getTicketStatusMeta } from '@/config/statusMeta'
+import { TICKET_STATUS_PRESET_KEY, TICKET_KEYWORD_PRESET_KEY } from '@/config/navPreset'
 
 export default {
+  components: { AdminStatusBadge },
   data() {
     return {
       tabs: TICKET_STATUS_OPTIONS,
@@ -89,6 +97,20 @@ export default {
     if (query?.keyword) this.keyword = decodeURIComponent(query.keyword)
   },
   onShow() {
+    try {
+      const preset = uni.getStorageSync(TICKET_STATUS_PRESET_KEY)
+      if (preset && TICKET_STATUS_OPTIONS.some((t) => t.value === preset)) {
+        this.statusFilter = preset
+        uni.removeStorageSync(TICKET_STATUS_PRESET_KEY)
+      }
+      const keyword = uni.getStorageSync(TICKET_KEYWORD_PRESET_KEY)
+      if (keyword) {
+        this.keyword = keyword
+        uni.removeStorageSync(TICKET_KEYWORD_PRESET_KEY)
+      }
+    } catch (e) {
+      /* ignore */
+    }
     if (this.canView) this.reload()
   },
   onPullDownRefresh() {
@@ -99,6 +121,9 @@ export default {
     ticketStatusLabel,
     ticketPriorityLabel,
     fmtTime,
+    ticketMeta(status) {
+      return getTicketStatusMeta(status)
+    },
     switchStatus(value) {
       this.statusFilter = value
       this.reload()
@@ -158,22 +183,29 @@ export default {
 }
 </script>
 
-<style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; background: #f5f6f8; }
-.tabs-wrap { background: #fff; border-bottom: 1px solid #eee; flex-shrink: 0; }
+<style scoped lang="scss">
+@import '../styles/theme.scss';
+
+.page { display: flex; flex-direction: column; height: 100vh; background: $admin-bg; }
+.tabs-wrap { background: #fff; border-bottom: 1rpx solid $admin-border; flex-shrink: 0; }
 .tabs { display: flex; white-space: nowrap; padding: 12rpx 16rpx; }
-.tab { display: inline-block; padding: 16rpx 28rpx; margin-right: 12rpx; border-radius: 999rpx; background: #f3f4f6; font-size: 26rpx; }
-.tab.active { background: #1a5cff; color: #fff; }
+.tab {
+  display: inline-block; padding: 16rpx 28rpx; margin-right: 12rpx; border-radius: 999rpx;
+  background: $admin-bg; font-size: 26rpx; color: $admin-text-secondary;
+  &.active { background: $admin-primary; color: #fff; }
+}
 .list-scroll { flex: 1; height: 0; padding: 20rpx; box-sizing: border-box; }
-.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.card {
+  background: #fff; border-radius: $admin-card-radius; padding: 24rpx; margin-bottom: 20rpx;
+  border: 1rpx solid $admin-border;
+}
 .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.ticket-no { font-weight: 600; font-size: 28rpx; }
-.pill { font-size: 22rpx; padding: 4rpx 12rpx; background: #eef2ff; color: #1a5cff; border-radius: 8rpx; }
+.ticket-no { font-weight: 600; font-size: 28rpx; color: $admin-text; }
 .row { display: flex; margin-bottom: 8rpx; font-size: 26rpx; }
-.dt { width: 100rpx; color: #6b7280; flex-shrink: 0; }
-.dd { flex: 1; word-break: break-all; }
-.actions { display: flex; gap: 12rpx; margin-top: 16rpx; }
-.btn { margin: 0; font-size: 24rpx; }
-.btn.primary { background: #1a5cff; color: #fff; }
-.empty, .center { text-align: center; padding: 60rpx 24rpx; color: #6b7280; }
+.dt { width: 100rpx; color: $admin-text-secondary; flex-shrink: 0; }
+.dd { flex: 1; word-break: break-all; color: $admin-text; }
+.actions { display: flex; gap: 12rpx; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid $admin-border; }
+.btn { margin: 0; font-size: 24rpx; border-radius: 12rpx; background: $admin-bg; border: 1rpx solid $admin-border; }
+.btn.primary { background: $admin-primary; color: #fff; border-color: $admin-primary; }
+.empty, .center { text-align: center; padding: 60rpx 24rpx; color: $admin-text-secondary; }
 </style>

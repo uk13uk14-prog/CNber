@@ -6,7 +6,7 @@
     },
     {
       "path": "pages/M0002_admin_dashboard",
-      "style": { "navigationBarTitleText": "今日工作台" }
+      "style": { "navigationBarTitleText": "工作台" }
     },
     {
       "path": "pages/M0003_admin_dispatch",
@@ -16,10 +16,6 @@
       }
     },
     {
-      "path": "pages/M0004_admin_order_detail",
-      "style": { "navigationBarTitleText": "订单详情" }
-    },
-    {
       "path": "pages/M0005_admin_tickets",
       "style": {
         "navigationBarTitleText": "客服工单",
@@ -27,18 +23,54 @@
       }
     },
     {
-      "path": "pages/M0006_admin_ticket_detail",
-      "style": { "navigationBarTitleText": "工单详情" }
-    },
-    {
       "path": "pages/M0007_admin_profile",
       "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/M0004_admin_order_detail",
+      "style": { "navigationBarTitleText": "订单详情" }
+    },
+    {
+      "path": "pages/M0006_admin_ticket_detail",
+      "style": { "navigationBarTitleText": "工单详情" }
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "CNber运营助手",
+    "navigationBarTitleText": "CNber 运营助手",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f5f6f8"
+    "backgroundColor": "#f7f8fa"
+  },
+  "tabBar": {
+    "color": "#667085",
+    "selectedColor": "#1677ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/M0002_admin_dashboard",
+        "text": "工作台",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/M0003_admin_dispatch",
+        "text": "调度",
+        "iconPath": "static/tab/order.png",
+        "selectedIconPath": "static/tab/order-active.png"
+      },
+      {
+        "pagePath": "pages/M0005_admin_tickets",
+        "text": "工单",
+        "iconPath": "static/tab/driver.png",
+        "selectedIconPath": "static/tab/driver-active.png"
+      },
+      {
+        "pagePath": "pages/M0007_admin_profile",
+        "text": "我的",
+        "iconPath": "static/tab/settings.png",
+        "selectedIconPath": "static/tab/settings-active.png"
+      }
+    ]
   }
 }

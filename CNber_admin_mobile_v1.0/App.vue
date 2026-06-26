@@ -9,10 +9,24 @@ export default {
 }
 </script>
 
-<style>
+<style lang="scss">
+@import './styles/theme.scss';
+@import './styles/common.scss';
+
 page {
-  background: #f5f6f8;
-  color: #1a1d21;
+  background-color: $admin-bg;
+  color: $admin-text;
   font-size: 28rpx;
 }
+
+/* #ifdef H5 */
+@media (min-width: 768px) {
+  uni-page-body,
+  page {
+    max-width: 750px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+/* #endif */
 </style>

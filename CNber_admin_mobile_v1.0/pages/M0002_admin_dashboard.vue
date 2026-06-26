@@ -1,39 +1,44 @@
 <template>
-  <view class="page">
-    <view v-if="alerts.length" class="alerts">
-      <view
-        v-for="(alert, idx) in alerts"
-        :key="idx"
-        class="alert-card"
-        :class="alert.priority === 'high' ? 'alert-high' : 'alert-normal'"
-        @click="onAlert(alert)"
-      >
-        <text class="alert-title">{{ alert.title }}</text>
-        <text class="alert-meta">{{ priorityLabel(alert.priority) }} · {{ formatTime(alert.createdAt) }}</text>
-      </view>
-    </view>
+  <scroll-view scroll-y class="page">
+    <view class="pad">
+      <text class="welcome">工作台</text>
+      <text class="tip">今日概览 · 点击卡片快速进入</text>
 
-    <view v-if="loading" class="muted center">加载中…</view>
-    <view v-else class="grid">
-      <view v-for="card in cards" :key="card.key" class="card" @click="onCard(card)">
-        <text class="label">{{ card.label }}</text>
-        <text class="num">{{ stats[card.key] ?? 0 }}</text>
+      <view v-if="alerts.length" class="alerts">
+        <view
+          v-for="(alert, idx) in alerts"
+          :key="idx"
+          class="alert-card"
+          :class="alert.priority === 'high' ? 'admin-alert-high' : 'admin-alert-normal'"
+          @click="onAlert(alert)"
+        >
+          <text class="admin-alert-title">{{ alert.title }}</text>
+          <text class="admin-alert-meta">{{ priorityLabel(alert.priority) }} · {{ formatTime(alert.createdAt) }}</text>
+        </view>
       </view>
-    </view>
-    <text v-if="error" class="error">{{ error }}</text>
 
-    <view class="nav">
-      <button class="nav-btn" @click="goDispatch">调度中心</button>
-      <button class="nav-btn" @click="goTickets">客服工单</button>
-      <button class="nav-btn" @click="goProfile">我的</button>
+      <view v-if="loading" class="admin-center admin-muted">加载中…</view>
+      <view v-else class="grid">
+        <AdminStatCard
+          v-for="card in cards"
+          :key="card.key"
+          :label="card.label"
+          :value="stats[card.key] ?? 0"
+          @click="onCard(card)"
+        />
+      </view>
+      <text v-if="error" class="admin-error">{{ error }}</text>
     </view>
-  </view>
+  </scroll-view>
 </template>
 
 <script>
+import AdminStatCard from '@/components/AdminStatCard.vue'
 import { fetchMobileDashboard } from '@/services/adminApi'
+import { DISPATCH_TAB_PRESET_KEY, TICKET_STATUS_PRESET_KEY } from '@/config/navPreset'
 
 export default {
+  components: { AdminStatCard },
   data() {
     return {
       loading: false,
@@ -80,53 +85,69 @@ export default {
     },
     onAlert(alert) {
       if (alert.target === 'tickets') {
-        uni.navigateTo({ url: '/pages/M0005_admin_tickets?status=pending' })
+        uni.setStorageSync(TICKET_STATUS_PRESET_KEY, 'pending')
+        uni.switchTab({ url: '/pages/M0005_admin_tickets' })
       } else if (alert.target === 'dispatch') {
-        const tab =
-          alert.type === 'ready_dispatch'
-            ? 'ready_dispatch'
-            : 'payment_review'
-        uni.navigateTo({ url: `/pages/M0003_admin_dispatch?tab=${tab}` })
+        const tab = alert.type === 'ready_dispatch' ? 'ready_dispatch' : 'payment_review'
+        uni.setStorageSync(DISPATCH_TAB_PRESET_KEY, tab)
+        uni.switchTab({ url: '/pages/M0003_admin_dispatch' })
       } else if (alert.type === 'driver_settlement') {
         uni.showToast({ title: '请使用 Web 管理端处理结算', icon: 'none' })
       }
     },
     onCard(card) {
       if (card.page === 'dispatch') {
-        uni.navigateTo({ url: `/pages/M0003_admin_dispatch?tab=${card.tab || 'payment_review'}` })
+        if (card.tab) uni.setStorageSync(DISPATCH_TAB_PRESET_KEY, card.tab)
+        uni.switchTab({ url: '/pages/M0003_admin_dispatch' })
       } else if (card.page === 'tickets') {
-        uni.navigateTo({ url: `/pages/M0005_admin_tickets?status=${card.status || 'pending'}` })
+        if (card.status) uni.setStorageSync(TICKET_STATUS_PRESET_KEY, card.status)
+        uni.switchTab({ url: '/pages/M0005_admin_tickets' })
+      } else if (card.page === 'none') {
+        uni.showToast({ title: '请使用 Web 管理端处理结算', icon: 'none' })
       }
-    },
-    goDispatch() {
-      uni.navigateTo({ url: '/pages/M0003_admin_dispatch' })
-    },
-    goTickets() {
-      uni.navigateTo({ url: '/pages/M0005_admin_tickets' })
-    },
-    goProfile() {
-      uni.navigateTo({ url: '/pages/M0007_admin_profile' })
     }
   }
 }
 </script>
 
-<style scoped>
-.page { padding: 24rpx; padding-bottom: 160rpx; }
-.alerts { margin-bottom: 20rpx; display: flex; flex-direction: column; gap: 12rpx; }
-.alert-card { border-radius: 12rpx; padding: 24rpx; }
-.alert-high { background: #fef2f2; border: 1px solid #fecaca; }
-.alert-high .alert-title { color: #b91c1c; }
-.alert-normal { background: #eff6ff; border: 1px solid #bfdbfe; }
-.alert-normal .alert-title { color: #1d4ed8; }
-.alert-title { display: block; font-size: 28rpx; font-weight: 600; }
-.alert-meta { display: block; font-size: 22rpx; color: #64748b; margin-top: 8rpx; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
-.card { background: #fff; border-radius: 16rpx; padding: 28rpx; }
-.label { color: #6b7280; font-size: 26rpx; }
-.num { display: block; font-size: 48rpx; font-weight: 600; margin-top: 8rpx; }
-.error { color: #e11; margin-top: 16rpx; display: block; }
-.center { text-align: center; padding: 40rpx; }
-.nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 12rpx; padding: 20rpx 24rpx; background: #fff; border-top: 1px solid #eee; box-sizing: border-box; }
-.nav-btn { flex: 1; margin: 0; font-size: 26rpx; background: #f3f4f6; }
+<style scoped lang="scss">
+@import '../styles/theme.scss';
+
+.page {
+  height: 100vh;
+}
+.pad {
+  padding: $admin-page-pad;
+  padding-bottom: 120rpx;
+}
+.welcome {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: $admin-text;
+  display: block;
+}
+.tip {
+  display: block;
+  margin: 8rpx 0 24rpx;
+  color: $admin-text-secondary;
+  font-size: 26rpx;
+}
+.alerts {
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.alert-card {
+  padding: 24rpx;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+.admin-error {
+  display: block;
+  margin-top: 16rpx;
+}
 </style>

@@ -23,7 +23,8 @@ export const PERMISSION_MODULES = [
   'trial_operations',
   'audit_logs',
   'backup_center',
-  'system_health'
+  'system_health',
+  'job_queue'
 ]
 
 export const MODULE_LABELS = {
@@ -49,7 +50,8 @@ export const MODULE_LABELS = {
   trial_operations: '试运营看板',
   audit_logs: '操作日志',
   backup_center: '数据备份',
-  system_health: '系统状态'
+  system_health: '系统状态',
+  job_queue: '任务队列'
 }
 
 export const ACTION_LABELS = {
@@ -85,7 +87,9 @@ export const ROUTE_MODULE_MAP = {
   '/trial-dashboard': 'trial_operations',
   '/audit-logs': 'audit_logs',
   '/backup-center': 'backup_center',
-  '/system-health': 'system_health'
+  '/operations-dashboard': 'dashboard',
+  '/system-health': 'system_health',
+  '/job-queue': 'job_queue'
 }
 
 export function hasPermission(user, module, action, permissionsMap) {

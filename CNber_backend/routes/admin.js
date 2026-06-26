@@ -21,6 +21,8 @@ const driverSettlementController = require('../controllers/driverSettlementContr
 const supportTicketController = require('../controllers/supportTicketController')
 const rolePermissionController = require('../controllers/rolePermissionController')
 const operationsPackController = require('../controllers/operationsPackController')
+const operationsDashboardController = require('../controllers/operationsDashboardController')
+const jobQueueController = require('../controllers/jobQueueController')
 const { requireStaffRoles, requirePermission } = require('../middlewares/staffAccess')
 
 const P = requirePermission
@@ -57,12 +59,14 @@ router.get('/system-config', P('system_settings', 'view'), asyncHandler(systemCo
 router.put('/system-config', P('system_settings', 'update'), asyncHandler(systemConfigController.putAdminSystemConfig))
 
 router.get('/dashboard', ALL, asyncHandler(adminController.getDashboard))
+router.get('/dashboard/overview', P('system_health', 'view'), asyncHandler(operationsDashboardController.getDashboardOverview))
 router.get('/mobile/dashboard', ALL, asyncHandler(adminController.getMobileDashboard))
 router.get('/trial-dashboard', P('trial_operations', 'view'), asyncHandler(operationsPackController.getTrialDashboard))
 router.get('/audit-logs', P('audit_logs', 'view'), asyncHandler(operationsPackController.listAuditLogs))
 router.get('/backup/status', P('backup_center', 'view'), asyncHandler(operationsPackController.getBackupStatus))
 router.post('/backup/run', ADMIN_ONLY, asyncHandler(operationsPackController.runBackup))
 router.get('/system-health', P('system_health', 'view'), asyncHandler(operationsPackController.getSystemHealth))
+router.get('/system/health', P('system_health', 'view'), asyncHandler(operationsDashboardController.getSystemHealth))
 router.get('/stats', ALL, asyncHandler(adminController.getStats))
 
 router.get('/settings/exchange-rate', OPS, asyncHandler(settingsController.getExchangeRate))
@@ -207,5 +211,11 @@ router.patch('/support-tickets/:id/status', P('support_tickets', 'update'), asyn
 router.post('/support-tickets/:id/comment', P('support_tickets', 'update'), asyncHandler(supportTicketController.addSupportTicketComment))
 
 router.put('/staff-driver-relations', ORDERS, asyncHandler(adminController.upsertStaffDriverRelation))
+
+/** 后台任务队列（只读监控 + admin 手动入队） */
+router.get('/jobs/stats', P('job_queue', 'view'), asyncHandler(jobQueueController.getJobQueueStats))
+router.get('/jobs/recent', P('job_queue', 'view'), asyncHandler(jobQueueController.getRecentJobs))
+router.get('/jobs', P('job_queue', 'view'), asyncHandler(jobQueueController.listJobs))
+router.post('/jobs/enqueue', ADMIN_ONLY, asyncHandler(jobQueueController.enqueueJobAdmin))
 
 module.exports = router

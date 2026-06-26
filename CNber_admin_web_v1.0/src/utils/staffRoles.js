@@ -62,6 +62,7 @@ export const MENU_GROUPS = [
   {
     title: '运营中心',
     items: [
+      { label: '运营驾驶舱', to: '/operations-dashboard', module: 'trial_operations' },
       { label: '报价设置', to: '/pricing', module: 'pricing' },
       { label: '优惠券', to: '/coupons', module: 'coupons' },
       { label: '活动管理', to: '/campaigns', module: 'campaigns' },
@@ -77,7 +78,8 @@ export const MENU_GROUPS = [
       { label: '系统设置', to: '/system-settings', module: 'system_settings' },
       { label: '操作日志', to: '/audit-logs', module: 'audit_logs' },
       { label: '数据备份', to: '/backup-center', module: 'backup_center' },
-      { label: '系统状态', to: '/system-health', module: 'system_health' }
+      { label: '系统状态', to: '/system-health', module: 'system_health' },
+      { label: '任务队列', to: '/job-queue', module: 'job_queue' }
     ]
   }
 ]
