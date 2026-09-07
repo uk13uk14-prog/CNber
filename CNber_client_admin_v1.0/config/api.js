@@ -1,16 +1,19 @@
 /**
  * 后端 API 根路径
  *
- * 优先级：
- * 1) UNI_APP_API_BASE_URL / VITE_API_BASE_URL（构建注入）
- * 2) APP-PLUS：默认 LAN（仅原生真机；不用于 H5 Preview）
- * 3) H5：无默认局域网/localhost；缺省为空，由请求层提示 API_PUBLIC_BLOCKED
+ * H5 / Preview 优先级：
+ * 1) VITE_CNBER_API_BASE_URL（三端统一）
+ * 2) UNI_APP_API_BASE_URL / VITE_API_BASE_URL
+ * 3) APP-PLUS：默认 LAN（仅原生真机；不用于 H5 Preview）
+ * 4) H5：无默认局域网/localhost；缺省为空 → API_PUBLIC_BLOCKED
  *
+ * 禁止 H5 公网 Preview 使用：192.168.x / 127.0.0.1 / localhost
  * app-plus 真机无全局 URL，仅用字符串解析，勿使用 new URL()。
  */
 const DEFAULT_APP_PLUS_API_BASE_URL = 'http://192.168.1.187:3100/api'
 
 /** 构建时由 Vite 替换为字面量 */
+const BUILT_CNBER_API_BASE_URL = import.meta.env.VITE_CNBER_API_BASE_URL
 const BUILT_UNI_APP_API_BASE_URL =
   import.meta.env.UNI_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL
 const BUILT_UNI_PLATFORM = import.meta.env.UNI_PLATFORM
@@ -49,13 +52,13 @@ function isBlockedPreviewHost(url) {
 
 function getDefaultApiBaseUrl() {
   if (isAppPlusRuntime()) return DEFAULT_APP_PLUS_API_BASE_URL
-  // H5 Preview：禁止默认落到局域网 / localhost
   if (isH5Runtime()) return ''
   return ''
 }
 
 function resolveApiBaseUrl() {
-  const fromEnv = trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
+  const fromUnified = trimApiBaseUrl(BUILT_CNBER_API_BASE_URL)
+  const fromEnv = fromUnified || trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
   if (fromEnv) {
     if (isH5Runtime() && isBlockedPreviewHost(fromEnv)) {
       console.warn('[API BASE URL] H5 Preview 拒绝局域网/localhost：', fromEnv)

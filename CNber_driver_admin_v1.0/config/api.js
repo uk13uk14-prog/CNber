@@ -1,13 +1,19 @@
 /**
  * 后端 API 根路径
  *
- * app-plus 真机：固定走 M1 LAN（192.168.1.187），忽略 .env 里 127.0.0.1/localhost
- * H5 Preview：仅接受显式 UNI_APP_API_BASE_URL / VITE_API_BASE_URL，且拒绝局域网/localhost
+ * H5 / Preview 优先级：
+ * 1) VITE_CNBER_API_BASE_URL（三端统一）
+ * 2) UNI_APP_API_BASE_URL / VITE_API_BASE_URL
+ * 3) APP-PLUS：默认 LAN（仅原生真机）
+ * 4) H5：无默认局域网/localhost → API_PUBLIC_BLOCKED
+ *
+ * 禁止 H5 公网 Preview 使用：192.168.x / 127.0.0.1 / localhost
  * app-plus 真机无全局 URL，仅用字符串解析，勿使用 new URL()。
  */
 const DEFAULT_APP_PLUS_API_BASE_URL = 'http://192.168.1.187:3100/api'
 
 /** 构建时由 Vite 替换为字面量 */
+const BUILT_CNBER_API_BASE_URL = import.meta.env.VITE_CNBER_API_BASE_URL
 const BUILT_UNI_APP_API_BASE_URL =
   import.meta.env.UNI_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL
 const BUILT_UNI_PLATFORM = import.meta.env.UNI_PLATFORM
@@ -56,7 +62,8 @@ function getDefaultApiBaseUrl() {
 }
 
 function resolveApiBaseUrl() {
-  const fromEnv = trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
+  const fromUnified = trimApiBaseUrl(BUILT_CNBER_API_BASE_URL)
+  const fromEnv = fromUnified || trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
 
   if (isAppPlusRuntime()) {
     if (fromEnv && !isLocalhostApiUrl(fromEnv)) {

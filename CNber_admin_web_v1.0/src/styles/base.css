@@ -120,3 +120,47 @@ table.data th {
   background: #eef2ff;
   color: #3730a3;
 }
+
+/* Mobile H5 Preview: avoid horizontal overflow; tables scroll; dialogs fit */
+html,
+body,
+#app {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 900px) {
+  .btn {
+    min-height: 40px;
+    padding: 10px 14px;
+  }
+
+  .input {
+    max-width: 100%;
+  }
+
+  .table-wrap {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table.data th,
+  table.data td {
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  /* Common modal / dialog shells used across views */
+  .modal,
+  .dialog,
+  .drawer,
+  [role='dialog'] {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow: auto;
+  }
+}

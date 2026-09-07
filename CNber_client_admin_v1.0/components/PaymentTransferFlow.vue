@@ -118,6 +118,7 @@ import {
   orderRefNote
 } from '../utils/paymentTransfer.js'
 import { uploadPaymentProof } from '../utils/orderApi.js'
+import { showAppOnlyToast } from '../utils/h5Native.js'
 
 const props = defineProps({
   accounts: { type: Array, default: () => [] },
@@ -240,7 +241,7 @@ function previewAlipayQr() {
 function saveImageToAlbum(url) {
   if (!url) return
   // #ifdef H5
-  uni.showToast({ title: '此功能请在 CNber App 中使用', icon: 'none' })
+  showAppOnlyToast()
   return
   // #endif
   // #ifndef H5
@@ -288,8 +289,9 @@ function openAlipayUrl(url) {
     return
   }
   // #ifdef H5
-  const win = window.open(u, '_blank')
-  if (!win) showAlipayQrFallback()
+  // 不在 H5 自动拉起支付宝 App；提示使用原生 App，并展示二维码兜底
+  showAppOnlyToast()
+  showAlipayQrFallback()
   // #endif
   // #ifdef APP-PLUS
   try {
