@@ -1,35 +1,51 @@
-# CNber Docker Compose — Backend + Mongo
+# =============================================================================
+# PHASE 2+ ONLY — DO NOT USE IN PHASE 1
+# =============================================================================
 #
-# BEFORE first `docker compose up`:
-# 1) On M1, inspect existing mongo-cnber and fill EXTERNAL_* values below.
-# 2) Prefer reusing the existing Mongo data volume. NEVER create a fresh empty DB
-#    for cutover.
-# 3) Bring backend up on TEMP_TEST_PORT (13100) first. Do NOT grab host :3100
-#    until temporary validation passes.
+# Phase 1 uses: docker-compose.backend-only.yml
+#   - Existing mongo-cnber stays untouched on default bridge
+#   - Temp backend reaches Mongo via host.docker.internal:27017
 #
-# M1 runtime access from Cloud Agent was blocked at plan time; volume/network
-# names below are PLACEHOLDERS and must be confirmed on M1.
+# This file describes a FUTURE optional layout where both services share a
+# user-defined Docker network and Backend uses:
+#   mongodb://mongo-cnber:27017/cnber
+#
+# FORBIDDEN until Phase 1 A/B PASS + explicit user approval for Phase 2:
+#   - docker compose -f docker-compose.yml up
+#   - stop / recreate mongo-cnber
+#   - attach a different / empty data volume
+#   - replace volumes:
+#       data:   d2319608a2ae5f1502a725cca8274762efd3e02d3bee9363d8223528b722bcca
+#       config: f5e04826694f87ac4d5afd660b5282550221bf1b87a9b1550ccc67ba3fbe1fdb
+#
+# M1 verified (do not invent replacements):
+#   container: mongo-cnber
+#   image:     mongo:7
+#   network:   bridge
+#   ports:     0.0.0.0:27017 -> 27017/tcp
+#   restart:   unless-stopped
+#
+# If this file is ever activated, volumes MUST be external:true pointing at the
+# existing anonymous volume IDs above (or their docker volume names if renamed).
 
 name: cnber
 
 services:
+  # Intentionally commented / gated — Phase 1 must not manage mongo-cnber.
   mongo-cnber:
-    image: mongo:6
-    # If a container named mongo-cnber already exists and is healthy, do NOT
-    # recreate it blindly. Prefer:
-    #   docker compose up cnber-backend
-    # after attaching to the existing network, OR set external volume below.
+    profiles: ["phase2-do-not-use"]
+    image: mongo:7
     container_name: mongo-cnber
     restart: unless-stopped
-    # Host publish optional; backend should use Docker DNS, not host localhost.
     ports:
       - "27017:27017"
     volumes:
-      # REPLACE with the real existing volume name from:
-      #   docker inspect mongo-cnber --format '{{range .Mounts}}{{.Name}} {{.Source}} -> {{.Destination}}{{println}}{{end}}'
       - type: volume
         source: cnber_mongo_data
         target: /data/db
+      - type: volume
+        source: cnber_mongo_config
+        target: /data/configdb
     networks:
       - cnber_net
     healthcheck:
@@ -40,6 +56,7 @@ services:
       start_period: 20s
 
   cnber-backend:
+    profiles: ["phase2-do-not-use"]
     build:
       context: ./CNber_backend
       dockerfile: Dockerfile
@@ -54,20 +71,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3100"
-      # Internal Docker DNS — not host localhost / 127.0.0.1
       MONGO_URL: mongodb://mongo-cnber:27017/cnber
       MONGO_URI: mongodb://mongo-cnber:27017/cnber
-      # Keep as config entry only; set real LAN/public URL on M1/.env.docker
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:13100}
-    # TEMP test mapping (safe). For cutover, change to "3100:3100" AFTER PM2 stop.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     ports:
       - "${CNBER_HOST_PORT:-13100}:3100"
     volumes:
-      # Bind mounts so recreate never drops payment proofs / QR / APK / logs
-      - ./CNber_backend/public/uploads:/app/public/uploads
-      - ./CNber_backend/public/downloads:/app/public/downloads
-      - ./CNber_backend/public/admin:/app/public/admin
-      - ./CNber_backend/logs:/app/logs
+      - ${CNBER_RUNTIME_ROOT:?Set CNBER_RUNTIME_ROOT}/public/uploads:/app/public/uploads
+      - ${CNBER_RUNTIME_ROOT}/public/downloads:/app/public/downloads
+      - ${CNBER_RUNTIME_ROOT}/public/admin:/app/public/admin
+      - ${CNBER_RUNTIME_ROOT}/logs:/app/logs
     networks:
       - cnber_net
     healthcheck:
@@ -89,10 +102,10 @@ networks:
     driver: bridge
 
 volumes:
-  # Mark external:true AFTER confirming the real existing volume name on M1.
-  # Example:
-  #   cnber_mongo_data:
-  #     external: true
-  #     name: <actual-volume-from-docker-inspect>
+  # MUST be external and map to the EXISTING M1 volumes — never create empty ones.
   cnber_mongo_data:
-    name: cnber_mongo_data
+    external: true
+    name: d2319608a2ae5f1502a725cca8274762efd3e02d3bee9363d8223528b722bcca
+  cnber_mongo_config:
+    external: true
+    name: f5e04826694f87ac4d5afd660b5282550221bf1b87a9b1550ccc67ba3fbe1fdb

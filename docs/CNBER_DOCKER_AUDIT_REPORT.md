@@ -40,18 +40,21 @@ Generated on branch `cursor/cnber-docker-backend-5a3c`.
 - Container target (compose): `mongodb://mongo-cnber:27017/cnber`
 - Host localhost Mongo is **forbidden** inside backend container (points at itself)
 
-## 5. Current mongo-cnber (M1 live — Cloud unverified)
+## 5. Current mongo-cnber (M1 verified)
 
-| Field | Status |
+| Field | Value |
 |-------|--------|
-| container name | `mongo-cnber` (user-declared) |
-| image | **UNKNOWN** — run `scripts/m1-mongo-readonly-inspect.sh` on M1 |
-| port | **UNKNOWN** (commonly `27017:27017`) |
-| volume | **UNKNOWN** — must reuse existing; do not create empty replacement |
-| network | **UNKNOWN** — required for `docker-compose.backend-only.yml` |
-| restart policy | **UNKNOWN** |
+| container name | `mongo-cnber` |
+| image | `mongo:7` |
+| port | `0.0.0.0:27017` → `27017/tcp` |
+| data volume `/data/db` | `d2319608a2ae5f1502a725cca8274762efd3e02d3bee9363d8223528b722bcca` |
+| config volume `/data/configdb` | `f5e04826694f87ac4d5afd660b5282550221bf1b87a9b1550ccc67ba3fbe1fdb` |
+| network | `bridge` |
+| container IP | `172.17.0.2` (unstable — do not hardcode) |
+| restart policy | `unless-stopped` |
 
-Cloud Agent cannot reach M1 Tailscale (`100.97.210.107`); live inspect blocked.
+Phase 1 TEMP Mongo URL: `mongodb://host.docker.internal:27017/cnber`  
+See `docs/CNBER_DOCKERIZATION_PLAN_V2.md`.
 
 ## 6. Backend filesystem dependencies
 

@@ -1,5 +1,9 @@
 # CNber Backend Dockerization Plan
 
+> **Superseded for Phase-1 execution details by**  
+> [`docs/CNBER_DOCKERIZATION_PLAN_V2.md`](./CNBER_DOCKERIZATION_PLAN_V2.md)  
+> (M1-verified mongo volumes + `host.docker.internal` backend-only A/B).
+
 Branch: `cursor/cnber-docker-backend-5a3c`  
 Scope: audit + file prep + cutover/rollback plan. **No production cutover in this change.**
 
@@ -110,27 +114,26 @@ cd /Users/agent001/Desktop/CNber/CNber_backend
 
 ## 8. Execution readiness
 
-`DOCKERIZATION_READY_FOR_EXECUTION=NO` until M1 inspect output is pasted and volume/network placeholders are filled.
+See **V2**: `DOCKERIZATION_READY_FOR_EXECUTION=NO` (no compose/cutover until user re-approves).  
+Phase-1 files: `BACKEND_ONLY_TEST_READY=YES` in `docs/CNBER_DOCKERIZATION_PLAN_V2.md`.
 
 ---
 
-## CNBER_DOCKERIZATION_PLAN (machine checklist)
+## CNBER_DOCKERIZATION_PLAN (v1 checklist — historical)
+
+Superseded by V2. Kept for history:
 
 ```
 BACKEND_DOCKER_READY=YES
 CURRENT_MONGO_CONTAINER=mongo-cnber
-CURRENT_MONGO_VOLUME=UNKNOWN
-CURRENT_MONGO_NETWORK=UNKNOWN
+CURRENT_MONGO_VOLUME=d2319608a2ae5f1502a725cca8274762efd3e02d3bee9363d8223528b722bcca
+CURRENT_MONGO_NETWORK=bridge
 BACKEND_DOCKERFILE=CNber_backend/Dockerfile
-COMPOSE_FILE=docker-compose.yml (+ docker-compose.backend-only.yml)
-PERSISTENT_PATHS=public/uploads;public/downloads;public/admin;logs;mongo-/data/db
-MONGO_CONNECTION_TARGET=mongodb://mongo-cnber:27017/cnber
+COMPOSE_FILE=docker-compose.backend-only.yml (phase1)
 TEMP_TEST_PORT=13100
-CUTOVER_PLAN=backup-mongo → inspect-volume → build → up:13100 → validate → stop-PM2 → publish:3100 → regression → drop-PM2
-ROLLBACK_PLAN=docker-stop-cnber-backend → restart-PM2-or-node-on-3100 → mongo-untouched
-DATA_RISK=HIGH
-BLOCKERS=M1 unreachable from Cloud; mongo volume/network names unconfirmed; Version API/downloads CASE_C may be M1-only
+DATA_RISK=MEDIUM
 DOCKERIZATION_READY_FOR_EXECUTION=NO
 ```
 
+Full V2: `docs/CNBER_DOCKERIZATION_PLAN_V2.md`  
 Full audit: `docs/CNBER_DOCKER_AUDIT_REPORT.md`

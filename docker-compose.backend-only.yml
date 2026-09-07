@@ -1,41 +1,69 @@
-# Backend-only overlay: attach to an ALREADY RUNNING mongo-cnber
-# without recreating Mongo.
+# CNber Backend-only TEMP A/B test (Phase 1)
 #
-# Usage on M1 (after confirming network name):
-#   docker network ls
-#   docker inspect mongo-cnber --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
-#   export CNBER_MONGO_NETWORK=<that-network>
-#   docker compose -f docker-compose.backend-only.yml up -d --build
+# PURPOSE
+#   Run Docker backend on host :13100 while PM2 keeps :3100.
+#   Both share the SAME existing mongo-cnber (host-published :27017).
 #
-# This is the safest first execution step when mongo-cnber already holds production data.
+# HARD RULES (Phase 1)
+#   - Do NOT stop / recreate / reconfigure mongo-cnber
+#   - Do NOT attach new Mongo volumes
+#   - Do NOT grab host :3100
+#   - Do NOT use container IP 172.17.0.2 as MONGO_URL
+#   - Do NOT run this file from Cloud; run on M1 only after user approval
+#
+# M1 verified facts (2026-09):
+#   mongo-cnber | mongo:7 | bridge | restart unless-stopped
+#   host 27017 -> container 27017
+#   data volume:   d2319608a2ae5f1502a725cca8274762efd3e02d3bee9363d8223528b722bcca
+#   config volume: f5e04826694f87ac4d5afd660b5282550221bf1b87a9b1550ccc67ba3fbe1fdb
+#
+# Prep on M1:
+#   1) export CNBER_RUNTIME_ROOT=/Users/agent001/Desktop/CNber/CNber_backend
+#      (or the real backend root after local inspect — do not guess from Cloud)
+#   2) cp CNber_backend/.env.docker.example CNber_backend/.env.docker
+#      fill JWT_SECRET / PUBLIC_BASE_URL / CORS / Ideal Postcodes from current .env
+#      keep MONGO_URL=mongodb://host.docker.internal:27017/cnber for Phase 1
+#   3) ONLY when user explicitly approves execution:
+#      docker compose -f docker-compose.backend-only.yml up -d --build
+#
+# Validate:
+#   PM2 baseline:  http://127.0.0.1:3100/api/status
+#   Docker temp:   http://127.0.0.1:13100/api/status
 
 name: cnber-backend-only
 
 services:
-  cnber-backend:
+  cnber-backend-test:
     build:
       context: ./CNber_backend
       dockerfile: Dockerfile
     image: cnber-backend:local
-    container_name: cnber-backend
+    container_name: cnber-backend-test
     restart: unless-stopped
+    # Secrets + remaining env live here (gitignored). Never commit real values.
     env_file:
       - ./CNber_backend/.env.docker
     environment:
       NODE_ENV: production
       PORT: "3100"
-      MONGO_URL: ${MONGO_URL:-mongodb://mongo-cnber:27017/cnber}
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo-cnber:27017/cnber}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # macOS Docker Desktop: reach host-mapped mongo-cnber:27017
+      # Forces Phase-1 URL even if .env.docker still has a stale DNS value.
+      # JWT_SECRET / PUBLIC_BASE_URL / CORS / Ideal Postcodes come from env_file.
+      MONGO_URL: mongodb://host.docker.internal:27017/cnber
+      MONGO_URI: mongodb://host.docker.internal:27017/cnber
+    extra_hosts:
+      # Ensures host.docker.internal resolves on Docker Desktop / Linux Desktop
+      - "host.docker.internal:host-gateway"
     ports:
-      - "${CNBER_HOST_PORT:-13100}:3100"
+      # TEMP A/B only — never 3100 until explicit cutover approval
+      - "13100:3100"
     volumes:
-      - ./CNber_backend/public/uploads:/app/public/uploads
-      - ./CNber_backend/public/downloads:/app/public/downloads
-      - ./CNber_backend/public/admin:/app/public/admin
-      - ./CNber_backend/logs:/app/logs
-    networks:
-      - cnber_mongo_net
+      # Require CNBER_RUNTIME_ROOT so Cloud/agent never invents M1 absolute paths.
+      # Example: export CNBER_RUNTIME_ROOT=/Users/agent001/Desktop/CNber/CNber_backend
+      - ${CNBER_RUNTIME_ROOT:?Set CNBER_RUNTIME_ROOT to the real M1 CNber_backend path}/public/uploads:/app/public/uploads
+      - ${CNBER_RUNTIME_ROOT}/public/downloads:/app/public/downloads
+      - ${CNBER_RUNTIME_ROOT}/public/admin:/app/public/admin
+      - ${CNBER_RUNTIME_ROOT}/logs:/app/logs
     healthcheck:
       test:
         [
@@ -48,8 +76,3 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-
-networks:
-  cnber_mongo_net:
-    external: true
-    name: ${CNBER_MONGO_NETWORK:-bridge}

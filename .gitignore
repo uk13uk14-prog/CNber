@@ -42,7 +42,7 @@ logs/
 *.log
 **/*.log
 
-# Local environment files
+# Local environment files (includes CNber_backend/.env.docker — never commit secrets)
 .env
 .env.*
 !.env.example
