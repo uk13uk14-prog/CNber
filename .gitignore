@@ -42,10 +42,11 @@ logs/
 *.log
 **/*.log
 
-# Local environment files
+# Local environment files (includes CNber_backend/.env.docker — never commit secrets)
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # User-uploaded payment proof images (never commit)
 CNber_backend/public/uploads/

@@ -1,0 +1,29 @@
+node_modules
+npm-debug.log*
+yarn-error.log*
+.git
+.gitignore
+.DS_Store
+.env
+.env.*
+!.env.example
+!.env.docker.example
+logs
+*.log
+coverage
+.tmp
+temp
+tmp
+.vscode
+.idea
+*.backup*
+m1-p0-bundle
+scripts/m1-p0-bundle
+public/uploads
+public/downloads
+# Keep public/admin out of ignore if present in build context;
+# empty dir is created in Dockerfile when missing.
+*.md
+Dockerfile*
+docker-compose*.yml
+.dockerignore
