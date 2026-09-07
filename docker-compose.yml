@@ -1,0 +1,98 @@
+# CNber Docker Compose — Backend + Mongo
+#
+# BEFORE first `docker compose up`:
+# 1) On M1, inspect existing mongo-cnber and fill EXTERNAL_* values below.
+# 2) Prefer reusing the existing Mongo data volume. NEVER create a fresh empty DB
+#    for cutover.
+# 3) Bring backend up on TEMP_TEST_PORT (13100) first. Do NOT grab host :3100
+#    until temporary validation passes.
+#
+# M1 runtime access from Cloud Agent was blocked at plan time; volume/network
+# names below are PLACEHOLDERS and must be confirmed on M1.
+
+name: cnber
+
+services:
+  mongo-cnber:
+    image: mongo:6
+    # If a container named mongo-cnber already exists and is healthy, do NOT
+    # recreate it blindly. Prefer:
+    #   docker compose up cnber-backend
+    # after attaching to the existing network, OR set external volume below.
+    container_name: mongo-cnber
+    restart: unless-stopped
+    # Host publish optional; backend should use Docker DNS, not host localhost.
+    ports:
+      - "27017:27017"
+    volumes:
+      # REPLACE with the real existing volume name from:
+      #   docker inspect mongo-cnber --format '{{range .Mounts}}{{.Name}} {{.Source}} -> {{.Destination}}{{println}}{{end}}'
+      - type: volume
+        source: cnber_mongo_data
+        target: /data/db
+    networks:
+      - cnber_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  cnber-backend:
+    build:
+      context: ./CNber_backend
+      dockerfile: Dockerfile
+    image: cnber-backend:local
+    container_name: cnber-backend
+    restart: unless-stopped
+    depends_on:
+      mongo-cnber:
+        condition: service_healthy
+    env_file:
+      - ./CNber_backend/.env.docker
+    environment:
+      NODE_ENV: production
+      PORT: "3100"
+      # Internal Docker DNS — not host localhost / 127.0.0.1
+      MONGO_URL: mongodb://mongo-cnber:27017/cnber
+      MONGO_URI: mongodb://mongo-cnber:27017/cnber
+      # Keep as config entry only; set real LAN/public URL on M1/.env.docker
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:13100}
+    # TEMP test mapping (safe). For cutover, change to "3100:3100" AFTER PM2 stop.
+    ports:
+      - "${CNBER_HOST_PORT:-13100}:3100"
+    volumes:
+      # Bind mounts so recreate never drops payment proofs / QR / APK / logs
+      - ./CNber_backend/public/uploads:/app/public/uploads
+      - ./CNber_backend/public/downloads:/app/public/downloads
+      - ./CNber_backend/public/admin:/app/public/admin
+      - ./CNber_backend/logs:/app/logs
+    networks:
+      - cnber_net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+networks:
+  cnber_net:
+    name: cnber_net
+    driver: bridge
+
+volumes:
+  # Mark external:true AFTER confirming the real existing volume name on M1.
+  # Example:
+  #   cnber_mongo_data:
+  #     external: true
+  #     name: <actual-volume-from-docker-inspect>
+  cnber_mongo_data:
+    name: cnber_mongo_data

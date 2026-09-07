@@ -1,0 +1,55 @@
+# Backend-only overlay: attach to an ALREADY RUNNING mongo-cnber
+# without recreating Mongo.
+#
+# Usage on M1 (after confirming network name):
+#   docker network ls
+#   docker inspect mongo-cnber --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+#   export CNBER_MONGO_NETWORK=<that-network>
+#   docker compose -f docker-compose.backend-only.yml up -d --build
+#
+# This is the safest first execution step when mongo-cnber already holds production data.
+
+name: cnber-backend-only
+
+services:
+  cnber-backend:
+    build:
+      context: ./CNber_backend
+      dockerfile: Dockerfile
+    image: cnber-backend:local
+    container_name: cnber-backend
+    restart: unless-stopped
+    env_file:
+      - ./CNber_backend/.env.docker
+    environment:
+      NODE_ENV: production
+      PORT: "3100"
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo-cnber:27017/cnber}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo-cnber:27017/cnber}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    ports:
+      - "${CNBER_HOST_PORT:-13100}:3100"
+    volumes:
+      - ./CNber_backend/public/uploads:/app/public/uploads
+      - ./CNber_backend/public/downloads:/app/public/downloads
+      - ./CNber_backend/public/admin:/app/public/admin
+      - ./CNber_backend/logs:/app/logs
+    networks:
+      - cnber_mongo_net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+networks:
+  cnber_mongo_net:
+    external: true
+    name: ${CNBER_MONGO_NETWORK:-bridge}
