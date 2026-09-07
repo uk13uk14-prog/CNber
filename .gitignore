@@ -72,3 +72,8 @@ structure.txt
 **/cnber_tree.txt
 **/structure.txt
 cnber客服后台登陆.txt
+
+# H5 preview local tooling / deploy staging (not source)
+cnber-preview-tools/
+cnber-h5-preview-deploy/
+**/.wrangler/

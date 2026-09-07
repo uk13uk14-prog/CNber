@@ -4,7 +4,7 @@
  * - code === 0 表示成功
  * - 其它 code 为业务错误（含 401 需重新登录）
  */
-import { getApiBaseUrl, LOGIN_PATH } from '../config/api.js'
+import { API_PUBLIC_BLOCKED, getApiBaseUrl, LOGIN_PATH } from '../config/api.js'
 
 /** 业务成功码，与后端统一 */
 export const SUCCESS_CODE = 0
@@ -84,6 +84,13 @@ export function request(options) {
     return Promise.reject(normalizeReject(-1, '缺少请求 url'))
   }
 
+  const baseUrl = getApiBaseUrl()
+  if (!/^https?:\/\//i.test(url) && (API_PUBLIC_BLOCKED || !baseUrl)) {
+    const msg = '公网 API 未配置（API_PUBLIC_BLOCKED），H5 Preview 仅可浏览 UI'
+    if (showErrorToast) uni.showToast({ title: msg, icon: 'none' })
+    return Promise.reject(normalizeReject(-3, msg, null))
+  }
+
   const header = {
     'Content-Type': 'application/json',
     ...extraHeader
@@ -96,7 +103,6 @@ export function request(options) {
     }
   }
 
-  const baseUrl = getApiBaseUrl()
   const fullUrl = /^https?:\/\//i.test(url) ? url : `${baseUrl.replace(/\/$/, '')}/${String(url).replace(/^\//, '')}`
 
   return new Promise((resolve, reject) => {

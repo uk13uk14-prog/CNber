@@ -1,14 +1,18 @@
 /**
  * 后端 API 根路径
  *
- * 优先级：UNI_APP_API_BASE_URL → app-plus 默认 LAN → 其他环境 127.0.0.1
+ * 优先级：
+ * 1) UNI_APP_API_BASE_URL / VITE_API_BASE_URL（构建注入）
+ * 2) APP-PLUS：默认 LAN（仅原生真机；不用于 H5 Preview）
+ * 3) H5：无默认局域网/localhost；缺省为空，由请求层提示 API_PUBLIC_BLOCKED
+ *
  * app-plus 真机无全局 URL，仅用字符串解析，勿使用 new URL()。
  */
-const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:3100/api'
 const DEFAULT_APP_PLUS_API_BASE_URL = 'http://192.168.1.187:3100/api'
 
 /** 构建时由 Vite 替换为字面量 */
-const BUILT_UNI_APP_API_BASE_URL = import.meta.env.UNI_APP_API_BASE_URL
+const BUILT_UNI_APP_API_BASE_URL =
+  import.meta.env.UNI_APP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL
 const BUILT_UNI_PLATFORM = import.meta.env.UNI_PLATFORM
 
 function trimApiBaseUrl(raw) {
@@ -26,19 +30,46 @@ function isAppPlusRuntime() {
   }
 }
 
+function isH5Runtime() {
+  if (BUILT_UNI_PLATFORM === 'h5') return true
+  // #ifdef H5
+  return true
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
+function isBlockedPreviewHost(url) {
+  if (!url) return false
+  return /^(https?:\/\/)?(127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(
+    url
+  )
+}
+
 function getDefaultApiBaseUrl() {
-  return isAppPlusRuntime() ? DEFAULT_APP_PLUS_API_BASE_URL : DEFAULT_LOCAL_API_BASE_URL
+  if (isAppPlusRuntime()) return DEFAULT_APP_PLUS_API_BASE_URL
+  // H5 Preview：禁止默认落到局域网 / localhost
+  if (isH5Runtime()) return ''
+  return ''
 }
 
 function resolveApiBaseUrl() {
   const fromEnv = trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
-  if (fromEnv) return fromEnv
+  if (fromEnv) {
+    if (isH5Runtime() && isBlockedPreviewHost(fromEnv)) {
+      console.warn('[API BASE URL] H5 Preview 拒绝局域网/localhost：', fromEnv)
+      return ''
+    }
+    return fromEnv
+  }
   return trimApiBaseUrl(getDefaultApiBaseUrl())
 }
 
 export const BASE_URL = resolveApiBaseUrl()
+export const API_PUBLIC_BLOCKED = !BASE_URL
 
-console.log('[API BASE URL]', BASE_URL)
+console.log('[API BASE URL]', BASE_URL || '(empty / API_PUBLIC_BLOCKED)')
 
 /** 登录失效时 reLaunch 的页面路径（须与 pages.json 一致） */
 export const LOGIN_PATH = '/pages/A0002_client_login_v01'

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CNber Preview Portal</title>
+  <style>
+    :root { color-scheme: light; --bg:#0f2740; --text:#f4f7fb; --muted:#9db0c5; --accent:#3db8a0; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0;
+      font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      background: radial-gradient(circle at top, #1d4a73, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      padding: max(24px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+    }
+    main { max-width: 520px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; margin: 0 0 8px; letter-spacing: 0.02em; }
+    .meta { color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 28px; word-break: break-all; }
+    .card {
+      display:block; text-decoration:none; color:inherit;
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 18px; margin-bottom: 14px;
+    }
+    .card:hover { border-color: var(--accent); }
+    .card h2 { margin:0 0 6px; font-size:1.15rem; }
+    .card p { margin:0; color:var(--muted); font-size:0.92rem; }
+    .badge {
+      display:inline-block; margin-top:10px; font-size:0.75rem;
+      padding:4px 8px; border-radius:999px;
+      background:rgba(61,184,160,0.18); color:#9af0db;
+    }
+    footer { margin-top: 28px; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CNber Preview</h1>
+    <div class="meta">
+      环境：PREVIEW<br/>
+      Git 分支：cursor/cnber-h5-preview-5a3c<br/>
+      API：PUBLIC_BLOCKED（无公网 HTTPS API）
+    </div>
+    <a class="card" href="https://cnber-client-preview.tricolor-trollius.workers.dev/">
+      <h2>客户 Client</h2>
+      <p>打开客户端预览</p>
+      <span class="badge">H5 UI Preview</span>
+    </a>
+    <a class="card" href="https://cnber-driver-preview.tricolor-trollius.workers.dev/">
+      <h2>司机 Driver</h2>
+      <p>打开司机端预览</p>
+      <span class="badge">H5 UI Preview</span>
+    </a>
+    <a class="card" href="https://cnber-admin-preview.tricolor-trollius.workers.dev/">
+      <h2>客服 Admin</h2>
+      <p>打开后台预览</p>
+      <span class="badge">Web Preview</span>
+    </a>
+    <footer>
+      H5 Preview ≠ Android Release。<br/>
+      通知 / 震动 / APP-PLUS 原生能力请在 App 中验收。
+    </footer>
+  </main>
+</body>
+</html>

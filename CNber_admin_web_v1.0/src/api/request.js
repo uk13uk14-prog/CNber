@@ -31,7 +31,8 @@ http.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/admin/login'
+        const base = import.meta.env.BASE_URL || '/'
+        window.location.href = `${base}login`.replace(/([^:]\/)\/+/g, '$1')
       }
     }
     const msg =
