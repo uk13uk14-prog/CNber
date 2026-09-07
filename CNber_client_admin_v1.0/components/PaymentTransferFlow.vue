@@ -239,6 +239,11 @@ function previewAlipayQr() {
 
 function saveImageToAlbum(url) {
   if (!url) return
+  // #ifdef H5
+  uni.showToast({ title: '此功能请在 CNber App 中使用', icon: 'none' })
+  return
+  // #endif
+  // #ifndef H5
   uni.showLoading({ title: '保存中' })
   uni.downloadFile({
     url,
@@ -256,6 +261,7 @@ function saveImageToAlbum(url) {
     fail: () => uni.showToast({ title: '下载失败', icon: 'none' }),
     complete: () => uni.hideLoading()
   })
+  // #endif
 }
 
 function saveWechatQr() {
