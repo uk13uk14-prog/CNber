@@ -118,6 +118,7 @@ import {
   orderRefNote
 } from '../utils/paymentTransfer.js'
 import { uploadPaymentProof } from '../utils/orderApi.js'
+import { showAppOnlyToast } from '../utils/h5Native.js'
 
 const props = defineProps({
   accounts: { type: Array, default: () => [] },
@@ -239,6 +240,11 @@ function previewAlipayQr() {
 
 function saveImageToAlbum(url) {
   if (!url) return
+  // #ifdef H5
+  showAppOnlyToast()
+  return
+  // #endif
+  // #ifndef H5
   uni.showLoading({ title: '保存中' })
   uni.downloadFile({
     url,
@@ -256,6 +262,7 @@ function saveImageToAlbum(url) {
     fail: () => uni.showToast({ title: '下载失败', icon: 'none' }),
     complete: () => uni.hideLoading()
   })
+  // #endif
 }
 
 function saveWechatQr() {
@@ -282,8 +289,9 @@ function openAlipayUrl(url) {
     return
   }
   // #ifdef H5
-  const win = window.open(u, '_blank')
-  if (!win) showAlipayQrFallback()
+  // 不在 H5 自动拉起支付宝 App；提示使用原生 App，并展示二维码兜底
+  showAppOnlyToast()
+  showAlipayQrFallback()
   // #endif
   // #ifdef APP-PLUS
   try {

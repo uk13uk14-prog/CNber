@@ -1,11 +1,26 @@
 <template>
-  <div class="layout">
+  <div class="layout" :class="{ 'nav-open': mobileNavOpen }">
+    <button
+      type="button"
+      class="mobile-nav-toggle"
+      :aria-expanded="mobileNavOpen"
+      aria-label="打开菜单"
+      @click="mobileNavOpen = !mobileNavOpen"
+    >
+      {{ mobileNavOpen ? '关闭' : '菜单' }}
+    </button>
+    <div
+      v-if="mobileNavOpen"
+      class="nav-backdrop"
+      aria-hidden="true"
+      @click="mobileNavOpen = false"
+    />
     <aside class="aside">
       <div class="brand">
         CNber 后台
         <span class="sidebar-version">权限 V2</span>
       </div>
-      <nav class="nav">
+      <nav class="nav" @click="onNavClick">
         <router-link
           v-if="auth.can('dashboard', 'view')"
           to="/"
@@ -63,6 +78,7 @@ const SIDEBAR_STORAGE_KEY = 'cnber_admin_sidebar_groups'
 
 const auth = useAuthStore()
 const router = useRouter()
+const mobileNavOpen = ref(false)
 
 const visibleMenuGroups = computed(() =>
   filterMenuGroups(auth.staffRole, auth.permissions, (module) => auth.can(module, 'view'))
@@ -107,6 +123,13 @@ function toggleGroup(title) {
   persistGroupState()
 }
 
+function onNavClick(e) {
+  const t = e.target
+  if (t && t.closest && t.closest('a.nav-item')) {
+    mobileNavOpen.value = false
+  }
+}
+
 watch(visibleMenuGroups, (groups) => {
   const next = { ...groupExpanded.value }
   let changed = false
@@ -124,6 +147,7 @@ watch(visibleMenuGroups, (groups) => {
 
 function onLogout() {
   auth.logout()
+  mobileNavOpen.value = false
   router.push({ name: 'login' })
 }
 
@@ -139,6 +163,31 @@ onMounted(async () => {
 .layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.mobile-nav-toggle {
+  display: none;
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 40;
+  min-height: 40px;
+  min-width: 64px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #4b5563;
+  background: #1a2433;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nav-backdrop {
+  display: none;
 }
 
 .aside {
@@ -317,5 +366,44 @@ onMounted(async () => {
   flex: 1;
   padding: 24px;
   overflow: auto;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 35;
+    width: min(280px, 86vw);
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .nav-open .aside {
+    transform: translateX(0);
+  }
+
+  .main {
+    padding: 64px 12px max(16px, env(safe-area-inset-bottom));
+    width: 100%;
+  }
 }
 </style>

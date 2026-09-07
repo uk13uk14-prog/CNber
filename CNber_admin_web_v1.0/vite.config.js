@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3100'
 
   return {
-    base: '/admin/',
+    base: env.VITE_BASE || '/admin/',
     plugins: [vue()],
     resolve: {
       alias: {

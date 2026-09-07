@@ -1,7 +1,24 @@
 import axios from 'axios'
 import { TOKEN_KEY, USER_KEY } from '@/config/authConstants'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+function resolveAdminApiBase() {
+  const unified = String(import.meta.env.VITE_CNBER_API_BASE_URL || '').trim()
+  const legacy = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+  const raw = (unified || legacy).replace(/\/+$/, '')
+  if (!raw) return '/api'
+  // H5 Preview：拒绝局域网 / localhost 作为公网 API
+  if (
+    /^(https?:\/\/)?(127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(
+      raw
+    )
+  ) {
+    console.warn('[API BASE URL] Admin Preview 拒绝局域网/localhost：', raw)
+    return '/api'
+  }
+  return raw
+}
+
+const baseURL = resolveAdminApiBase()
 
 export const http = axios.create({
   baseURL,
@@ -31,7 +48,8 @@ http.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/admin/login'
+        const base = import.meta.env.BASE_URL || '/'
+        window.location.href = `${base}login`.replace(/([^:]\/)\/+/g, '$1')
       }
     }
     const msg =
