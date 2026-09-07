@@ -111,3 +111,26 @@ cd /Users/agent001/Desktop/CNber/CNber_backend
 ## 8. Execution readiness
 
 `DOCKERIZATION_READY_FOR_EXECUTION=NO` until M1 inspect output is pasted and volume/network placeholders are filled.
+
+---
+
+## CNBER_DOCKERIZATION_PLAN (machine checklist)
+
+```
+BACKEND_DOCKER_READY=YES
+CURRENT_MONGO_CONTAINER=mongo-cnber
+CURRENT_MONGO_VOLUME=UNKNOWN
+CURRENT_MONGO_NETWORK=UNKNOWN
+BACKEND_DOCKERFILE=CNber_backend/Dockerfile
+COMPOSE_FILE=docker-compose.yml (+ docker-compose.backend-only.yml)
+PERSISTENT_PATHS=public/uploads;public/downloads;public/admin;logs;mongo-/data/db
+MONGO_CONNECTION_TARGET=mongodb://mongo-cnber:27017/cnber
+TEMP_TEST_PORT=13100
+CUTOVER_PLAN=backup-mongo → inspect-volume → build → up:13100 → validate → stop-PM2 → publish:3100 → regression → drop-PM2
+ROLLBACK_PLAN=docker-stop-cnber-backend → restart-PM2-or-node-on-3100 → mongo-untouched
+DATA_RISK=HIGH
+BLOCKERS=M1 unreachable from Cloud; mongo volume/network names unconfirmed; Version API/downloads CASE_C may be M1-only
+DOCKERIZATION_READY_FOR_EXECUTION=NO
+```
+
+Full audit: `docs/CNBER_DOCKER_AUDIT_REPORT.md`

@@ -20,7 +20,7 @@ const { savePaymentProofImage } = require('../utils/paymentProofUpload')
 const { resolveCouponSnapshot } = require('../utils/couponOrder')
 
 function publicBaseUrl(req) {
-  const env = process.env.PUBLIC_BASE_URL
+  const env = process.env.PUBLIC_BASE_URL || process.env.APP_PUBLIC_BASE_URL
   if (env) return String(env).replace(/\/$/, '')
   return `${req.protocol}://${req.get('host')}`
 }
