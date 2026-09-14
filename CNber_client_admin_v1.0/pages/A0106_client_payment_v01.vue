@@ -52,6 +52,7 @@
       <PaymentTransferFlow
         v-if="showForm"
         :accounts="accounts"
+        :payment-config="paymentConfig"
         :order-id="orderId"
         :order-display-no="orderDisplayNo"
         :amount="amountNum"
@@ -70,10 +71,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { ref, computed } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import PaymentTransferFlow from '../components/PaymentTransferFlow.vue'
-import { fetchOrderDetail, fetchPaymentAccounts, submitOrderDeposit, confirmOrderPrice, validatePublicCoupon } from '../utils/orderApi.js'
+import { fetchOrderDetail, fetchPaymentAccounts, fetchPaymentConfig, submitOrderDeposit, confirmOrderPrice, validatePublicCoupon } from '../utils/orderApi.js'
 import {
   clientSecondaryAmountLine,
   customerCnyFromOrder,
@@ -83,6 +84,7 @@ import {
 const orderId = ref('')
 const order = ref(null)
 const accounts = ref([])
+const paymentConfig = ref(null)
 const loading = ref(true)
 const err = ref('')
 const submitting = ref(false)
@@ -229,8 +231,12 @@ async function loadAll() {
         /* 报价确认失败时仍允许查看金额 */
       }
     }
-    const accData = await fetchPaymentAccounts()
+    const [accData, cfg] = await Promise.all([
+      fetchPaymentAccounts(),
+      fetchPaymentConfig()
+    ])
     accounts.value = Array.isArray(accData?.accounts) ? accData.accounts : []
+    paymentConfig.value = cfg || null
     restoreCouponFromOrder(order.value)
   } catch (e) {
     err.value = (e && e.message) || '加载失败'
@@ -266,8 +272,8 @@ onLoad((q) => {
   orderId.value = String((q && q.orderId) || '').trim()
 })
 
-onMounted(() => {
-  loadAll()
+onShow(() => {
+  if (orderId.value) loadAll()
 })
 </script>
 

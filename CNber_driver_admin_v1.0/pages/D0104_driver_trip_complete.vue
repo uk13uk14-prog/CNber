@@ -8,7 +8,7 @@
       <view class="row"><text class="label">起点：</text>{{ order.pickup }}</view>
       <view class="row"><text class="label">终点：</text>{{ order.dropoff }}</view>
       <view class="row"><text class="label">时间：</text>{{ order.time }}</view>
-      <view class="row"><text class="label">金额：</text><text class="price">£{{ order.price }}</text></view>
+      <view class="row"><text class="label">金额：</text><text class="price">¥{{ Number(order.price).toFixed(2) }}</text></view>
     </view>
 
     <view class="btn-group">

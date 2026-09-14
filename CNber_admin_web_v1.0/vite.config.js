@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: proxyTarget,
           changeOrigin: true
+        },
+        '/sounds': {
+          target: proxyTarget,
+          changeOrigin: true
         }
       }
     }

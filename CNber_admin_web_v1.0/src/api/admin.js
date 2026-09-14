@@ -18,7 +18,7 @@ export function softDeleteOrder(orderId, payload) {
 }
 
 export function quoteOrder(orderId, amount) {
-  return http.post('/order/quote', { orderId, amount })
+  return http.post('/order/quote', { orderId, amount, amountCny: amount, currency: 'CNY' })
 }
 
 export function autoQuoteOrder(orderId) {
@@ -97,6 +97,18 @@ export function importPriceMatrix(text) {
   return http.post('/admin/price-matrix/import', { text })
 }
 
+export function fetchAdminNotifications(params) {
+  return http.get('/admin/notifications', { params })
+}
+
+export function markAdminNotificationRead(id) {
+  return http.patch(`/admin/notifications/${id}/read`)
+}
+
+export function resolveAdminNotification(id) {
+  return http.patch(`/admin/notifications/${id}/resolve`)
+}
+
 export function fetchOrderById(id) {
   return http.get(`/admin/orders/${id}`)
 }
@@ -146,6 +158,18 @@ export function putStaffDriverRelation(body) {
 
 export function fetchPaymentAccounts() {
   return http.get('/admin/payment-accounts')
+}
+
+export function fetchPaymentConfig() {
+  return http.get('/admin/payment-config')
+}
+
+export function putPaymentConfig(body) {
+  return http.put('/admin/payment-config', body)
+}
+
+export function uploadPaymentQr(type, imageBase64) {
+  return http.post('/admin/payment-config/qr', { type, imageBase64 })
 }
 
 export function createPaymentAccount(body) {

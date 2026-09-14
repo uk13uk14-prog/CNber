@@ -4,7 +4,7 @@
 
     <view class="balance-box">
       <view class="label">可提现金额：</view>
-      <view class="amount">£{{ balance }}</view>
+      <view class="amount">¥{{ Number(balance).toFixed(2) }}</view>
     </view>
 
     <view class="form-box">
@@ -115,7 +115,7 @@ export default {
       }
       uni.showModal({
         title: '确认提现',
-        content: `平台将按司机默认收款方式线下打款，本次申请 £${amount}`,
+        content: `平台将按司机默认收款方式线下打款，本次申请 ¥${Number(amount).toFixed(2)}`,
         success: async res => {
           if (res.confirm) {
             await this.createWithdrawal(amount)

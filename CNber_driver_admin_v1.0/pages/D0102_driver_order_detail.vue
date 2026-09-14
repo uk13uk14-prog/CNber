@@ -1,111 +1,174 @@
 <template>
   <view class="order-detail-page">
-    <view v-if="loading" class="muted">加载中…</view>
-    <view v-else-if="err" class="err">{{ err }}</view>
+    <view v-if="loading" class="state-card">加载中…</view>
+    <view v-else-if="err" class="state-card err">{{ err }}</view>
     <template v-else-if="order._id">
-      <view class="section">
-        <view class="label">订单状态</view>
-        <view class="value status-line">
-          <text class="badge">{{ formatStatus(order.status) }}</text>
-          <text v-if="isAssignedToMe" class="hint">平台已派发，请确认收到任务</text>
+      <view class="card status-card">
+        <view class="status-col">
+          <text class="field-label">订单状态</text>
+          <text class="status-text" :class="statusTone">{{ formatStatus(order.status) }}</text>
+        </view>
+        <view class="orderno-col">
+          <text class="field-label">订单号</text>
+          <text class="orderno-text">{{ displayOrderNo }}</text>
+        </view>
+      </view>
+      <view v-if="isAssignedToMe" class="assign-hint">平台已派发，请确认收到任务</view>
+
+      <view v-if="pendingCancel" class="assign-hint pending-cancel">
+        取消申请已发送，等待乘客确认。在客户批准前，请继续保留该订单。
+      </view>
+
+      <view class="card info-card">
+        <view class="info-row">
+          <view class="icon-dot icon-phone">客</view>
+          <view class="info-body">
+            <text class="field-label">乘客手机</text>
+            <text class="field-value">{{ passengerPhone }}</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <view class="icon-dot icon-from">起</view>
+          <view class="info-body">
+            <text class="field-label">出发地点</text>
+            <text class="field-value wrap">{{ displayText(order.pickup) }}</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <view class="icon-dot icon-to">终</view>
+          <view class="info-body">
+            <text class="field-label">目的地点</text>
+            <text class="field-value wrap">{{ displayText(order.destination) }}</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <view class="icon-dot icon-car">车</view>
+          <view class="info-body">
+            <text class="field-label">车型</text>
+            <text class="field-value wrap">{{ displayText(order.vehicleLabel) }}</text>
+          </view>
+        </view>
+        <view class="info-row last">
+          <view class="icon-dot icon-time">时</view>
+          <view class="info-body">
+            <text class="field-label">下单时间</text>
+            <text class="field-value">{{ formatTime(order.createdAt) }}</text>
+          </view>
         </view>
       </view>
 
-      <view class="section">
-        <view class="label">乘客手机</view>
-        <view class="value">{{ passengerPhone }}</view>
+      <view class="card amount-card">
+        <text class="field-label">订单金额</text>
+        <text class="amount-gbp">{{ orderAmountText }}</text>
+        <text class="amount-cny">司机结算 {{ settlementAmountText }}</text>
       </view>
 
-      <view class="section">
-        <view class="label">出发地点</view>
-        <view class="value">{{ order.pickup }}</view>
-      </view>
-
-      <view class="section">
-        <view class="label">目的地点</view>
-        <view class="value">{{ order.destination }}</view>
-      </view>
-
-      <view v-if="order.vehicleLabel" class="section">
-        <view class="label">车型</view>
-        <view class="value">{{ order.vehicleLabel }}</view>
-      </view>
-
-      <view class="section">
-        <view class="label">下单时间</view>
-        <view class="value">{{ formatTime(order.createdAt) }}</view>
-      </view>
-
-      <view class="section" v-if="order._id">
-        <view class="label">本单结算</view>
-        <view class="value price">{{ driverPrimarySettlementLine(order) }}</view>
-        <view v-if="driverSecondarySettlementLine(order)" class="value sub-line">
-          {{ driverSecondarySettlementLine(order) }}
+      <view class="card pay-card">
+        <view class="pay-row">
+          <text class="pay-label">支付状态</text>
+          <text class="pay-value" :class="paymentTone">{{ formatPaymentStatus(order.paymentStatus) }}</text>
+        </view>
+        <view class="pay-row">
+          <text class="pay-label">客户定金</text>
+          <text class="pay-value" :class="depositTone">{{ depositLine }}</text>
+        </view>
+        <view class="pay-row">
+          <text class="pay-label">客户尾款</text>
+          <text class="pay-value" :class="balanceTone">{{ balanceLine }}</text>
+        </view>
+        <view class="pay-row last">
+          <text class="pay-label">司机结算</text>
+          <text class="pay-value" :class="settlementTone">{{ settlementLine }}</text>
         </view>
       </view>
 
-      <view class="section">
-        <view class="label">支付状态</view>
-        <view class="value">{{ formatPaymentStatus(order.paymentStatus) }}</view>
+      <view class="card note-card">
+        <text class="note-title">订单备注</text>
+        <text class="note-line">乘客备注：{{ passengerRemark }}</text>
+        <text class="note-line">内部备注：{{ internalRemark }}</text>
       </view>
+    </template>
 
-      <view class="section">
-        <view class="label">客户定金</view>
-        <view class="value">{{ depositLine }}</view>
-      </view>
-      <view class="section">
-        <view class="label">客户尾款</view>
-        <view class="value">{{ balanceLine }}</view>
-      </view>
-      <view class="section">
-        <view class="label">司机结算</view>
-        <view class="value">{{ settlementLine }}</view>
-      </view>
-
-      <view class="button-group">
-        <button class="btn-outline" @click="contact">联系乘客</button>
+    <view v-if="order._id && !loading && !err" class="action-bar">
+      <view class="action-row">
+        <button class="btn-ghost" @click="contact">联系乘客</button>
         <button
           v-if="isAssignedToMe"
-          class="btn-primary"
-          :disabled="acting"
-          @click="doAccept"
-        >
-          确认收到任务
-        </button>
-        <button
-          v-if="isAssignedToMe"
-          class="btn-outline"
+          class="btn-ghost"
           :disabled="acting"
           @click="doReject"
         >
           拒单
         </button>
         <button
-          v-else-if="normalizedOrderStatus === 'accepted'"
-          class="btn-primary"
-          :disabled="acting || order.paymentStatus !== 'paid'"
-          @click="doStart"
-        >
-          开始行程
-        </button>
-        <button
-          v-else-if="normalizedOrderStatus === 'started'"
-          class="btn-primary"
+          v-if="canRequestCancel"
+          class="btn-ghost"
           :disabled="acting"
-          @click="doComplete"
-        >
-          完成订单
-        </button>
-        <button
-          v-if="normalizedOrderStatus === 'accepted' || normalizedOrderStatus === 'started'"
-          class="btn-outline"
-          :disabled="acting"
-          @click="doCancel"
+          @click="openCancelSheet"
         >
           取消订单
         </button>
       </view>
-    </template>
+      <button
+        v-if="isAssignedToMe"
+        class="btn-main"
+        :disabled="acting"
+        @click="doAccept"
+      >
+        确认收到任务
+      </button>
+      <button
+        v-else-if="normalizedOrderStatus === 'accepted'"
+        class="btn-main"
+        :disabled="acting || order.paymentStatus !== 'paid'"
+        @click="doStart"
+      >
+        开始行程
+      </button>
+      <button
+        v-else-if="normalizedOrderStatus === 'started'"
+        class="btn-main"
+        :disabled="acting"
+        @click="doComplete"
+      >
+        完成订单
+      </button>
+    </view>
+
+    <view v-if="cancelSheet.open" class="cancel-mask" @click="closeCancelSheet">
+      <view class="cancel-sheet" @click.stop>
+        <text class="cancel-title">请选择取消原因</text>
+        <view
+          v-for="item in cancelReasons"
+          :key="item"
+          class="reason-item"
+          :class="{ on: cancelSheet.reason === item }"
+          @click="cancelSheet.reason = item"
+        >
+          {{ item }}
+        </view>
+        <textarea
+          v-model="cancelSheet.note"
+          class="cancel-note"
+          placeholder="备注（选填；选其他时必填）"
+          maxlength="120"
+        />
+        <text v-if="cancelSheet.needsApproval" class="cancel-warn">
+          该订单距离出发不足24小时。司机不能直接取消，需要乘客批准。
+        </text>
+        <text v-else class="cancel-warn">
+          取消后订单将退回客服重新派单，是否确认？
+        </text>
+        <view class="cancel-actions">
+          <button class="btn-ghost" @click="closeCancelSheet">
+            {{ cancelSheet.needsApproval ? '返回' : '暂不取消' }}
+          </button>
+          <button class="btn-main" :disabled="acting" @click="submitCancel">
+            {{ cancelSheet.needsApproval ? '提交取消申请' : '确认取消' }}
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -113,9 +176,34 @@
 import { request } from '../utils/request.js'
 import { formatDriverOrderStatus, normalizeDriverOrderStatus } from '../utils/orderStatus.js'
 import {
-  driverPrimarySettlementLine,
-  driverSecondarySettlementLine
+  formatCny,
+  customerOrderAmountCny,
+  settlementDisplayText
 } from '../utils/driverCurrencyDisplay.js'
+
+function asDisplayText(value) {
+  if (value == null) return '无'
+  const s = String(value).trim()
+  if (!s || s === 'undefined' || s === 'null' || s === '—') return '无'
+  return s
+}
+
+function latestNote(list) {
+  if (!Array.isArray(list) || !list.length) return ''
+  const last = list[list.length - 1]
+  if (last == null) return ''
+  if (typeof last === 'string') return last
+  return last.content || last.message || last.note || ''
+}
+
+function toneForPay(text) {
+  const s = String(text || '')
+  if (s === '—' || s === '无') return 'tone-muted'
+  if (s.includes('已收') || s.includes('已支付') || s.includes('已结算')) return 'tone-ok'
+  if (s.includes('取消') || s.includes('退款') || s.includes('拒绝') || s.includes('异常')) return 'tone-bad'
+  if (s.includes('待') || s.includes('未')) return 'tone-wait'
+  return 'tone-muted'
+}
 
 export default {
   name: 'D0102_driver_order_detail',
@@ -126,7 +214,14 @@ export default {
       loading: false,
       err: '',
       acting: false,
-      myUserId: ''
+      myUserId: '',
+      cancelReasons: ['车辆故障', '身体原因', '时间冲突', '突发情况', '其他'],
+      cancelSheet: {
+        open: false,
+        reason: '',
+        note: '',
+        needsApproval: false
+      }
     }
   },
   computed: {
@@ -134,6 +229,47 @@ export default {
       const u = this.order.userId
       if (u && typeof u === 'object' && u.phone) return u.phone
       return '—'
+    },
+    displayOrderNo() {
+      return this.order.orderNo || '—'
+    },
+    orderAmountText() {
+      const n = customerOrderAmountCny(this.order)
+      return n == null ? '待确认' : formatCny(n)
+    },
+    settlementAmountText() {
+      return settlementDisplayText(this.order)
+    },
+    passengerRemark() {
+      const o = this.order || {}
+      return asDisplayText(o.remarks || o.remark || o.note || o.customerNote)
+    },
+    internalRemark() {
+      const o = this.order || {}
+      return asDisplayText(
+        latestNote(o.internalNotes) ||
+          latestNote(o.followUpNotes) ||
+          o.exceptionNotes ||
+          o.internalNote
+      )
+    },
+    statusTone() {
+      const label = this.formatStatus(this.order.status)
+      if (label === '已取消') return 'tone-bad'
+      if (label === '已完成') return 'tone-ok'
+      return 'tone-wait'
+    },
+    paymentTone() {
+      return toneForPay(this.formatPaymentStatus(this.order.paymentStatus))
+    },
+    depositTone() {
+      return toneForPay(this.depositLine)
+    },
+    balanceTone() {
+      return toneForPay(this.balanceLine)
+    },
+    settlementTone() {
+      return toneForPay(this.settlementLine)
     },
     normalizedOrderStatus() {
       return normalizeDriverOrderStatus(this.order.status)
@@ -147,6 +283,13 @@ export default {
       if (!d) return false
       const id = typeof d === 'object' && d._id != null ? String(d._id) : String(d)
       return id === this.myUserId
+    },
+    pendingCancel() {
+      return this.order && this.order.pendingDriverCancellation
+    },
+    canRequestCancel() {
+      if (this.pendingCancel) return false
+      return this.normalizedOrderStatus === 'accepted'
     },
     depositLine() {
       const o = this.order
@@ -181,6 +324,12 @@ export default {
     if (this.orderId) this.loadOrder()
   },
   methods: {
+    displayText(value) {
+      if (value == null) return '—'
+      const s = String(value).trim()
+      if (!s || s === 'undefined' || s === 'null') return '—'
+      return s
+    },
     readMyId() {
       try {
         const u = uni.getStorageSync('user')
@@ -195,13 +344,18 @@ export default {
     formatTime(iso) {
       if (!iso) return '—'
       const d = new Date(iso)
-      return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('zh-CN')
+      if (Number.isNaN(d.getTime())) return '—'
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      const ss = String(d.getSeconds()).padStart(2, '0')
+      return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
     },
-    driverPrimarySettlementLine,
-    driverSecondarySettlementLine,
     formatPaymentStatus(status) {
       const map = {
-        unpaid: '未支付',
+        unpaid: '待支付',
         pending: '待支付',
         paid: '已支付',
         refunded: '已退款'
@@ -260,16 +414,55 @@ export default {
         }
       })
     },
-    async doCancel() {
-      uni.showModal({
-        title: '确认取消',
-        content: '取消后订单将进入已取消状态',
-        success: async (res) => {
-          if (res.confirm) {
-            await this.runAction('/order/cancel', '订单已取消', true)
+    openCancelSheet() {
+      this.cancelSheet = {
+        open: true,
+        reason: '',
+        note: '',
+        needsApproval: this.order.requiresCustomerApproval !== false
+      }
+    },
+    closeCancelSheet() {
+      this.cancelSheet.open = false
+    },
+    async submitCancel() {
+      const token = uni.getStorageSync('token')
+      if (!token) {
+        uni.showToast({ title: '请先登录', icon: 'none' })
+        return
+      }
+      if (!this.cancelSheet.reason) {
+        uni.showToast({ title: '请选择取消原因', icon: 'none' })
+        return
+      }
+      this.acting = true
+      try {
+        const data = await request({
+          url: '/order/cancel',
+          method: 'POST',
+          data: {
+            orderId: this.orderId,
+            reason: this.cancelSheet.reason,
+            note: this.cancelSheet.note
           }
+        })
+        this.closeCancelSheet()
+        if (data && data.requiresCustomerApproval) {
+          uni.showModal({
+            title: '申请已发送',
+            content: '取消申请已发送，等待乘客确认。在客户批准前，请继续保留该订单。',
+            showCancel: false
+          })
+          await this.loadOrder()
+        } else {
+          uni.showToast({ title: '已退回客服重新派单', icon: 'success' })
+          this.backToList()
         }
-      })
+      } catch (e) {
+        /* request 已 toast */
+      } finally {
+        this.acting = false
+      }
     },
     backToList() {
       const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
@@ -309,88 +502,363 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '@/styles/tokens.scss';
-
 .order-detail-page {
-  background-color: $color-background;
   min-height: 100vh;
-  padding: 30rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #2f6fc2 0%, #2463b5 100%);
+  padding: 24rpx 24rpx 480rpx;
+  padding-bottom: calc(480rpx + env(safe-area-inset-bottom));
+}
 
-  .muted {
-    color: $color-text-light;
-    font-size: 28rpx;
-  }
+.state-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  color: #111827;
+  font-size: 28rpx;
+}
 
-  .err {
-    color: #c62828;
-    font-size: 28rpx;
-  }
+.state-card.err {
+  color: #dc2626;
+}
 
-  .section {
-    margin-bottom: 24rpx;
-    .label {
-      font-size: 28rpx;
-      color: $color-text-light;
-    }
-    .value {
-      font-size: 32rpx;
-      color: $color-text-main;
-      margin-top: 6rpx;
-    }
-    .price {
-      color: $color-primary;
-      font-weight: bold;
-    }
-    .sub-line {
-      font-size: 24rpx;
-      color: $color-text-light;
-      font-weight: 400;
-      margin-top: 4rpx;
-    }
-  }
+.card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 28rpx 28rpx 8rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.08);
+}
 
-  .status-line {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8rpx;
-  }
+.status-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding-bottom: 28rpx;
+}
 
-  .badge {
-    background: #e3f2fd;
-    color: #1565c0;
-    padding: 6rpx 16rpx;
-    border-radius: 8rpx;
-    font-size: 26rpx;
-  }
+.status-col,
+.orderno-col {
+  flex: 1;
+  min-width: 0;
+}
 
-  .hint {
-    font-size: 24rpx;
-    color: #e65100;
-  }
+.orderno-col {
+  text-align: right;
+}
 
-  .button-group {
-    display: flex;
-    flex-direction: column;
-    margin-top: 40rpx;
-    gap: 20rpx;
+.field-label {
+  display: block;
+  font-size: 24rpx;
+  color: #4b5563;
+  line-height: 1.4;
+}
 
-    .btn-outline {
-      border: 2rpx solid $color-primary;
-      color: $color-primary;
-      background-color: white;
-      border-radius: 12rpx;
-      padding: 20rpx 0;
-      font-size: 30rpx;
-    }
+.status-text {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
 
-    .btn-primary {
-      background-color: $color-primary;
-      color: white;
-      border-radius: 12rpx;
-      padding: 20rpx 0;
-      font-size: 30rpx;
-    }
-  }
+.orderno-text {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #111827;
+  word-break: break-all;
+}
+
+.assign-hint {
+  margin: -8rpx 0 20rpx;
+  padding: 12rpx 20rpx;
+  color: #fff7ed;
+  font-size: 24rpx;
+}
+
+.pending-cancel {
+  background: rgba(234, 88, 12, 0.35);
+  border-radius: 12rpx;
+  color: #fff7ed;
+}
+
+.info-card {
+  padding-bottom: 8rpx;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #e5e7eb;
+}
+
+.info-row.last {
+  border-bottom: none;
+}
+
+.icon-dot {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+  margin-top: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.icon-phone {
+  background: #1265d8;
+}
+.icon-from {
+  background: #16a34a;
+}
+.icon-to {
+  background: #f97316;
+}
+.icon-car {
+  background: #4b5563;
+}
+.icon-time {
+  background: #6b7280;
+}
+
+.info-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-value {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.45;
+}
+
+.field-value.wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.amount-card {
+  padding: 28rpx;
+}
+
+.amount-gbp {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #f97316;
+  line-height: 1.2;
+}
+
+.amount-cny {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+}
+
+.pay-card {
+  padding-bottom: 12rpx;
+}
+
+.pay-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e5e7eb;
+}
+
+.pay-row.last {
+  border-bottom: none;
+}
+
+.pay-label {
+  font-size: 26rpx;
+  color: #4b5563;
+}
+
+.pay-value {
+  font-size: 28rpx;
+  font-weight: 700;
+  text-align: right;
+}
+
+.tone-wait {
+  color: #1265d8;
+}
+.tone-ok {
+  color: #16a34a;
+}
+.tone-bad {
+  color: #dc2626;
+}
+.tone-muted {
+  color: #6b7280;
+}
+
+.note-card {
+  padding: 28rpx;
+}
+
+.note-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 16rpx;
+}
+
+.note-line {
+  display: block;
+  font-size: 26rpx;
+  color: #111827;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: #ffffff;
+  padding: 16rpx 24rpx 36rpx;
+  padding-bottom: calc(36rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -8rpx 24rpx rgba(15, 23, 42, 0.08);
+}
+
+.action-row {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.btn-ghost,
+.btn-main {
+  margin: 0;
+  min-height: 96rpx;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  padding: 0 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ghost {
+  flex: 1;
+  background: #ffffff;
+  color: #1265d8;
+  border: 2rpx solid #1265d8;
+}
+
+.btn-main {
+  width: 100%;
+  background: #ff7a00;
+  color: #ffffff;
+  border: none;
+}
+
+.btn-ghost[disabled],
+.btn-main[disabled] {
+  opacity: 0.45;
+}
+
+button::after {
+  border: none;
+}
+
+.cancel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 40;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+
+.cancel-sheet {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx 28rpx calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.cancel-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 20rpx;
+}
+
+.reason-item {
+  padding: 20rpx 16rpx;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  margin-bottom: 12rpx;
+  font-size: 28rpx;
+  color: #111827;
+}
+
+.reason-item.on {
+  border-color: #1265d8;
+  color: #1265d8;
+  font-weight: 700;
+}
+
+.cancel-note {
+  width: 100%;
+  min-height: 120rpx;
+  margin: 8rpx 0 16rpx;
+  padding: 16rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+
+.cancel-warn {
+  display: block;
+  color: #c2410c;
+  font-size: 26rpx;
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+}
+
+.cancel-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+</style>
+
+<style>
+page {
+  background-color: #2463b5;
 }
 </style>

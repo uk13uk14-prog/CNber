@@ -21,12 +21,12 @@
 
     <view class="summary-card">
       <view class="summary-item">
-        <text class="summary-value">£{{ money(todayIncome) }}</text>
+        <text class="summary-value">¥{{ money(todayIncome) }}</text>
         <text class="summary-label">今日收入</text>
       </view>
       <view class="summary-divider"></view>
       <view class="summary-item">
-        <text class="summary-value">£{{ money(weekIncome) }}</text>
+        <text class="summary-value">¥{{ money(weekIncome) }}</text>
         <text class="summary-label">本周收入</text>
       </view>
     </view>
@@ -122,7 +122,7 @@
         <text class="entry-desc">历史与行程中</text>
       </view>
       <view class="entry-item" @click="goTo('/pages/D0201_driver_income_center')">
-        <view class="entry-icon">£</view>
+        <view class="entry-icon">¥</view>
         <text class="entry-title">收入中心</text>
         <text class="entry-desc">收入与提现</text>
       </view>
@@ -149,6 +149,11 @@ import {
   updateDriverStatus
 } from '../utils/driverApi.js'
 import { formatDriverOrderStatus, normalizeDriverOrderStatus } from '../utils/orderStatus.js'
+import {
+  ingestDriverOrders,
+  markDriverOnlineLocal,
+  startDriverTaskWatch
+} from '../utils/driverTaskWatch.js'
 
 export default {
   name: 'D0300_driver_main',
@@ -174,6 +179,11 @@ export default {
   onShow() {
     this.fetchDashboard()
     this.fetchAssignedOrders()
+    startDriverTaskWatch({ immediate: false })
+    uni.$on('driver-orders-updated', this.onOrdersUpdated)
+  },
+  onHide() {
+    uni.$off('driver-orders-updated', this.onOrdersUpdated)
   },
   methods: {
     goTo(url) {
@@ -212,9 +222,9 @@ export default {
         const data = await getDriverDashboard()
         this.driverName = data.driverName || this.driverName
         this.status = data.status || 'offline'
-        this.todayIncome = data.todayIncome || 0
-        this.weekIncome = data.weekIncome || 0
-        this.totalIncome = data.totalIncome || 0
+        this.todayIncome = data.todayIncomeCny ?? data.todayIncome ?? 0
+        this.weekIncome = data.weekIncomeCny ?? data.weekIncome ?? 0
+        this.totalIncome = data.totalIncomeCny ?? data.totalIncome ?? 0
         this.pendingOrdersCount = data.pendingOrdersCount || 0
         this.ongoingOrdersCount = data.ongoingOrdersCount || 0
         this.next14DaysOrders = Array.isArray(data.next14DaysOrders) ? data.next14DaysOrders : []
@@ -232,15 +242,22 @@ export default {
       try {
         const data = await getDriverOrders()
         const rows = Array.isArray(data?.orders) ? data.orders : []
-        this.assignedOrders = rows.filter((item) => {
-          const ds = String(item.dispatchStatus || '')
-          const st = normalizeDriverOrderStatus(item.status)
-          if (['assigned', 'accepted', 'started'].includes(ds)) return true
-          return ['assigned', 'accepted', 'started'].includes(st)
-        })
+        ingestDriverOrders(rows, { alertNew: true })
+        this.applyAssignedOrders(rows)
       } catch (error) {
         /* request 内已提示 */
       }
+    },
+    applyAssignedOrders(rows) {
+      this.assignedOrders = (rows || []).filter((item) => {
+        const ds = String(item.dispatchStatus || '')
+        const st = normalizeDriverOrderStatus(item.status)
+        if (['assigned', 'accepted', 'started'].includes(ds)) return true
+        return ['assigned', 'accepted', 'started'].includes(st)
+      })
+    },
+    onOrdersUpdated(list) {
+      this.applyAssignedOrders(list)
     },
     async acceptOrder(orderId) {
       try {
@@ -267,6 +284,7 @@ export default {
       try {
         const data = await updateDriverStatus(nextStatus)
         this.status = data.status || nextStatus
+        markDriverOnlineLocal(this.status)
         uni.showToast({
           title: this.status === 'online' ? '已切换为可接单' : '已暂停接单',
           icon: 'none'

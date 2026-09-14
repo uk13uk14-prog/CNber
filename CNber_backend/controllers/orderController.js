@@ -25,6 +25,7 @@ const {
 const { attachPaymentToOrder, legacyDepositStatus } = require('../utils/orderPaymentSync')
 const { logPushPayload } = require('../utils/operationLog')
 const { presentOrderForApi, presentOrdersForApi } = require('../utils/orderPresentation')
+const { getGbpCnyRate } = require('../utils/exchangeRate')
 const { buildRouteOrderQuote } = require('../utils/routePricing')
 const { activeOrdersFilter } = require('../utils/orderSoftDelete')
 
@@ -288,7 +289,8 @@ async function calculateBestQuote(order) {
   }
 }
 
-const { assertScheduledPickup24h } = require('../utils/scheduledPickup')
+const { assertScheduledPickup24h, parseScheduledAtFromBody } = require('../utils/scheduledPickup')
+const driverCancellationController = require('./driverCancellationController')
 
 exports.createOrder = async (req, res) => {
   const { userId, pickup, destination, status } = req.body
@@ -324,6 +326,7 @@ exports.createOrder = async (req, res) => {
     dropoffPostcode: req.body.dropoffPostcode,
     pickupDetail: req.body.pickupDetail,
     dropoffDetail: req.body.dropoffDetail,
+    scheduledAt: parseScheduledAtFromBody(req.body),
     postcode: req.body.postcode,
     addressPostcode: req.body.addressPostcode,
     destinationPostcode: req.body.destinationPostcode,
@@ -485,7 +488,17 @@ exports.quoteOrder = async (req, res) => {
   }
 
   const { orderId } = req.body || {}
-  const amount = Number(req.body && req.body.amount)
+  const amountCnyInput = Number(req.body.amountCny ?? req.body.customerPriceCny)
+  const amountRaw = Number(req.body && req.body.amount)
+  const currency = String(req.body.currency || '').toUpperCase()
+  const treatAsCny = currency === 'CNY' || (Number.isFinite(amountCnyInput) && req.body.amountCny != null)
+  const customerPriceCny = treatAsCny
+    ? roundMoney(Number.isFinite(amountCnyInput) && amountCnyInput > 0 ? amountCnyInput : amountRaw)
+    : null
+  const rate = treatAsCny ? await getGbpCnyRate() : null
+  const amount = treatAsCny && customerPriceCny > 0 && rate
+    ? roundMoney(customerPriceCny / rate)
+    : amountRaw
   assertValidObjectId(orderId)
   if (!Number.isFinite(amount) || amount <= 0) {
     const e = new Error('报价金额必须大于 0')
@@ -515,15 +528,23 @@ exports.quoteOrder = async (req, res) => {
     {
       $set: {
         amount,
+        ...(customerPriceCny != null ? { customerPriceCny } : {}),
         ...buildQuotePatch(amount, {}),
         priceStatus: 'quoted',
         status: ORDER_STATUS.QUOTED,
         paymentStatus: current.paymentStatus || 'unpaid',
         quoteSource: 'manual',
-        quoteBreakdown: { totalPrice: amount },
+        quoteBreakdown: {
+          totalPrice: amount,
+          ...(customerPriceCny != null ? { customerPriceCny } : {})
+        },
         updatedAt: new Date()
       },
-      $push: logPushPayload(req, 'manual_quote', `手动报价 £${amount}`)
+      $push: logPushPayload(
+        req,
+        'manual_quote',
+        customerPriceCny != null ? `手动报价 ¥${customerPriceCny.toFixed(2)}` : `手动报价 ${amount}`
+      )
     },
     { new: true }
   )
@@ -619,8 +640,8 @@ exports.autoQuoteOrder = async (req, res) => {
         req,
         'auto_quote',
         quote.quoteSource === 'fixed'
-          ? `自动重算报价（${sourceLabel}）¥${quote.customerPriceCny} / £${quote.driverPriceGbp}`
-          : `自动重算报价（${sourceLabel}）£${quote.amount}`
+          ? `自动重算报价（${sourceLabel}）¥${quote.customerPriceCny}`
+          : `自动重算报价（${sourceLabel}）¥${quote.customerPriceCny || quote.amount}`
       )
     },
     { new: true }
@@ -850,10 +871,22 @@ exports.getOrderById = async (req, res) => {
     throw e
   }
 
+  const presented = driverCancellationController.attachCancelMeta(await presentOrderForApi(order))
+  if (role === 'driver' || role === 'user') {
+    const pendingQuery = {
+      orderId: order._id,
+      status: 'pending'
+    }
+    if (role === 'driver') pendingQuery.driverId = req.user.userId
+    else pendingQuery.customerId = req.user.userId
+    const pending = await require('../models/DriverCancellationRequest').findOne(pendingQuery).lean()
+    presented.pendingDriverCancellation = driverCancellationController.presentRequest(pending)
+  }
+
   res.json({
     code: 0,
     message: 'success',
-    data: { order: await presentOrderForApi(order) }
+    data: { order: presented }
   })
 }
 
@@ -1022,56 +1055,7 @@ exports.completeOrder = async (req, res) => {
   })
 }
 
-exports.cancelOrder = async (req, res) => {
-  if (req.user.role !== 'driver') {
-    const e = new Error('Forbidden')
-    e.code = 403
-    throw e
-  }
-
-  const { orderId } = req.body
-  if (!orderId) {
-    const e = new Error('缺少 orderId')
-    e.code = 400
-    throw e
-  }
-
-  const order = await Order.findOneAndUpdate(
-    {
-      _id: orderId,
-      driverId: req.user.userId,
-      status: {
-        $in: [
-          ORDER_STATUS.ACCEPTED,
-          ORDER_STATUS.DRIVER_ACCEPTED,
-          ORDER_STATUS.STARTED,
-          ORDER_STATUS.IN_PROGRESS
-        ]
-      }
-    },
-    {
-      $set: {
-        status: ORDER_STATUS.CANCELLED,
-        updatedAt: new Date()
-      }
-    },
-    { new: true }
-  )
-
-  if (!order) {
-    const e = new Error('仅已接单或行程中订单可取消')
-    e.code = 400
-    throw e
-  }
-
-  fireProfileSync(syncProfilesAfterOrderCancelled, order, 'cancelOrder')
-
-  res.json({
-    code: 0,
-    message: 'success',
-    data: { order }
-  })
-}
+exports.cancelOrder = driverCancellationController.cancelOrder
 
 exports.cancelPassengerOrder = async (req, res) => {
   if (req.user.role !== 'user') {

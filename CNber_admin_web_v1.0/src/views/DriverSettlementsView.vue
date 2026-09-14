@@ -2,7 +2,7 @@
   <div>
     <h2>司机结算</h2>
     <p class="muted">
-      按日 / 3天 / 7天 / 14天或自定义周期汇总已完成订单的司机结算（GBP），按当前汇率换算应付 CNY。V1 人工标记已结算，不接自动打款。
+      按日 / 3天 / 7天 / 14天或自定义周期汇总已完成订单的司机结算（人民币）。V1 人工标记已结算，不接自动打款。
     </p>
 
     <div class="toolbar card">
@@ -43,9 +43,7 @@
             <th>结算周期</th>
             <th>司机</th>
             <th>完成单数</th>
-            <th>司机结算 GBP</th>
-            <th>汇率</th>
-            <th>应付 CNY</th>
+            <th>应付结算 CNY</th>
             <th>状态</th>
             <th class="acts">操作</th>
           </tr>
@@ -61,8 +59,6 @@
               <div class="sub">{{ row.driverPhone || '—' }}</div>
             </td>
             <td>{{ row.orderCount || 0 }}</td>
-            <td>{{ formatGbp(row.driverSettlementGbp) }}</td>
-            <td>{{ row.exchangeRate ?? '—' }}</td>
             <td>{{ formatCny(row.payableCny) }}</td>
             <td>
               <span class="pill" :class="row.status === 'paid' ? 'pill-ok' : 'pill-pending'">
@@ -139,7 +135,6 @@
           <p>
             司机 {{ detailModal.settlement.driverName || '—' }} /
             {{ detailModal.settlement.driverPhone || '—' }} ·
-            {{ formatGbp(detailModal.settlement.driverSettlementGbp) }} ·
             应付 {{ formatCny(detailModal.settlement.payableCny) }}
           </p>
           <div v-if="detailModal.settlement.status === 'paid'" class="payment-block card">
@@ -163,7 +158,7 @@
                 <tr>
                   <th>订单号</th>
                   <th>路线</th>
-                  <th>司机结算 GBP</th>
+                  <th>司机结算 CNY</th>
                   <th>完成时间</th>
                   <th />
                 </tr>
@@ -172,7 +167,7 @@
                 <tr v-for="o in detailModal.orders" :key="o._id">
                   <td>{{ o.orderNo }}</td>
                   <td class="ellipsis">{{ o.pickup }} → {{ o.destination }}</td>
-                  <td>{{ formatGbp(o.driverSettlementGbp) }}</td>
+                  <td>{{ o.payableCny != null ? formatCny(o.payableCny) : '待确认' }}</td>
                   <td>{{ fmtTime(o.completedAt) }}</td>
                   <td>
                     <router-link :to="{ name: 'order-detail', params: { id: o._id } }">订单</router-link>
@@ -229,7 +224,7 @@ import {
   patchDriverSettlementStatus
 } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
-import { formatCny, formatGbp } from '@/utils/currencyDisplay'
+import { formatCny } from '@/utils/currencyDisplay'
 
 const auth = useAuthStore()
 const canCreate = computed(() => auth.can('driver_settlements', 'create'))

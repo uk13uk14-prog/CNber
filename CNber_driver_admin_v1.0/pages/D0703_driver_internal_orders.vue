@@ -19,7 +19,7 @@
       </view>
 
       <view class="form-item">
-        <text class="label">订单金额 (£)</text>
+        <text class="label">订单金额 (¥)</text>
         <input v-model="form.price" type="digit" placeholder="如：80" />
       </view>
 

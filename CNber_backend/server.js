@@ -18,6 +18,8 @@ const app = express()
 app.set('trust proxy', 1)
 
 const port = process.env.PORT || 3100
+/** 真机/局域网联调默认 0.0.0.0；可用 HOST=127.0.0.1 收紧 */
+const host = process.env.HOST || '0.0.0.0'
 const mongoUrl =
   process.env.MONGO_URL || process.env.MONGO_URI || 'mongodb://localhost:27017/cnber'
 const adminDistPath = path.join(__dirname, 'public', 'admin')
@@ -47,6 +49,21 @@ app.use(createCorsMiddleware())
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')))
+app.use('/sounds', express.static(path.join(__dirname, 'public', 'sounds')))
+app.use(
+  '/downloads',
+  express.static(path.join(__dirname, 'public', 'downloads'), {
+    setHeaders(res, filePath) {
+      if (String(filePath).toLowerCase().endsWith('.apk')) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive')
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${path.basename(filePath)}"`
+        )
+      }
+    }
+  })
+)
 
 morgan.token('client-ip', (req) => req.ip || '-')
 
@@ -64,16 +81,24 @@ app.use(
 app.use('/api', apiLimiter)
 const asyncHandler = require('./utils/asyncHandler')
 const paymentPublicController = require('./controllers/paymentPublicController')
+const paymentConfigController = require('./controllers/paymentConfigController')
+const paymentAppPayReservedController = require('./controllers/paymentAppPayReservedController')
 const pricingConfigController = require('./controllers/pricingConfigController')
 const systemConfigController = require('./controllers/systemConfigController')
 const campaignController = require('./controllers/campaignController')
 const marketingPublicController = require('./controllers/marketingPublicController')
+const appVersionController = require('./controllers/appVersionController')
 app.get('/api/payment/accounts', asyncHandler(paymentPublicController.listPublicAccounts))
+app.get('/api/payment/config', asyncHandler(paymentConfigController.getPublicPaymentConfig))
+/** 未来商户回调：公开入口仅返回 501，禁止假成功、不改订单 */
+app.post('/api/payment/wechat/notify', asyncHandler(paymentAppPayReservedController.notifyWechatAppPay))
+app.post('/api/payment/alipay/notify', asyncHandler(paymentAppPayReservedController.notifyAlipayAppPay))
 app.get('/api/catalog/vehicle-classes', asyncHandler(pricingConfigController.listPublicVehicleClasses))
 app.get('/api/catalog/service-types', asyncHandler(pricingConfigController.listPublicServiceTypes))
 app.get('/api/public/system-config', asyncHandler(systemConfigController.getPublicSystemConfig))
 app.get('/api/public/campaigns', asyncHandler(campaignController.listPublicCampaigns))
 app.get('/api/public/coupons/validate', asyncHandler(marketingPublicController.validatePublicCoupon))
+app.get('/api/app/version', asyncHandler(appVersionController.getAppVersion))
 app.use('/api/admin', verifyToken, checkRole(...STAFF_ROLES), require('./routes/admin'))
 
 mongoose
@@ -133,6 +158,6 @@ app.use((req, res) => {
 const errorHandler = require('./middlewares/errorHandler')
 app.use(errorHandler)
 
-app.listen(port, () => {
-  console.log(`✅ 后端服务已启动：http://localhost:${port}`)
+app.listen(port, host, () => {
+  console.log(`✅ 后端服务已启动：http://${host}:${port} (local http://127.0.0.1:${port})`)
 })

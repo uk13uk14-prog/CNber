@@ -23,7 +23,7 @@
       </p>
     </div>
 
-    <p class="muted">按「自己团队 → 熟悉 → 外部」分组，单选一名司机后确认指派（仅待接单可指派）。</p>
+    <p class="muted">按「自己团队 → 熟悉 → 外部」分组，单选一名司机后确认指派。</p>
 
     <div class="buckets">
       <section v-for="sec in sections" :key="sec.key" class="card bucket">
@@ -50,7 +50,7 @@
                   v-model="selectedUid"
                   type="radio"
                   :value="uidOf(d)"
-                  :disabled="order.status !== 'pending' || !canAssignByDeposit"
+                  :disabled="!isDispatchableOrderStatus || !canAssignByDeposit"
                 />
               </td>
               <td>{{ phoneOf(d.userId) }}</td>
@@ -110,7 +110,7 @@ const sections = computed(() => [
 const canAssignByDeposit = computed(() => depositConfirmedForDispatch(order.value))
 
 const isDispatchableOrderStatus = computed(() =>
-  ['pending', 'deposit_paid', 'assigned'].includes(order.value.status)
+  ['pending', 'deposit_paid', 'assigned', 'needs_redispatch'].includes(order.value.status)
 )
 
 function phoneOf(ref) {

@@ -86,8 +86,18 @@ export function driverOptionValue(driver) {
 
 export function driverOptionLabel(driver) {
   const row = normalizeDriverForSelect(driver) || driver
-  if (row?.label) return row.label
-  return row?.phone || driverOptionValue(row) || '—'
+  const phone = row?.phone || '—'
+  const name = row?.name || row?.realName || ''
+  const who = name && name !== phone ? `${name} ${phone}` : phone
+  const online =
+    row?.status === 'online' || row?.serviceStatus === 'online' || row?.serviceStatus === 'idle'
+      ? '在线'
+      : String(row?.status || '离线')
+  const service = row?.serviceStatus || '—'
+  const avail = row?.available === false ? '不可派' : '可派'
+  const tasks = Number(row?.ongoingOrdersCount ?? row?.assignedCount ?? 0)
+  const review = row?.approvalStatus || row?.reviewStatus || row?.verificationStatus || '—'
+  return `${who} · ${online} · ${service} · ${avail} · 任务${Number.isFinite(tasks) ? tasks : 0} · ${review}`
 }
 
 function isDriverAvailable(driver) {
@@ -139,16 +149,12 @@ function simulatedDistance(order, driver) {
 
 export function selectableDriversForOrder(order, drivers, allOrders) {
   const busyIds = activeDriverIds(allOrders)
-  const available = (drivers || []).filter((d) => isDriverAvailable(d))
-  const notBusy = available.filter(
-    (d) => !busyIds.has(driverOptionValue(d)) || driverOptionValue(d) === idOf(order.driverId)
-  )
-  const sorted = notBusy.slice().sort((a, b) => {
-    const recentDiff = driverRecentOrderCount(a) - driverRecentOrderCount(b)
-    if (recentDiff !== 0) return recentDiff
-    return Number(simulatedDistance(order, a)) - Number(simulatedDistance(order, b))
+  return (drivers || []).slice().sort((a, b) => {
+    const aBusy = busyIds.has(driverOptionValue(a)) || Number(a.ongoingOrdersCount) > 0 ? 1 : 0
+    const bBusy = busyIds.has(driverOptionValue(b)) || Number(b.ongoingOrdersCount) > 0 ? 1 : 0
+    if (aBusy !== bBusy) return aBusy - bBusy
+    return String(a.phone || '').localeCompare(String(b.phone || ''))
   })
-  return sorted.length ? sorted : notBusy
 }
 
 export function canUnassignOrder(order, busyAssigning) {

@@ -1,15 +1,44 @@
-/** Admin 订单价格展示（V1 固定报价优先） */
+/** Admin 订单价格展示：统一 CNY，禁止 £ / 约 £xxx */
 
-export function formatGbp(amount) {
-  if (amount == null || amount === '') return '—'
-  const n = Number(amount)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-}
+export const SYSTEM_CURRENCY = 'CNY'
 
-export function formatCny(amount) {
+export function formatCurrency(amount, currency = SYSTEM_CURRENCY) {
   if (amount == null || amount === '') return '—'
   const n = Number(amount)
   return Number.isFinite(n) ? `¥${n.toFixed(2)}` : String(amount)
+}
+
+export function formatCny(amount) {
+  return formatCurrency(amount, 'CNY')
+}
+
+function firstPositive(...values) {
+  for (const raw of values) {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return null
+}
+
+export function customerOrderAmountCny(order) {
+  if (!order) return null
+  return firstPositive(
+    order.payableAmountCny,
+    order.customerPriceCny,
+    order.orderAmountCny,
+    order.originalAmountCny,
+    order.finalPriceCny,
+    order.quoteBreakdown?.customerPriceCny
+  )
+}
+
+export function driverSettlementAmountCny(order) {
+  if (!order) return null
+  return firstPositive(
+    order.driverSettlementCny,
+    order.driverPriceCny,
+    order.displayDriverSettlementCny
+  )
 }
 
 export function customerPriceCell(order) {
@@ -19,35 +48,25 @@ export function customerPriceCell(order) {
     const sub = `原价 ${formatCny(orig)} · ${order.couponCode} -${formatCny(order.discountAmountCny)}`
     return { main, sub }
   }
-  const cny = order?.payableAmountCny ?? order?.customerPriceCny ?? order?.finalPriceCny
-  const gbp =
-    order?.customerPriceGbp ??
-    order?.amount ??
-    (cny && order?.exchangeRate ? cny / order.exchangeRate : null)
-  const main = formatCny(cny)
-  const sub = gbp != null ? `约 ${formatGbp(gbp)}` : ''
-  return { main, sub }
+  const cny = customerOrderAmountCny(order)
+  return { main: cny == null ? '—' : formatCny(cny), sub: '' }
 }
 
 export function driverPriceCell(order) {
-  const gbp = order?.driverPriceGbp ?? order?.priceBreakdown?.driverPayout
-  const cny = order?.driverSettlementCny ?? order?.driverPriceCny
-  const main = formatGbp(gbp)
-  const sub = cny != null ? `约 ${formatCny(cny)}` : ''
-  return { main, sub }
+  const cny = driverSettlementAmountCny(order)
+  if (cny == null) return { main: '待确认', sub: '' }
+  return { main: formatCny(cny), sub: '' }
 }
 
 export function platformProfitCell(order) {
-  return formatCny(order?.platformProfitCny)
+  return formatCny(order?.platformProfitCny ?? order?.displayPlatformProfitCny)
 }
 
-/** @deprecated 旧双币种 GBP/CNY 换算展示 */
-export function dualPriceFromOrder(order, gbpAmount, cnyField) {
-  const gbp = Number(gbpAmount)
-  const cny =
-    order?.[cnyField] ??
-    (Number.isFinite(gbp) && order?.exchangeRate ? gbp * Number(order.exchangeRate) : null)
-  const gbpStr = formatGbp(gbp)
-  if (cny == null || cny === '') return gbpStr
-  return `${gbpStr} / ${formatCny(cny)}`
+/** @deprecated 本阶段不展示 GBP */
+export function formatGbp() {
+  return '—'
+}
+
+export function dualPriceFromOrder(_order, _gbpAmount, cnyField) {
+  return formatCny(_order?.[cnyField])
 }

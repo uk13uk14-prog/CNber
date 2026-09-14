@@ -1,15 +1,13 @@
 /**
  * 后端 API 根路径
  *
- * 优先级：UNI_APP_API_BASE_URL → app-plus 默认 LAN → 其他环境 127.0.0.1
- * app-plus 真机无全局 URL，仅用字符串解析，勿使用 new URL()。
+ * HBuilderX / uni-app Vite 不会把 .env 的 UNI_APP_API_BASE_URL 注入到
+ * import.meta.env（产物只有 VITE_*）。app-plus 不能依赖 .env。
+ *
+ * app-plus：编译期固定 M1 LAN（禁止 127.0.0.1 / localhost）
+ * 其它端：可用 .env，否则 localhost 开发回退
  */
-const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:3100/api'
-const DEFAULT_APP_PLUS_API_BASE_URL = 'http://192.168.1.187:3100/api'
-
-/** 构建时由 Vite 替换为字面量 */
-const BUILT_UNI_APP_API_BASE_URL = import.meta.env.UNI_APP_API_BASE_URL
-const BUILT_UNI_PLATFORM = import.meta.env.UNI_PLATFORM
+const M1_APP_PLUS_API_BASE_URL = 'http://192.168.1.111:3100/api'
 
 function trimApiBaseUrl(raw) {
   const value = String(raw || '').trim()
@@ -17,26 +15,26 @@ function trimApiBaseUrl(raw) {
   return value.replace(/\/+$/, '')
 }
 
-function isAppPlusRuntime() {
-  if (BUILT_UNI_PLATFORM === 'app-plus') return true
-  try {
-    return typeof plus !== 'undefined'
-  } catch (e) {
-    return false
-  }
-}
-
-function getDefaultApiBaseUrl() {
-  return isAppPlusRuntime() ? DEFAULT_APP_PLUS_API_BASE_URL : DEFAULT_LOCAL_API_BASE_URL
-}
-
 function resolveApiBaseUrl() {
-  const fromEnv = trimApiBaseUrl(BUILT_UNI_APP_API_BASE_URL)
+  // #ifdef APP-PLUS
+  return trimApiBaseUrl(M1_APP_PLUS_API_BASE_URL)
+  // #endif
+  // #ifndef APP-PLUS
+  const DEFAULT_LOCAL_API_BASE_URL = 'http://127.0.0.1:3100/api'
+  const env = typeof import.meta !== 'undefined' ? import.meta.env : undefined
+  const fromEnv = trimApiBaseUrl(
+    (env && (env.UNI_APP_API_BASE_URL || env.VITE_UNI_APP_API_BASE_URL)) || ''
+  )
   if (fromEnv) return fromEnv
-  return trimApiBaseUrl(getDefaultApiBaseUrl())
+  return trimApiBaseUrl(DEFAULT_LOCAL_API_BASE_URL)
+  // #endif
 }
 
-export const BASE_URL = resolveApiBaseUrl()
+export function getApiBaseUrl() {
+  return resolveApiBaseUrl()
+}
+
+export const BASE_URL = getApiBaseUrl()
 
 console.log('[API BASE URL]', BASE_URL)
 

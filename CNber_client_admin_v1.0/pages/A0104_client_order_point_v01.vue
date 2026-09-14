@@ -80,9 +80,16 @@
 
       <view class="field">
         <text class="label">车型</text>
-        <picker mode="selector" :range="vehicleList" @change="onVehicleChange">
-          <view class="address-input picker-like">{{ selectedVehicleLabel || '请选择车型' }}</view>
-        </picker>
+        <view class="row-full">
+          <picker
+            mode="selector"
+            :range="vehicleList"
+            :value="vehicleIndex"
+            @change="onVehicleChange"
+          >
+            <view class="picker vehicle-picker">{{ form.vehicle || '请选择车型' }}</view>
+          </picker>
+        </view>
       </view>
 
       <button class="submit-btn" :loading="submitting" @click="submitOrder">
@@ -97,10 +104,18 @@ import { onUnmounted, reactive, ref, onMounted } from 'vue'
 import { lookupAddressByPostcode } from '../utils/addressApi.js'
 import { createRideOrder } from '../utils/orderApi.js'
 import { validateScheduledAt24h, buildScheduledAtIso } from '../utils/clientBookingFlow.js'
-import { loadVehicleOptions, vehicleClassFromLabel } from '../utils/vehicleOptions.js'
+import {
+  loadVehicleOptions,
+  vehicleClassFromLabel,
+  commitVehicleSelection
+} from '../utils/vehicleOptions.js'
 
 const vehicleList = ref([])
-const selectedVehicleLabel = ref('')
+const vehicleIndex = ref(0)
+
+const form = ref({
+  vehicle: ''
+})
 
 const scheduleDate = ref('')
 const scheduleTime = ref('')
@@ -235,8 +250,11 @@ function onDropoffPostcodeInput() {
   )
 }
 
+/** 必须用 vehicleList.value：script 内 ref 不会自动解包（旧代码写 vehicleList[i] 导致永远写空） */
 function onVehicleChange(e) {
-  selectedVehicleLabel.value = vehicleList[e.detail.value] || ''
+  const committed = commitVehicleSelection(vehicleList.value, e?.detail?.value)
+  form.value.vehicle = committed.label
+  vehicleIndex.value = committed.index
 }
 
 const submitOrder = async () => {
@@ -262,7 +280,7 @@ const submitOrder = async () => {
     return
   }
 
-  if (!selectedVehicleLabel.value) {
+  if (!form.value.vehicle) {
     uni.showToast({ title: '请选择车型', icon: 'none' })
     return
   }
@@ -288,8 +306,8 @@ const submitOrder = async () => {
         pickupDetail: `${pickupAddress.detail.trim()} | ${scheduleDate.value} ${scheduleTime.value}`.trim(),
         dropoffDetail: dropoffAddress.detail.trim(),
         scheduledAt: scheduleCheck.scheduledAt.toISOString(),
-        vehicleClass: vehicleClassFromLabel(selectedVehicleLabel.value),
-        vehicleLabel: selectedVehicleLabel.value
+        vehicleClass: vehicleClassFromLabel(form.value.vehicle),
+        vehicleLabel: form.value.vehicle
       }
     )
     const oid = data?.order?._id
@@ -409,5 +427,24 @@ onUnmounted(() => {
   border-radius: 999rpx;
   font-size: 32rpx;
   padding: 24rpx 0;
+}
+
+.row-full {
+  width: 100%;
+}
+.row-full > * {
+  width: 100%;
+}
+.picker.vehicle-picker {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  box-sizing: border-box;
+  background: #f7f8fa;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 30rpx;
+  color: #111;
 }
 </style>

@@ -13,7 +13,15 @@
 
     // 接单与行程
     { "path": "pages/D0101_driver_order_list", "style": { "navigationBarTitleText": "接单中心" } },
-    { "path": "pages/D0102_driver_order_detail", "style": { "navigationBarTitleText": "订单详情" } },
+    {
+      "path": "pages/D0102_driver_order_detail",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationBarBackgroundColor": "#2463B5",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#2463B5"
+      }
+    },
     { "path": "pages/D0103_driver_trip_tracking", "style": { "navigationBarTitleText": "行程中" } },
     { "path": "pages/D0104_driver_trip_complete", "style": { "navigationBarTitleText": "行程完成" } },
     { "path": "pages/D0105_driver_edit_order", "style": { "navigationBarTitleText": "修改订单" } },

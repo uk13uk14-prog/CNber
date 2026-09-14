@@ -1,13 +1,21 @@
-export function formatGbp(amount) {
-  if (amount == null || amount === '') return '—'
-  const n = Number(amount)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-}
+export const SYSTEM_CURRENCY = 'CNY'
 
-export function formatCny(amount) {
+export function formatCurrency(amount, currency = SYSTEM_CURRENCY) {
   if (amount == null || amount === '') return '—'
   const n = Number(amount)
   return Number.isFinite(n) ? `¥${n.toFixed(2)}` : String(amount)
+}
+
+export function formatCny(amount) {
+  return formatCurrency(amount, 'CNY')
+}
+
+function firstPositive(...values) {
+  for (const raw of values) {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return null
 }
 
 export function customerPriceCell(order) {
@@ -17,15 +25,16 @@ export function customerPriceCell(order) {
     const sub = `原价 ${formatCny(orig)} · ${order.couponCode}`
     return { main, sub }
   }
-  const cny = order?.customerPriceCny ?? order?.payableAmountCny
-  const main = formatCny(cny)
-  return { main, sub: '' }
+  const cny = firstPositive(order?.payableAmountCny, order?.customerPriceCny, order?.orderAmountCny)
+  return { main: cny == null ? '—' : formatCny(cny), sub: '' }
 }
 
 export function driverPriceCell(order) {
-  const gbp = order?.driverPriceGbp ?? order?.priceBreakdown?.driverPayout
-  const main = formatGbp(gbp)
-  const cny = order?.driverSettlementCny ?? order?.driverPriceCny
-  const sub = cny != null ? `约 ${formatCny(cny)}` : ''
-  return { main, sub }
+  const cny = firstPositive(order?.driverSettlementCny, order?.driverPriceCny)
+  if (cny == null) return { main: '待确认', sub: '' }
+  return { main: formatCny(cny), sub: '' }
+}
+
+export function formatGbp() {
+  return '—'
 }

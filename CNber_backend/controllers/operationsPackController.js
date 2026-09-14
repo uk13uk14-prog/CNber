@@ -120,16 +120,9 @@ exports.getTrialDashboard = async (req, res) => {
       {
         $group: {
           _id: null,
-          customerRevenueCny: { $sum: { $ifNull: ['$amount', 0] } },
-          driverCostCny: {
-            $sum: {
-              $ifNull: [
-                '$driverSettlementAmount',
-                { $ifNull: ['$driverPriceGbp', { $ifNull: ['$priceBreakdown.driverPayout', 0] }] }
-              ]
-            }
-          },
-          grossProfitCny: { $sum: { $ifNull: ['$priceBreakdown.platformProfit', 0] } }
+          customerRevenueCny: { $sum: { $ifNull: ['$customerPriceCny', 0] } },
+          driverCostCny: { $sum: { $ifNull: ['$driverSettlementCny', 0] } },
+          grossProfitCny: { $sum: { $ifNull: ['$platformProfitCny', 0] } }
         }
       }
     ]),

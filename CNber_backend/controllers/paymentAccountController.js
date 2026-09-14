@@ -1,12 +1,13 @@
 const mongoose = require('mongoose')
 const PaymentAccount = require('../models/PaymentAccount')
 const { normalizeLegacyAccount } = require('../models/PaymentAccount')
+const { toStoredPaymentAssetPath, publicHttpLink } = require('../utils/paymentAssetUrl')
 
 function pickBody(body = {}) {
   const paymentType = body.paymentType || body.method || body.type || 'other'
   const displayName = String(body.displayName || body.name || '').trim()
   const accountNumber = String(body.accountNumber || body.accountNo || '').trim()
-  const qrImage = String(body.qrImage || body.qrCodeUrl || '').trim()
+  const qrImage = toStoredPaymentAssetPath(body.qrImage || body.qrCodeUrl || '')
   const note = String(body.note || body.instructions || body.instruction || '').trim()
   const isActive = body.isActive !== undefined ? Boolean(body.isActive) : body.enabled !== false
   const alipayUrlInput = String(body.alipayUrl || '').trim()
@@ -28,8 +29,8 @@ function pickBody(body = {}) {
     paymentLink,
     qrCodeUrl: qrImage,
     qrImage,
-    wechatQrImage: String(body.wechatQrImage || '').trim(),
-    alipayQrImage: String(body.alipayQrImage || '').trim(),
+    wechatQrImage: toStoredPaymentAssetPath(body.wechatQrImage || ''),
+    alipayQrImage: toStoredPaymentAssetPath(body.alipayQrImage || ''),
     customerServiceWechat: String(body.customerServiceWechat || '').trim(),
     customerServiceWhatsapp: String(body.customerServiceWhatsapp || '').trim(),
     instructions: note,
@@ -43,12 +44,15 @@ function pickBody(body = {}) {
 function toPublicAccount(doc) {
   const a = normalizeLegacyAccount(doc)
   const pt = a.paymentType || a.method || 'other'
-  const qr =
-    a.wechatQrImage ||
-    a.alipayQrImage ||
-    a.qrImage ||
-    a.qrCodeUrl ||
-    ''
+  const qr = toStoredPaymentAssetPath(
+    (pt === 'wechat' ? a.wechatQrImage : pt === 'alipay' ? a.alipayQrImage : '') ||
+      a.qrImage ||
+      a.qrCodeUrl ||
+      ''
+  )
+  const wechatQr = toStoredPaymentAssetPath(a.wechatQrImage || (pt === 'wechat' ? qr : ''))
+  const alipayQr = toStoredPaymentAssetPath(a.alipayQrImage || (pt === 'alipay' ? qr : ''))
+  const paymentLink = publicHttpLink(a.alipayUrl || a.paymentLink || '')
   return {
     _id: a._id,
     paymentType: pt,
@@ -62,12 +66,12 @@ function toPublicAccount(doc) {
     iban: a.iban || '',
     wiseLink: a.wiseLink || '',
     revolutLink: a.revolutLink || '',
-    paymentLink: a.paymentLink || '',
-    alipayUrl: a.alipayUrl || a.paymentLink || '',
+    paymentLink,
+    alipayUrl: paymentLink,
     qrImage: qr,
     qrCodeUrl: qr,
-    wechatQrImage: a.wechatQrImage || (pt === 'wechat' ? qr : ''),
-    alipayQrImage: a.alipayQrImage || (pt === 'alipay' ? qr : ''),
+    wechatQrImage: wechatQr,
+    alipayQrImage: alipayQr,
     customerServiceWechat: a.customerServiceWechat || '',
     customerServiceWhatsapp: a.customerServiceWhatsapp || '',
     note: a.note || a.instructions || '',
@@ -80,7 +84,17 @@ exports.listPaymentAccounts = async (req, res) => {
   res.json({
     code: 0,
     message: 'success',
-    data: { accounts: items.map(normalizeLegacyAccount) }
+    data: {
+      accounts: items.map((row) => {
+        const a = normalizeLegacyAccount(row)
+        a.qrCodeUrl = toStoredPaymentAssetPath(a.qrCodeUrl || a.qrImage || '')
+        a.qrImage = toStoredPaymentAssetPath(a.qrImage || a.qrCodeUrl || '')
+        a.wechatQrImage = toStoredPaymentAssetPath(a.wechatQrImage || '')
+        a.alipayQrImage = toStoredPaymentAssetPath(a.alipayQrImage || '')
+        a.paymentLink = publicHttpLink(a.paymentLink || '')
+        return a
+      })
+    }
   })
 }
 

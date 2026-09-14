@@ -3,6 +3,7 @@ const router = express.Router()
 const asyncHandler = require('../utils/asyncHandler')
 const adminController = require('../controllers/adminController')
 const paymentAccountController = require('../controllers/paymentAccountController')
+const paymentConfigController = require('../controllers/paymentConfigController')
 const orderPaymentController = require('../controllers/orderPaymentController')
 const financeController = require('../controllers/financeController')
 const p0OperationsController = require('../controllers/p0OperationsController')
@@ -24,6 +25,7 @@ const operationsPackController = require('../controllers/operationsPackControlle
 const operationsDashboardController = require('../controllers/operationsDashboardController')
 const jobQueueController = require('../controllers/jobQueueController')
 const { requireStaffRoles, requirePermission } = require('../middlewares/staffAccess')
+const adminNotificationController = require('../controllers/adminNotificationController')
 
 const P = requirePermission
 
@@ -132,11 +134,26 @@ router.get('/campaigns/:id', P('campaigns', 'view'), asyncHandler(campaignContro
 router.put('/campaigns/:id', P('campaigns', 'update'), asyncHandler(campaignController.updateCampaign))
 router.patch('/campaigns/:id/status', P('campaigns', 'delete'), asyncHandler(campaignController.patchCampaignStatus))
 
+router.get('/payment-config', OPS, asyncHandler(paymentConfigController.getAdminPaymentConfig))
+router.put('/payment-config', OPS, asyncHandler(paymentConfigController.putAdminPaymentConfig))
+router.post('/payment-config/qr', OPS, asyncHandler(paymentConfigController.uploadPaymentQr))
 router.get('/payment-accounts', OPS, asyncHandler(paymentAccountController.listPaymentAccounts))
 router.post('/payment-accounts', OPS, asyncHandler(paymentAccountController.createPaymentAccount))
 router.put('/payment-accounts/:id', OPS, asyncHandler(paymentAccountController.updatePaymentAccount))
 router.patch('/payment-accounts/:id', OPS, asyncHandler(paymentAccountController.patchPaymentAccount))
 router.delete('/payment-accounts/:id', OPS, asyncHandler(paymentAccountController.deletePaymentAccount))
+
+router.get('/notifications', ALL, asyncHandler(adminNotificationController.listAdminNotifications))
+router.patch(
+  '/notifications/:id/read',
+  ALL,
+  asyncHandler(adminNotificationController.markAdminNotificationRead)
+)
+router.patch(
+  '/notifications/:id/resolve',
+  ALL,
+  asyncHandler(adminNotificationController.resolveAdminNotification)
+)
 
 router.get('/orders', ORDERS, asyncHandler(adminController.listAdminOrders))
 router.patch('/orders/:id/delete', ORDERS, asyncHandler(adminController.softDeleteOrder))

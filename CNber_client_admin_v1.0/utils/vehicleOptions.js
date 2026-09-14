@@ -57,5 +57,23 @@ export function vehicleClassFromLabel(label) {
   return found ? found.class : 'standard_5'
 }
 
+/**
+ * Picker @change 提交：把 detail.value（index）落到 label。
+ * 调用方必须传入已解包的 labels 数组（vehicleList.value），不可传 ref 本身。
+ */
+export function commitVehicleSelection(labels, rawIndex) {
+  const list = Array.isArray(labels) ? labels : []
+  const index = Number(rawIndex)
+  if (!list.length || !Number.isFinite(index) || index < 0 || index >= list.length) {
+    return { index: 0, label: '', vehicleClass: 'standard_5' }
+  }
+  const label = String(list[index] || '')
+  return {
+    index,
+    label,
+    vehicleClass: vehicleClassFromLabel(label)
+  }
+}
+
 /** @deprecated 使用 loadVehicleOptions */
 export const VEHICLE_OPTIONS = FALLBACK_VEHICLES

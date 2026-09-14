@@ -1,9 +1,9 @@
 {
     "name" : "中步出行",
-    "appid" : "__UNI__GB3B7688",
-    "description" : "CNber Admin Panel",
-    "versionName" : "1.0.3",
-    "versionCode" : "103",
+    "appid" : "__UNI__9077879",
+    "description" : "CNber 乘客端内部测试",
+    "versionName" : "1.0.0-beta.1",
+    "versionCode" : "10001",
     "vueVersion" : "3",
     "transformPx" : false,
     "app-plus" : {
@@ -17,44 +17,36 @@
         },
         "distribute" : {
             "android" : {
-                "icon" : "static/icons/icon.png", // ✅ 放置 app 图标路径
+                "icon" : "static/icons/icon.png",
+                "packagename" : "uk.cnber.client",
                 "minSdkVersion" : "21",
-                "permissions" : []
+                "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ],
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CALL_PHONE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_VISUAL_USER_SELECTED\"/>",
+                    "<queries><package android:name=\"com.tencent.mm\"/><package android:name=\"com.eg.android.AlipayGphone\"/><intent><action android:name=\"android.intent.action.VIEW\"/><data android:scheme=\"weixin\"/></intent><intent><action android:name=\"android.intent.action.VIEW\"/><data android:scheme=\"alipays\"/></intent></queries>"
+                ],
+                "permissionExternalStorage" : {
+                    "request" : "once",
+                    "prompt" : "用于将收款二维码保存到相册，以便在微信或支付宝扫一扫中选择。"
+                }
             },
             "ios" : {
-                "icon" : "static/icons/icon.png", // ✅ iOS 同样设置 icon
-                "dSYMs" : true
+                "icon" : "static/icons/icon.png",
+                "dSYMs" : false
             },
             "icons" : {
-                "ios" : {
-                    "iphone" : {
-                        "app@2x" : "static/icons/icon.png",
-                        "app@3x" : "unpackage/res/icons/180x180.png",
-                        "notification@2x" : "unpackage/res/icons/40x40.png",
-                        "notification@3x" : "unpackage/res/icons/60x60.png",
-                        "settings@2x" : "unpackage/res/icons/58x58.png",
-                        "settings@3x" : "unpackage/res/icons/87x87.png",
-                        "spotlight@2x" : "unpackage/res/icons/80x80.png",
-                        "spotlight@3x" : "unpackage/res/icons/120x120.png"
-                    },
-                    "appstore" : "unpackage/res/icons/1024x1024.png",
-                    "ipad" : {
-                        "app" : "unpackage/res/icons/76x76.png",
-                        "app@2x" : "unpackage/res/icons/152x152.png",
-                        "notification" : "unpackage/res/icons/20x20.png",
-                        "notification@2x" : "unpackage/res/icons/40x40.png",
-                        "proapp@2x" : "unpackage/res/icons/167x167.png",
-                        "settings" : "unpackage/res/icons/29x29.png",
-                        "settings@2x" : "unpackage/res/icons/58x58.png",
-                        "spotlight" : "unpackage/res/icons/40x40.png",
-                        "spotlight@2x" : "unpackage/res/icons/80x80.png"
-                    }
-                },
                 "android" : {
-                    "hdpi" : "C:/Users/shuang/Desktop/canber_logo/1.png",
-                    "xhdpi" : "unpackage/res/icons/96x96.png",
-                    "xxhdpi" : "unpackage/res/icons/144x144.png",
-                    "xxxhdpi" : "unpackage/res/icons/192x192.png"
+                    "hdpi" : "static/icons/icon.png",
+                    "xhdpi" : "static/icons/icon.png",
+                    "xxhdpi" : "static/icons/icon.png",
+                    "xxxhdpi" : "static/icons/icon.png"
                 }
             }
         }
@@ -71,5 +63,8 @@
             "urlCheck" : false
         },
         "usingComponents" : true
+    },
+    "uniStatistics" : {
+        "enable" : false
     }
 }

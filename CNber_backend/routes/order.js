@@ -116,9 +116,27 @@ router.post('/complete', asyncHandler(orderController.completeOrder))
 router.post('/reject', asyncHandler(orderController.rejectOrder))
 
 /**
- * 取消订单：仅 accepted / started，且必须当前司机
+ * 司机取消派单：>=24h 退回待重新派单；<24h 创建乘客审批申请。
+ * 不会把客户订单标成 cancelled。
  */
 router.post('/cancel', asyncHandler(orderController.cancelOrder))
+
+router.get(
+  '/cancellation-requests',
+  asyncHandler(require('../controllers/driverCancellationController').listCancellationRequests)
+)
+router.post(
+  '/cancellation-requests/:id/approve',
+  asyncHandler(require('../controllers/driverCancellationController').approveCancellationRequest)
+)
+router.post(
+  '/cancellation-requests/:id/reject',
+  asyncHandler(require('../controllers/driverCancellationController').rejectCancellationRequest)
+)
+router.post(
+  '/cancellation-requests/:id/ack',
+  asyncHandler(require('../controllers/driverCancellationController').ackCancellationDecision)
+)
 
 router.post('/passenger-cancel', asyncHandler(orderController.cancelPassengerOrder))
 

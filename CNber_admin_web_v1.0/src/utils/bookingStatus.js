@@ -32,6 +32,7 @@ export function adminBookingStatusLabel(order) {
 
   if (s === 'cancelled') return '已取消'
   if (s === 'completed') return '已完成'
+  if (s === 'needs_redispatch' || order.dispatchStatus === 'needs_redispatch') return '待重新派单'
   if (['started', 'in_progress', 'arrived'].includes(s)) return '行程中'
   if (['accepted', 'driver_accepted', 'ready_to_start'].includes(s)) return '待出发'
   if (s === 'assigned' || order.driverId || order.assignedDriver) return '已派单'
@@ -44,7 +45,7 @@ export function adminBookingStatusClass(order) {
   const label = adminBookingStatusLabel(order)
   if (label === '待付款') return 'status-orange'
   if (label === '付款待确认') return 'status-blue'
-  if (label === '已付款，待派单') return 'status-green'
+  if (label === '已付款，待派单' || label === '待重新派单') return 'status-green'
   if (label === '已派单' || label === '待出发') return 'status-blue'
   if (label === '行程中') return 'status-purple'
   if (label === '已完成' || label === '已取消') return 'status-gray'
@@ -59,6 +60,7 @@ export function adminOrderUiStage(order) {
   const s = order.status || ''
 
   if (['completed', 'cancelled'].includes(s)) return 'terminal'
+  if (s === 'needs_redispatch' || order.dispatchStatus === 'needs_redispatch') return 'needs_redispatch'
   if (['started', 'in_progress', 'arrived', 'accepted', 'driver_accepted', 'ready_to_start'].includes(s)) {
     return 'in_trip'
   }
@@ -81,6 +83,7 @@ export function adminScheduledTimeLabel(order) {
 export const DISPATCH_CENTER_TABS = [
   { id: 'await_payment', label: '待付款' },
   { id: 'payment_review', label: '付款待确认' },
+  { id: 'needs_redispatch', label: '待重新派单' },
   { id: 'ready_dispatch', label: '待派单' },
   { id: 'assigned', label: '已派单 / 待出发' },
   { id: 'in_trip', label: '进行中' }

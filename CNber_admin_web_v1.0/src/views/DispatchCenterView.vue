@@ -89,7 +89,7 @@
             </button>
           </template>
 
-          <template v-else-if="activeTab === 'ready_dispatch'">
+          <template v-else-if="activeTab === 'ready_dispatch' || activeTab === 'needs_redispatch'">
             <select v-model="selectedDriverIds[order._id]" class="input driver-select">
               <option value="">请选择司机</option>
               <option
@@ -106,7 +106,7 @@
               :disabled="!selectedDriverIds[order._id] || actingId === order._id"
               @click="onAssign(order)"
             >
-              {{ actingId === order._id ? '派单中…' : '派单' }}
+              {{ actingId === order._id ? '派单中…' : '确认派单' }}
             </button>
           </template>
 
@@ -208,29 +208,31 @@ async function loadAllOrders() {
 }
 
 async function loadDrivers() {
-  let rows = normalizeDriverList(extractDriverRows(await fetchAvailableDrivers()))
-  if (!rows.length) {
-    rows = normalizeDriverList(extractDriverRows(await fetchDriversForDispatch()))
+  const [available, forDispatch, approved] = await Promise.all([
+    fetchAvailableDrivers().catch(() => ({})),
+    fetchDriversForDispatch().catch(() => ({})),
+    fetchDrivers({ page: 1, pageSize: 100, status: 'approved' }).catch(() => ({}))
+  ])
+  const merged = new Map()
+  for (const row of [
+    ...normalizeDriverList(extractDriverRows(available)),
+    ...normalizeDriverList(extractDriverRows(forDispatch)),
+    ...normalizeDriverList(extractDriverRows(approved))
+  ]) {
+    const id = driverOptionValue(row)
+    if (!id) continue
+    const prev = merged.get(id)
+    merged.set(id, prev ? { ...prev, ...row } : row)
   }
-  if (!rows.length) {
-    const data = await fetchDrivers({ page: 1, pageSize: 100, status: 'approved' })
-    rows = normalizeDriverList(extractDriverRows(data))
-  }
-  drivers.value = rows
+  drivers.value = Array.from(merged.values())
   applyDefaultDriverSelection()
 }
 
 function applyDefaultDriverSelection() {
   for (const order of orders.value) {
-    if (dispatchCenterTab(order) !== 'ready_dispatch') continue
-    const existing = idOf(order.driverId)
-    if (existing) {
-      selectedDriverIds[order._id] = existing
-      continue
-    }
-    if (selectedDriverIds[order._id]) continue
-    const list = selectableDriversForOrder(order, drivers.value, orders.value)
-    if (list[0]) selectedDriverIds[order._id] = driverOptionValue(list[0])
+    if (dispatchCenterTab(order) !== 'ready_dispatch' && dispatchCenterTab(order) !== 'needs_redispatch') continue
+    const existing = idOf(order.driverId) || idOf(order.assignedDriver)
+    selectedDriverIds[order._id] = existing || ''
   }
 }
 

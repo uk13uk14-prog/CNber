@@ -88,7 +88,7 @@ const loading = ref(false)
 
 function money(value) {
   const n = Number(value || 0)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : '—'
+  return Number.isFinite(n) ? `¥${n.toFixed(2)}` : '—'
 }
 
 function fmtTime(v) {

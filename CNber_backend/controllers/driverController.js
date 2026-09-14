@@ -2,19 +2,21 @@ const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 const Driver = require('../models/Driver')
 const Order = require('../models/Order')
-const { presentOrdersForApi } = require('../utils/orderPresentation')
+const { presentOrderForApi, presentOrdersForApi } = require('../utils/orderPresentation')
 const User = require('../models/User')
 const Withdrawal = require('../models/Withdrawal')
 const DriverSettlement = require('../models/DriverSettlement')
 const ORDER_STATUS = Order.ORDER_STATUS
 const WITHDRAWAL_STATUS = Withdrawal.WITHDRAWAL_STATUS
 const DISPATCH_STATUS = Order.DISPATCH_STATUS
-const { getGbpCnyRate, gbpToCny } = require('../utils/exchangeRate')
 const { roundMoney } = require('../utils/pricing')
 const {
   driverIncomeGbpAggregationExpr,
+  driverIncomeCnyAggregationExpr,
   buildDriverOrderMatch,
-  resolveDriverIncomeGbp
+  resolveDriverIncomeGbp,
+  resolveDriverIncomeCny,
+  sumStoredDriverSettlementCny
 } = require('../utils/driverIncome')
 const { formatDateOnlyUTC } = require('../utils/driverSettlementPeriod')
 
@@ -221,20 +223,35 @@ async function sumCompletedIncome(driverId, since = null) {
 
   const result = await Order.aggregate([
     { $match: match },
-    { $addFields: { driverIncomeGbp: driverIncomeGbpAggregationExpr() } },
+    {
+      $addFields: {
+        driverIncomeGbp: driverIncomeGbpAggregationExpr(),
+        driverIncomeCny: driverIncomeCnyAggregationExpr()
+      }
+    },
     {
       $group: {
         _id: null,
-        income: { $sum: '$driverIncomeGbp' },
-        orders: { $sum: 1 }
+        incomeGbp: { $sum: '$driverIncomeGbp' },
+        incomeCny: { $sum: '$driverIncomeCny' },
+        orders: { $sum: 1 },
+        confirmedOrders: {
+          $sum: { $cond: [{ $gt: ['$driverIncomeCny', 0] }, 1, 0] }
+        }
       }
     }
   ])
 
-  const row = result[0] || { income: 0, orders: 0 }
+  const row = result[0] || {}
+  const orders = row.orders || 0
+  const confirmedOrders = row.confirmedOrders || 0
   return {
-    income: roundMoney(row.income || 0),
-    orders: row.orders || 0
+    income: roundMoney(row.incomeCny || 0),
+    incomeCny: roundMoney(row.incomeCny || 0),
+    incomeGbp: roundMoney(row.incomeGbp || 0),
+    orders,
+    confirmedOrders,
+    unconfirmedOrders: Math.max(0, orders - confirmedOrders)
   }
 }
 
@@ -242,23 +259,21 @@ async function sumDriverSettlements(driverId, status) {
   const match = { driverId }
   if (status) match.status = status
 
-  const result = await DriverSettlement.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: null,
-        gbp: { $sum: { $ifNull: ['$driverSettlementGbp', 0] } },
-        cny: { $sum: { $ifNull: ['$payableCny', 0] } },
-        count: { $sum: 1 }
-      }
-    }
-  ])
-
-  const row = result[0] || {}
+  const batches = await DriverSettlement.find(match).select('orderIds driverSettlementGbp').lean()
+  const orderIds = [...new Set(batches.flatMap((row) => (row.orderIds || []).map(String)))]
+  const orders = orderIds.length
+    ? await Order.find({ _id: { $in: orderIds } }).select('driverSettlementCny').lean()
+    : []
+  const summed = sumStoredDriverSettlementCny(orders)
+  const gbp = roundMoney(
+    batches.reduce((acc, row) => acc + Number(row.driverSettlementGbp || 0), 0)
+  )
   return {
-    gbp: roundMoney(row.gbp || 0),
-    cny: roundMoney(row.cny || 0),
-    count: row.count || 0
+    gbp,
+    cny: summed.cny == null ? 0 : summed.cny,
+    cnyOrNull: summed.cny,
+    unconfirmedOrders: summed.missing,
+    count: batches.length
   }
 }
 
@@ -352,9 +367,12 @@ exports.getDashboard = async (req, res) => {
     data: {
       status: user?.driverProfile?.status || 'offline',
       driverName: user?.driverProfile?.realName || user?.phone || '司机',
-      todayIncome: today.income || 0,
-      weekIncome: week.income || 0,
-      totalIncome: total.income || 0,
+      todayIncome: today.incomeCny || 0,
+      weekIncome: week.incomeCny || 0,
+      totalIncome: total.incomeCny || 0,
+      todayIncomeCny: today.incomeCny || 0,
+      weekIncomeCny: week.incomeCny || 0,
+      totalIncomeCny: total.incomeCny || 0,
       pendingOrdersCount,
       ongoingOrdersCount,
       next14DaysOrders: nextOrders.map((order) => ({
@@ -596,8 +614,7 @@ exports.getIncomeSummary = async (req, res) => {
     total,
     withdrawnAmount,
     pendingSettlements,
-    paidSettlements,
-    exchangeRate
+    paidSettlements
   ] = await Promise.all([
     sumCompletedIncome(driverId, startOfToday()),
     sumCompletedIncome(driverId, startOfWeek()),
@@ -605,33 +622,36 @@ exports.getIncomeSummary = async (req, res) => {
     sumCompletedIncome(driverId),
     sumWithdrawnAmount(driverId),
     sumDriverSettlements(driverId, 'pending'),
-    sumDriverSettlements(driverId, 'paid'),
-    getGbpCnyRate()
+    sumDriverSettlements(driverId, 'paid')
   ])
 
-  const availableBalance = Math.max(0, pendingSettlements.gbp)
+  const availableBalance = Math.max(0, pendingSettlements.cny)
 
   res.json({
     code: 0,
     message: 'success',
     data: {
-      todayIncomeGbp: today.income,
-      weekIncomeGbp: week.income,
-      monthIncomeGbp: month.income,
-      totalIncomeGbp: total.income,
+      currency: 'CNY',
+      todayIncomeGbp: today.incomeGbp,
+      weekIncomeGbp: week.incomeGbp,
+      monthIncomeGbp: month.incomeGbp,
+      totalIncomeGbp: total.incomeGbp,
+      todayIncomeCny: today.incomeCny,
+      weekIncomeCny: week.incomeCny,
+      monthIncomeCny: month.incomeCny,
+      totalIncomeCny: total.incomeCny,
       pendingSettlementGbp: pendingSettlements.gbp,
       paidSettlementGbp: paidSettlements.gbp,
-      pendingSettlementCny: pendingSettlements.cny,
-      paidSettlementCny: paidSettlements.cny,
-      exchangeRate,
+      pendingSettlementCny: pendingSettlements.cnyOrNull,
+      paidSettlementCny: paidSettlements.cnyOrNull,
+      unconfirmedIncomeOrderCount: total.unconfirmedOrders || 0,
       completedOrderCount: total.orders,
       pendingSettlementCount: pendingSettlements.count,
       paidSettlementCount: paidSettlements.count,
-      // 兼容旧字段
-      todayIncome: today.income,
-      weekIncome: week.income,
-      monthIncome: month.income,
-      totalIncome: total.income,
+      todayIncome: today.incomeCny,
+      weekIncome: week.incomeCny,
+      monthIncome: month.incomeCny,
+      totalIncome: total.incomeCny,
       withdrawnAmount,
       availableBalance,
       totalOrders: total.orders,
@@ -666,22 +686,24 @@ exports.listDriverSettlements = async (req, res) => {
   const orderDocs = allOrderIds.length
     ? await Order.find({ _id: { $in: allOrderIds } })
         .select(
-          '_id orderNo orderDateKey dailySeq pickup destination driverPriceGbp driverSettlementGbp driverAmount driverSettlementAmount priceBreakdown quoteBreakdown updatedAt'
+          '_id orderNo orderDateKey dailySeq pickup destination driverSettlementCny driverPriceGbp driverSettlementGbp driverAmount driverSettlementAmount priceBreakdown quoteBreakdown updatedAt'
         )
         .lean()
     : []
   const orderMap = new Map(orderDocs.map((o) => [String(o._id), o]))
 
   const settlements = items.map((row) => {
-    const orders = (row.orderIds || [])
+    const sourceOrders = (row.orderIds || [])
       .map((id) => orderMap.get(String(id)))
       .filter(Boolean)
-      .map((o) => ({
+    const summed = sumStoredDriverSettlementCny(sourceOrders)
+    const orders = sourceOrders.map((o) => ({
         _id: o._id,
         orderNo: orderDisplayNo(o),
         pickup: o.pickup || '',
         destination: o.destination || '',
         driverSettlementGbp: resolveDriverIncomeGbp(o),
+        payableCny: resolveDriverIncomeCny(o),
         completedAt: o.updatedAt || null
       }))
 
@@ -692,8 +714,8 @@ exports.listDriverSettlements = async (req, res) => {
       endDate: row.endDate ? formatDateOnlyUTC(row.endDate) : '',
       orderCount: row.orderCount ?? orders.length,
       driverSettlementGbp: roundMoney(row.driverSettlementGbp || 0),
-      exchangeRate: row.exchangeRate ?? null,
-      payableCny: roundMoney(row.payableCny || 0),
+      payableCny: summed.cny,
+      unconfirmedOrderCount: summed.missing,
       status: row.status,
       paidAt: row.paidAt || null,
       paymentMethod: row.paymentMethod || null,
@@ -734,19 +756,27 @@ exports.listDriverSettlementPayments = async (req, res) => {
     DriverSettlement.countDocuments(query)
   ])
 
-  const payments = items.map((row) => ({
+  const allOrderIds = [...new Set(items.flatMap((row) => (row.orderIds || []).map(String)))]
+  const orderDocs = allOrderIds.length
+    ? await Order.find({ _id: { $in: allOrderIds } }).select('driverSettlementCny').lean()
+    : []
+  const orderMap = new Map(orderDocs.map((o) => [String(o._id), o]))
+
+  const payments = items.map((row) => {
+    const sourceOrders = (row.orderIds || []).map((id) => orderMap.get(String(id))).filter(Boolean)
+    return {
     _id: row._id,
     periodLabel: row.periodLabel || '',
     orderCount: row.orderCount ?? 0,
     driverSettlementGbp: roundMoney(row.driverSettlementGbp || 0),
-    payableCny: roundMoney(row.payableCny || 0),
-    exchangeRate: row.exchangeRate ?? null,
+    payableCny: sumStoredDriverSettlementCny(sourceOrders).cny,
     paidAt: row.paidAt || null,
     paymentMethod: row.paymentMethod || null,
     paymentReference: row.paymentReference || '',
     paymentProofUrl: row.paymentProofUrl || '',
     paymentRemark: row.paymentRemark || ''
-  }))
+  }
+  })
 
   res.json({
     code: 0,
@@ -815,10 +845,11 @@ exports.listDriverOrders = async (req, res) => {
     Order.countDocuments(query)
   ])
 
+  const presented = await presentOrdersForApi(orders)
   res.json({
     code: 0,
     message: 'success',
-    data: { orders, total, page, pageSize }
+    data: { orders: presented, total, page, pageSize }
   })
 }
 
@@ -862,7 +893,7 @@ exports.acceptAssignedOrder = async (req, res) => {
   res.json({
     code: 0,
     message: 'success',
-    data: { order }
+    data: { order: await presentOrderForApi(order) }
   })
 }
 
@@ -912,7 +943,7 @@ exports.rejectAssignedOrder = async (req, res) => {
   res.json({
     code: 0,
     message: 'success',
-    data: { order }
+    data: { order: order ? await presentOrderForApi(order) : order }
   })
 }
 

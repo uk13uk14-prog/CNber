@@ -17,7 +17,8 @@ const LABELS = {
   in_progress: '进行中',
   arrived: '进行中',
   completed: '已完成',
-  cancelled: '已取消'
+  cancelled: '已取消',
+  needs_redispatch: '待重新派单'
 }
 
 export function normalizeDriverOrderStatus(status) {

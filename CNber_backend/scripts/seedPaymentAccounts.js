@@ -15,17 +15,15 @@ const PaymentAccount = require('../models/PaymentAccount')
 const mongoUrl =
   process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/cnber'
 
-const BASE = 'http://192.168.1.187:3100/uploads/payment-accounts'
-
 const SEEDS = [
   {
     method: 'wechat',
     paymentType: 'wechat',
     displayName: 'CNber 微信收款',
     accountName: 'CNber',
-    qrCodeUrl: `${BASE}/wechat-qr.jpg`,
-    qrImage: `${BASE}/wechat-qr.jpg`,
-    wechatQrImage: `${BASE}/wechat-qr.jpg`,
+    qrCodeUrl: '/uploads/payment-accounts/wechat-qr.jpg',
+    qrImage: '/uploads/payment-accounts/wechat-qr.jpg',
+    wechatQrImage: '/uploads/payment-accounts/wechat-qr.jpg',
     paymentLink: '',
     enabled: true,
     isActive: true,
@@ -36,10 +34,10 @@ const SEEDS = [
     paymentType: 'alipay',
     displayName: 'CNber 支付宝收款',
     accountName: 'CNber',
-    qrCodeUrl: `${BASE}/alipay-qr.jpg`,
-    qrImage: `${BASE}/alipay-qr.jpg`,
-    alipayQrImage: `${BASE}/alipay-qr.jpg`,
-    paymentLink: '请稍后替换真实支付宝收款链接',
+    qrCodeUrl: '/uploads/payment-accounts/alipay-qr.jpg',
+    qrImage: '/uploads/payment-accounts/alipay-qr.jpg',
+    alipayQrImage: '/uploads/payment-accounts/alipay-qr.jpg',
+    paymentLink: '',
     enabled: true,
     isActive: true,
     sortOrder: 2

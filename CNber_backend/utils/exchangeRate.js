@@ -58,31 +58,34 @@ function platformProfitGbp(order = {}) {
   return roundMoney(breakdown.platformProfit ?? total - driver)
 }
 
-/** 单条订单补充 CNY 展示字段（V1 fixed 优先，旧单兼容 GBP×汇率） */
+/**
+ * 展示层补充：只透传订单上已存在的 CNY 字段。
+ * 禁止用 GBP × exchangeRate 发明 customerPriceCny / driverSettlementCny。
+ * 历史订单缺 CNY 时保持缺省，由 attachSystemCurrency 输出 null。
+ */
 function enrichOrderWithExchangeSync(order, rate) {
   if (!order || typeof order !== 'object') return order
-  const exchangeRate = normalizeRate(order.exchangeRate ?? rate) || DEFAULT_GBP_CNY_RATE
+  const storedRate = normalizeRate(order.exchangeRate)
   const { resolveOrderPricingDisplay } = require('./fixedPricing')
-  const fixedDisplay = resolveOrderPricingDisplay(order, exchangeRate)
-  if (fixedDisplay) {
-    return {
-      ...order,
-      ...fixedDisplay
-    }
+  const fixedDisplay = resolveOrderPricingDisplay(order, storedRate || rate)
+  if (!fixedDisplay) {
+    return order
   }
 
-  const customerGbp = totalPriceOf(order)
-  const driverGbp = driverPayoutGbp(order)
-  const platformGbp = platformProfitGbp(order)
-  return {
-    ...order,
-    exchangeRate,
-    customerPriceCny: gbpToCny(customerGbp, exchangeRate),
-    driverPriceGbp: driverGbp,
-    driverPriceCny: gbpToCny(driverGbp, exchangeRate),
-    driverSettlementCny: gbpToCny(driverGbp, exchangeRate),
-    platformProfitCny: gbpToCny(platformGbp, exchangeRate)
+  const out = { ...order }
+  if (out.exchangeRate == null && fixedDisplay.exchangeRate != null) {
+    out.exchangeRate = fixedDisplay.exchangeRate
   }
+  if (out.customerPriceCny == null && Number(fixedDisplay.customerPriceCny) > 0) {
+    out.customerPriceCny = fixedDisplay.customerPriceCny
+  }
+  if (out.driverSettlementCny == null && Number(fixedDisplay.driverSettlementCny) > 0) {
+    out.driverSettlementCny = fixedDisplay.driverSettlementCny
+  }
+  if (out.platformProfitCny == null && Number(fixedDisplay.platformProfitCny) > 0) {
+    out.platformProfitCny = fixedDisplay.platformProfitCny
+  }
+  return out
 }
 
 async function enrichOrderWithExchange(order) {

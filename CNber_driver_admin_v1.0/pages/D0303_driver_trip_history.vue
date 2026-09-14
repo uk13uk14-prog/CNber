@@ -12,7 +12,7 @@
         </view>
         <view class="info">
           <text class="time">{{ trip.time }}</text>
-          <text class="price">£{{ trip.price }}</text>
+          <text class="price">{{ trip.price }}</text>
         </view>
       </view>
     </view>
@@ -23,6 +23,7 @@
 
 <script>
 import { request } from '../utils/request.js'
+import { formatCny, customerOrderAmountCny } from '../utils/driverCurrencyDisplay.js'
 
 export default {
   name: 'D0303_driver_trip_history',
@@ -55,7 +56,7 @@ export default {
         pickup: order.pickup || '—',
         dropoff: order.destination || order.dropoff || '—',
         time: this.formatTime(order.completedAt || order.updatedAt || order.createdAt),
-        price: this.formatAmount(order.amount)
+        price: formatCny(customerOrderAmountCny(order))
       }
     },
     formatTime(value) {

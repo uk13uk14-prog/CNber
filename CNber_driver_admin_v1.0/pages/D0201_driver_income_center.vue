@@ -11,45 +11,43 @@
       <view class="summary-box">
         <view class="summary-item">
           <view class="label">今日收入</view>
-          <view class="value">{{ formatGbp(summary.todayIncomeGbp) }}</view>
+          <view class="value">{{ formatCny(summary.todayIncomeCny) }}</view>
         </view>
         <view class="summary-item">
           <view class="label">本周收入</view>
-          <view class="value">{{ formatGbp(summary.weekIncomeGbp) }}</view>
+          <view class="value">{{ formatCny(summary.weekIncomeCny) }}</view>
         </view>
         <view class="summary-item">
           <view class="label">本月收入</view>
-          <view class="value">{{ formatGbp(summary.monthIncomeGbp) }}</view>
+          <view class="value">{{ formatCny(summary.monthIncomeCny) }}</view>
         </view>
         <view class="summary-item highlight">
           <view class="label">累计收入</view>
-          <view class="value">{{ formatGbp(summary.totalIncomeGbp) }}</view>
+          <view class="value">{{ formatCny(summary.totalIncomeCny) }}</view>
         </view>
       </view>
 
       <view class="settlement-cards">
         <view class="card">
           <view class="card-label">待结算</view>
-          <view class="card-value">{{ formatGbp(summary.pendingSettlementGbp) }}</view>
-          <view class="card-sub">{{ formatCny(summary.pendingSettlementCny) }}</view>
+          <view class="card-value">{{ formatCny(summary.pendingSettlementCny) }}</view>
           <view class="card-count">{{ summary.pendingSettlementCount }} 笔批次</view>
         </view>
         <view class="card">
           <view class="card-label">已结算</view>
-          <view class="card-value">{{ formatGbp(summary.paidSettlementGbp) }}</view>
-          <view class="card-sub">{{ formatCny(summary.paidSettlementCny) }}</view>
+          <view class="card-value">{{ formatCny(summary.paidSettlementCny) }}</view>
           <view class="card-count">{{ summary.paidSettlementCount }} 笔批次</view>
         </view>
+      </view>
+
+      <view v-if="summary.unconfirmedIncomeOrderCount > 0" class="hint">
+        {{ summary.unconfirmedIncomeOrderCount }} 笔已完成订单结算待确认，未计入总收入
       </view>
 
       <view class="order-stat">
         <view class="stat-item">
           <view class="label">完成订单</view>
           <view class="number">{{ summary.completedOrderCount }}</view>
-        </view>
-        <view class="stat-item">
-          <view class="label">当前汇率</view>
-          <view class="number rate">1£ = ¥{{ rateText }}</view>
         </view>
       </view>
 
@@ -64,7 +62,7 @@
           </view>
           <view class="row">
             <text class="meta">单数 {{ item.orderCount }}</text>
-            <text class="amount">{{ formatGbp(item.driverSettlementGbp) }} / {{ formatCny(item.payableCny) }}</text>
+            <text class="amount">{{ item.payableCny != null ? formatCny(item.payableCny) : '待确认' }}</text>
           </view>
           <view v-if="item.status === 'paid'" class="payment-info">
             <view class="row paid-at">打款时间：{{ formatTime(item.paidAt) }}</view>
@@ -88,22 +86,20 @@
 
 <script>
 import { getDriverIncomeSummary, getDriverSettlements } from '../utils/driverApi.js'
-import { formatGbp, formatCny } from '../utils/driverCurrencyDisplay.js'
+import { formatCny } from '../utils/driverCurrencyDisplay.js'
 import { paymentMethodLabel } from '../utils/driverSupportApi.js'
 
 const emptySummary = () => ({
-  todayIncomeGbp: 0,
-  weekIncomeGbp: 0,
-  monthIncomeGbp: 0,
-  totalIncomeGbp: 0,
-  pendingSettlementGbp: 0,
-  paidSettlementGbp: 0,
-  pendingSettlementCny: 0,
-  paidSettlementCny: 0,
-  exchangeRate: 10,
+  todayIncomeCny: 0,
+  weekIncomeCny: 0,
+  monthIncomeCny: 0,
+  totalIncomeCny: 0,
+  pendingSettlementCny: null,
+  paidSettlementCny: null,
   completedOrderCount: 0,
   pendingSettlementCount: 0,
-  paidSettlementCount: 0
+  paidSettlementCount: 0,
+  unconfirmedIncomeOrderCount: 0
 })
 
 export default {
@@ -116,22 +112,20 @@ export default {
       settlementsLoading: false
     }
   },
-  computed: {
-    rateText() {
-      const n = Number(this.summary.exchangeRate)
-      return Number.isFinite(n) ? n.toFixed(2) : '—'
-    }
-  },
   onShow() {
     this.reload()
   },
   methods: {
-    formatGbp,
     formatCny,
     paymentMethodLabel,
     normalizeAmount(value) {
       const n = Number(value)
       return Number.isFinite(n) ? n : 0
+    },
+    optionalCny(value) {
+      if (value == null || value === '') return null
+      const n = Number(value)
+      return Number.isFinite(n) ? n : null
     },
     async reload() {
       this.loadError = ''
@@ -142,18 +136,16 @@ export default {
         const data = await getDriverIncomeSummary()
         this.summary = {
           ...emptySummary(),
-          todayIncomeGbp: this.normalizeAmount(data.todayIncomeGbp ?? data.todayIncome),
-          weekIncomeGbp: this.normalizeAmount(data.weekIncomeGbp ?? data.weekIncome),
-          monthIncomeGbp: this.normalizeAmount(data.monthIncomeGbp ?? data.monthIncome),
-          totalIncomeGbp: this.normalizeAmount(data.totalIncomeGbp ?? data.totalIncome),
-          pendingSettlementGbp: this.normalizeAmount(data.pendingSettlementGbp),
-          paidSettlementGbp: this.normalizeAmount(data.paidSettlementGbp),
-          pendingSettlementCny: this.normalizeAmount(data.pendingSettlementCny),
-          paidSettlementCny: this.normalizeAmount(data.paidSettlementCny),
-          exchangeRate: this.normalizeAmount(data.exchangeRate) || 10,
+          todayIncomeCny: this.normalizeAmount(data.todayIncomeCny ?? data.todayIncome),
+          weekIncomeCny: this.normalizeAmount(data.weekIncomeCny ?? data.weekIncome),
+          monthIncomeCny: this.normalizeAmount(data.monthIncomeCny ?? data.monthIncome),
+          totalIncomeCny: this.normalizeAmount(data.totalIncomeCny ?? data.totalIncome),
+          pendingSettlementCny: this.optionalCny(data.pendingSettlementCny),
+          paidSettlementCny: this.optionalCny(data.paidSettlementCny),
           completedOrderCount: this.normalizeAmount(data.completedOrderCount ?? data.totalCompletedOrders),
           pendingSettlementCount: this.normalizeAmount(data.pendingSettlementCount),
-          paidSettlementCount: this.normalizeAmount(data.paidSettlementCount)
+          paidSettlementCount: this.normalizeAmount(data.paidSettlementCount),
+          unconfirmedIncomeOrderCount: this.normalizeAmount(data.unconfirmedIncomeOrderCount)
         }
       } catch (error) {
         this.loadError = error?.message || '收入数据加载失败，请稍后重试'

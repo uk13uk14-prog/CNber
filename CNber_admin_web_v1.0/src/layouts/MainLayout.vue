@@ -56,7 +56,46 @@
       </div>
     </aside>
     <main class="main">
+      <header class="topbar">
+        <button type="button" class="bell-btn" @click="togglePanel">
+          🔔
+          <span v-if="unreadCount > 0" class="bell-badge">{{ unreadCount }}</span>
+        </button>
+        <span v-if="redispatchCount > 0" class="redispatch-chip">
+          待重新派单 {{ redispatchCount }}
+        </span>
+        <div v-if="panelOpen" class="notice-panel">
+          <div class="notice-head">通知中心</div>
+          <button
+            v-for="item in notifications"
+            :key="item.id"
+            type="button"
+            class="notice-item"
+            @click="openOrder(item)"
+          >
+            <strong>{{ typeLabel(item.type) }}</strong>
+            <span>{{ item.orderNo || item.title }}</span>
+            <em>{{ item.status === 'unread' ? '未读' : item.status === 'resolved' ? '已处理' : '已读' }}</em>
+          </button>
+          <p v-if="!notifications.length" class="muted notice-empty">暂无未处理通知</p>
+        </div>
+      </header>
       <router-view />
+      <div v-if="popup" class="alert-mask">
+        <div class="alert-modal">
+          <h3>有订单需要重新派单</h3>
+          <p>订单号：{{ popup.orderNo || '—' }}</p>
+          <p>原司机：{{ popup.payload?.previousDriverPhone || '—' }}</p>
+          <p>取消原因：{{ popup.payload?.reason || '—' }}</p>
+          <p>出发时间：{{ formatPickup(popup.payload?.pickupAt) }}</p>
+          <p>出发地：{{ popup.payload?.pickup || '—' }}</p>
+          <p>目的地：{{ popup.payload?.destination || '—' }}</p>
+          <div class="alert-actions">
+            <button type="button" class="btn" @click="later">稍后处理</button>
+            <button type="button" class="btn btn-alert" @click="goDispatch()">立即重新派单</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -66,11 +105,34 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ROLE_LABELS, MENU_GROUPS, filterMenuGroups } from '@/utils/staffRoles'
+import { useAdminRedispatchAlerts } from '@/composables/useAdminRedispatchAlerts'
 
 const SIDEBAR_STORAGE_KEY = 'cnber_admin_sidebar_groups'
 
 const auth = useAuthStore()
 const router = useRouter()
+const {
+  unreadCount,
+  redispatchCount,
+  notifications,
+  panelOpen,
+  popup,
+  formatPickup,
+  later,
+  goDispatch,
+  openOrder,
+  togglePanel
+} = useAdminRedispatchAlerts()
+
+function typeLabel(type) {
+  const map = {
+    NEW_ORDER: '新订单',
+    DRIVER_CANCELLED: '司机取消派单',
+    REDISPATCH_REQUIRED: '待重新派单',
+    DRIVER_CANCEL_REQUEST_APPROVED: '乘客同意取消'
+  }
+  return map[type] || type
+}
 
 const visibleMenuGroups = computed(() =>
   filterMenuGroups(auth.staffRole, auth.permissions, (module) => auth.can(module, 'view'))
@@ -325,5 +387,136 @@ onMounted(async () => {
   flex: 1;
   padding: 24px;
   overflow: auto;
+  position: relative;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -24px -24px 16px;
+  padding: 10px 20px;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+}
+
+.bell-btn {
+  position: relative;
+  border: 0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.redispatch-chip {
+  background: #ea580c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.notice-panel {
+  position: absolute;
+  top: 46px;
+  left: 20px;
+  width: 320px;
+  max-height: 360px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+.notice-head {
+  padding: 10px 12px;
+  font-weight: 700;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.notice-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fff;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.notice-item em {
+  font-style: normal;
+  font-size: 11px;
+  color: #ea580c;
+}
+
+.notice-empty {
+  padding: 12px;
+}
+
+.alert-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-modal {
+  width: min(480px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.24);
+}
+
+.alert-modal h3 {
+  margin: 0 0 12px;
+  color: #c2410c;
+}
+
+.alert-modal p {
+  margin: 6px 0;
+  color: #111827;
+}
+
+.alert-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-alert {
+  background: #ea580c;
+  border-color: #c2410c;
+  color: #fff;
 }
 </style>

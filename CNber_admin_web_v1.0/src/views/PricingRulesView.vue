@@ -5,7 +5,8 @@
     <p v-if="success" class="toast">{{ success }}</p>
     <p v-if="error" class="err">{{ error }}</p>
 
-    <div class="card import-card exchange-card">
+    <details class="card import-card exchange-card">
+      <summary>内部汇率（兼容旧计价，业务页面不展示英镑）</summary>
       <div class="import-head">
         <strong>英镑兑人民币汇率</strong>
         <button
@@ -30,9 +31,9 @@
         />
         <span class="exchange-suffix">CNY</span>
       </div>
-      <p class="muted">V1 固定报价：客户价 CNY、司机结算 GBP；司机人民币结算 = 司机价 × 汇率；平台利润 = 客户价 − 司机人民币结算。</p>
+      <p class="muted">仅内部计价兼容。业务订单、支付、司机收入一律按人民币展示，不在此换算客户可见金额。</p>
       <p v-if="rateError" class="err">{{ rateError }}</p>
-    </div>
+    </details>
 
     <div class="card import-card">
       <div class="import-head">
@@ -121,7 +122,7 @@
     <div class="card import-card">
       <div class="import-head">
         <strong>V1 固定报价</strong>
-        <span class="muted">汇率 1 GBP = ¥{{ exchangeRateInput }}</span>
+        <span class="muted">客户价 / 司机结算均为人民币</span>
       </div>
       <div class="table-wrap">
         <table class="data fixed-table">
@@ -129,8 +130,7 @@
             <tr>
               <th>服务类型</th>
               <th>客户价 CNY</th>
-              <th>司机价 GBP</th>
-              <th>司机人民币结算 CNY</th>
+              <th>司机结算 CNY</th>
               <th>平台利润 CNY</th>
               <th>启用</th>
               <th>备注</th>
@@ -144,9 +144,14 @@
                 <input v-model.number="rule.customerPriceCny" class="input mini" type="number" min="0" step="1" />
               </td>
               <td>
-                <input v-model.number="rule.driverPriceGbp" class="input mini" type="number" min="0" step="0.01" />
+                <input
+                  v-model.number="rule.driverSettlementCnyInput"
+                  class="input mini"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                />
               </td>
-              <td class="calc-cell">{{ formatCny(calcFixedRow(rule).driverSettlementCny) }}</td>
               <td class="calc-cell">{{ formatCny(calcFixedRow(rule).platformProfitCny) }}</td>
               <td><input v-model="rule.enabled" type="checkbox" /></td>
               <td><input v-model="rule.remark" class="input note" type="text" /></td>
@@ -196,7 +201,6 @@
               <th>终点</th>
               <th>车型</th>
               <th>客户价 CNY</th>
-              <th>司机价 GBP</th>
               <th>司机结算 CNY</th>
               <th>平台利润 CNY</th>
               <th>启用</th>
@@ -211,8 +215,7 @@
               <td>{{ r?.toLabel || '—' }}</td>
               <td>{{ r?.vehicleLabel || vehicleLabelOf(r?.vehicleClass) }}</td>
               <td>{{ formatCny(r?.customerPriceCny) }}</td>
-              <td>{{ formatGbp(r?.driverPriceGbp) }}</td>
-              <td class="calc-cell">{{ formatCny(r?.driverSettlementCny) }}</td>
+              <td>{{ formatCny(r?.driverSettlementCny) }}</td>
               <td class="calc-cell">{{ formatCny(r?.platformProfitCny) }}</td>
               <td>{{ r?.enabled !== false ? '是' : '否' }}</td>
               <td>{{ r?.remark || '—' }}</td>
@@ -294,8 +297,8 @@
         </select>
         <label class="field-label">客户价 CNY</label>
         <input v-model.number="routeForm.customerPriceCny" class="input" type="number" min="0" />
-        <label class="field-label">司机价 GBP</label>
-        <input v-model.number="routeForm.driverPriceGbp" class="input" type="number" min="0" step="0.01" />
+        <label class="field-label">司机结算 CNY</label>
+        <input v-model.number="routeForm.driverSettlementCny" class="input" type="number" min="0" step="0.01" />
         <label class="field-label">备注</label>
         <input v-model="routeForm.remark" class="input" />
         <p v-if="routeFormError" class="err">{{ routeFormError }}</p>
@@ -447,7 +450,7 @@ import {
   updatePricingRule
 } from '@/api/admin'
 import { serviceTypeLabel as staticServiceTypeLabel } from '@/utils/serviceType'
-import { formatCny, formatGbp } from '@/utils/currencyDisplay'
+import { formatCny } from '@/utils/currencyDisplay'
 
 function c(...pts) {
   return String.fromCodePoint(...pts)
@@ -582,6 +585,7 @@ const routeForm = reactive({
   toLabel: '',
   vehicleClass: 'standard_5',
   customerPriceCny: 900,
+  driverSettlementCny: 800,
   driverPriceGbp: 80,
   remark: '',
   enabled: true
@@ -612,8 +616,11 @@ function vehicleLabelOf(code) {
 function calcFixedRow(rule) {
   const rate = Number(exchangeRateInput.value) || 10
   const customerPriceCny = Number(rule.customerPriceCny) || 0
-  const driverPriceGbp = Number(rule.driverPriceGbp) || 0
-  const driverSettlementCny = Math.round(driverPriceGbp * rate * 100) / 100
+  const settlementInput = Number(rule.driverSettlementCnyInput)
+  const driverSettlementCny =
+    Number.isFinite(settlementInput) && settlementInput > 0
+      ? Math.round(settlementInput * 100) / 100
+      : Math.round((Number(rule.driverPriceGbp) || 0) * rate * 100) / 100
   const platformProfitCny = Math.round((customerPriceCny - driverSettlementCny) * 100) / 100
   return { driverSettlementCny, platformProfitCny }
 }
@@ -788,6 +795,10 @@ function openRouteForm(row) {
       toLabel: row.toLabel,
       vehicleClass: row.vehicleClass,
       customerPriceCny: row.customerPriceCny,
+      driverSettlementCny:
+        row.driverSettlementCny != null
+          ? row.driverSettlementCny
+          : Math.round((Number(row.driverPriceGbp) || 0) * (Number(exchangeRateInput.value) || 10) * 100) / 100,
       driverPriceGbp: row.driverPriceGbp,
       remark: row.remark || '',
       enabled: row.enabled !== false
@@ -800,6 +811,7 @@ function openRouteForm(row) {
       toLabel: '',
       vehicleClass: 'standard_5',
       customerPriceCny: 900,
+      driverSettlementCny: 800,
       driverPriceGbp: 80,
       remark: '',
       enabled: true
@@ -817,13 +829,16 @@ async function saveRouteForm() {
   routeSaving.value = true
   routeFormError.value = ''
   try {
+    const rate = Number(exchangeRateInput.value) || 10
+    const settlementCny = Number(routeForm.driverSettlementCny)
+    const driverPriceGbp = rate > 0 ? Math.round((settlementCny / rate) * 100) / 100 : 0
     const payload = {
       serviceType: routeForm.serviceType,
       fromLabel: routeForm.fromLabel,
       toLabel: routeForm.toLabel,
       vehicleClass: routeForm.vehicleClass,
       customerPriceCny: Number(routeForm.customerPriceCny),
-      driverPriceGbp: Number(routeForm.driverPriceGbp),
+      driverPriceGbp,
       remark: routeForm.remark,
       enabled: routeForm.enabled
     }
@@ -867,7 +882,15 @@ async function loadFixed() {
   fixedError.value = ''
   try {
     const data = await fetchFixedPricing()
-    fixedRules.value = Array.isArray(data?.rules) ? data.rules.map((r) => ({ ...r })) : []
+    fixedRules.value = Array.isArray(data?.rules)
+      ? data.rules.map((r) => {
+          const rate = Number(exchangeRateInput.value) || 10
+          return {
+            ...r,
+            driverSettlementCnyInput: Math.round((Number(r.driverPriceGbp) || 0) * rate * 100) / 100
+          }
+        })
+      : []
     if (data?.exchangeRate != null) {
       exchangeRateInput.value = Number(data.exchangeRate).toFixed(2)
     }
@@ -882,9 +905,12 @@ async function saveFixed(rule) {
   fixedError.value = ''
   success.value = ''
   try {
+    const rate = Number(exchangeRateInput.value) || 10
+    const settlementCny = Number(rule.driverSettlementCnyInput ?? calcFixedRow(rule).driverSettlementCny)
+    const driverPriceGbp = rate > 0 ? Math.round((settlementCny / rate) * 100) / 100 : 0
     await updateFixedPricing(rule.serviceType, {
       customerPriceCny: Number(rule.customerPriceCny),
-      driverPriceGbp: Number(rule.driverPriceGbp),
+      driverPriceGbp,
       enabled: rule.enabled !== false,
       remark: rule.remark || ''
     })

@@ -1,13 +1,17 @@
 <script>
+	import { checkAppVersion } from './utils/appVersionCheck.js'
+	import { startClientCancelWatch, stopClientCancelWatch } from './utils/clientCancelWatch.js'
+
 	export default {
 		onLaunch: function() {
-			console.log('App Launch')
+			checkAppVersion('client')
+			startClientCancelWatch()
 		},
 		onShow: function() {
-			console.log('App Show')
+			startClientCancelWatch()
 		},
 		onHide: function() {
-			console.log('App Hide')
+			stopClientCancelWatch()
 		}
 	}
 </script>

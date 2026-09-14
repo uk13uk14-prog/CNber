@@ -30,7 +30,7 @@
         <p><strong>下车</strong> {{ order.destination }}</p>
         <p><strong>服务类型</strong> {{ serviceTypeLabel(order.serviceType) }}</p>
         <p v-if="order.vehicleLabel"><strong>车型</strong> {{ order.vehicleLabel }}</p>
-        <p><strong>客户总价</strong> {{ money(totalPrice) }}</p>
+        <p><strong>客户订单总额</strong> {{ money(orderAmountCny) }}</p>
         <template v-if="order.couponCode">
           <p><strong>优惠码</strong> {{ order.couponCode }}</p>
           <p><strong>原价 (CNY)</strong> {{ formatCny(order.originalAmountCny ?? order.customerPriceCny) }}</p>
@@ -61,17 +61,17 @@
 
       <h3>财务信息</h3>
       <div class="card finance">
-        <p><strong>客户总价</strong> {{ money(totalPrice) }}</p>
+        <p><strong>客户订单总额</strong> {{ money(orderAmountCny) }}</p>
         <template v-if="order.couponCode">
           <p><strong>优惠码</strong> {{ order.couponCode }}</p>
           <p><strong>原价 (CNY)</strong> {{ formatCny(order.originalAmountCny ?? order.customerPriceCny) }}</p>
           <p><strong>优惠</strong> -{{ formatCny(order.discountAmountCny) }}</p>
           <p><strong>实付 (CNY)</strong> {{ formatCny(order.payableAmountCny) }}</p>
         </template>
-        <p><strong>订金 10%</strong> {{ money(depositAmount) }} · {{ depositDisplayLabel(order) }}</p>
-        <p><strong>尾款 90%</strong> {{ money(remainingAmount) }} · {{ order.remainingPaid ? '已付' : '未付' }}</p>
-        <p><strong>已付金额</strong> {{ money(order.paidAmount || 0) }}</p>
-        <p><strong>司机结算价</strong> {{ money(driverPayout) }}</p>
+        <p><strong>已收定金</strong> {{ money(depositAmount) }} · {{ depositDisplayLabel(order) }}</p>
+        <p><strong>待收尾款</strong> {{ money(remainingAmount) }} · {{ order.remainingPaid ? '已付' : '未付' }}</p>
+        <p><strong>已付金额</strong> {{ money(paidAmountCny) }}</p>
+        <p><strong>司机结算</strong> {{ driverPayout == null ? '待确认' : money(driverPayout) }}</p>
         <p><strong>平台毛利</strong> {{ money(platformProfit) }}</p>
         <div class="pay-actions">
           <button type="button" class="btn" :disabled="paying || order.depositPaid" @click="markDeposit">
@@ -194,7 +194,7 @@
         <h4>司机结算</h4>
         <p>
           <strong>状态</strong> {{ settlementLabel(order.driverSettlementStatus) }} ·
-          <strong>金额</strong> {{ money(order.driverSettlementAmount ?? driverPayout) }}
+          <strong>金额</strong> {{ driverPayout == null ? '待确认' : money(driverPayout) }}
         </p>
         <div v-if="order.status === 'completed'" class="pay-actions">
           <button
@@ -418,7 +418,7 @@ import {
 import { serviceTypeLabel } from '@/utils/serviceType'
 import { EXCEPTION_LABELS, SERVICE_STATUS_LABELS } from '@/utils/p0Labels'
 import { paymentMethodLabel, paymentAccountLabel } from '@/utils/paymentDisplay'
-import { formatCny } from '@/utils/currencyDisplay'
+import { formatCny, customerOrderAmountCny, driverSettlementAmountCny } from '@/utils/currencyDisplay'
 
 const route = useRoute()
 const order = ref({})
@@ -536,6 +536,10 @@ function actionLabel(action) {
     assign_driver: '派单',
     reassign_driver: '改派',
     unassign_driver: '取消派单',
+    driver_cancel_assignment: '司机取消派单',
+    driver_cancel_request: '司机申请取消',
+    customer_approve_driver_cancel: '乘客同意取消',
+    customer_reject_driver_cancel: '乘客拒绝取消',
     update_status: '修改状态',
     manual_quote: '手动报价',
     auto_quote: '自动报价'
@@ -561,29 +565,45 @@ const notesTimeline = computed(() => {
   }))
 })
 
-const totalPrice = computed(() => {
-  const o = order.value || {}
-  return o.priceBreakdown?.totalPrice ?? o.quoteBreakdown?.totalPrice ?? o.quoteBreakdown?.total ?? o.amount ?? 0
-})
+const orderAmountCny = computed(() => customerOrderAmountCny(order.value) ?? 0)
+
+const totalPrice = computed(() => orderAmountCny.value)
 
 const depositAmount = computed(() => {
-  const v = order.value.depositAmount
-  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) * 0.1
+  const o = order.value || {}
+  if (o.displayDepositDueCny != null && o.displayDepositDueCny !== '') {
+    return Number(o.displayDepositDueCny)
+  }
+  const n = customerOrderAmountCny(o)
+  return n ? Math.round(n * 0.1 * 100) / 100 : 0
 })
 
 const remainingAmount = computed(() => {
-  const v = order.value.remainingAmount
-  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) - Number(depositAmount.value || 0)
+  const o = order.value || {}
+  if (o.displayRemainingDueCny != null && o.displayRemainingDueCny !== '') {
+    return Number(o.displayRemainingDueCny)
+  }
+  const n = customerOrderAmountCny(o) || 0
+  return Math.max(0, Math.round((n - Number(paidAmountCny.value || 0)) * 100) / 100)
 })
 
-const driverPayout = computed(() => {
-  const v = order.value.priceBreakdown?.driverPayout
-  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) * 0.75
+const paidAmountCny = computed(() => {
+  const o = order.value || {}
+  if (o.displayPaidAmountCny != null && o.displayPaidAmountCny !== '') {
+    return Number(o.displayPaidAmountCny)
+  }
+  const n = Number(o.paidAmount)
+  const total = customerOrderAmountCny(o)
+  if (Number.isFinite(n) && total && n >= total * 0.05) return n
+  return Number.isFinite(n) && n >= 1 && (!total || n >= total * 0.05) ? n : 0
 })
+
+const driverPayout = computed(() => driverSettlementAmountCny(order.value))
 
 const platformProfit = computed(() => {
-  const v = order.value.priceBreakdown?.platformProfit
-  return v != null && v !== '' ? Number(v) : Number(totalPrice.value || 0) - Number(driverPayout.value || 0)
+  const o = order.value || {}
+  const n = Number(o.platformProfitCny ?? o.displayPlatformProfitCny)
+  return Number.isFinite(n) ? n : null
 })
 
 function mvpStatus(raw, legacy) {
@@ -602,12 +622,8 @@ const payDepositStatus = computed(() =>
 const payBalanceStatus = computed(() =>
   mvpStatus(order.value.payment?.balanceStatus, order.value.balanceStatus)
 )
-const payDepositAmount = computed(() =>
-  Number(order.value.payment?.depositAmount ?? order.value.depositAmount ?? depositAmount.value)
-)
-const payBalanceAmount = computed(() =>
-  Number(order.value.payment?.balanceAmount ?? order.value.balanceAmount ?? remainingAmount.value)
-)
+const payDepositAmount = computed(() => Number(depositAmount.value || 0))
+const payBalanceAmount = computed(() => Number(remainingAmount.value || 0))
 
 const canShowDepositConfirmActions = computed(() => {
   const o = order.value
@@ -720,8 +736,9 @@ function fmt(iso) {
 }
 
 function money(value) {
-  const n = Number(value || 0)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : '£0.00'
+  if (value == null || value === '') return '—'
+  const n = Number(value)
+  return Number.isFinite(n) ? formatCny(n) : '—'
 }
 
 function dispatchStatusLabel(status) {
@@ -731,6 +748,7 @@ function dispatchStatusLabel(status) {
     assigned: '已指派',
     accepted: '司机已接',
     rejected: '司机拒绝/超时',
+    needs_redispatch: '待重新派单',
     cancelled: '派单取消',
     completed: '已完成'
   }
@@ -833,7 +851,7 @@ async function onAdminCancel() {
   await runP0(() => adminCancelOrder(route.params.id, { by: 'admin', reason }))
 }
 async function onChangePrice() {
-  const raw = window.prompt('新总价（£）', String(totalPrice.value || ''))
+  const raw = window.prompt('新总价（¥）', String(orderAmountCny.value || ''))
   if (raw == null) return
   const amount = Number(raw)
   if (!Number.isFinite(amount) || amount <= 0) {

@@ -32,6 +32,7 @@ const { logPushPayload } = require('../utils/operationLog')
 const { auditLog } = require('../utils/auditLog')
 const { presentOrderForApi, presentOrdersForApi } = require('../utils/orderPresentation')
 const { canSoftDeleteOrder, activeOrdersFilter } = require('../utils/orderSoftDelete')
+const { resolveRedispatchNotifications } = require('../utils/adminNotifications')
 const bcrypt = require('bcryptjs')
 
 function buildPricingPatch(body = {}) {
@@ -237,6 +238,9 @@ function buildAdminOrderQuery(querystring) {
   }
 
   if (status && typeof status === 'string') query.status = status
+  if (querystring.dispatchStatus && typeof querystring.dispatchStatus === 'string') {
+    query.dispatchStatus = querystring.dispatchStatus
+  }
   if (depositStatus === 'unpaid') {
     query.depositPaid = { $ne: true }
     query.$and = (query.$and || []).concat([
@@ -253,9 +257,21 @@ function buildAdminOrderQuery(querystring) {
     if (quick === 'pending_confirm') query.status = ORDER_STATUS.QUOTED
     if (quick === 'pending_deposit') query.status = ORDER_STATUS.CONFIRMED
     if (quick === 'pending_dispatch') {
-      query.status = { $in: [ORDER_STATUS.DEPOSIT_PAID, ORDER_STATUS.PENDING] }
+      query.status = { $in: [ORDER_STATUS.DEPOSIT_PAID, ORDER_STATUS.PENDING, ORDER_STATUS.NEEDS_REDISPATCH] }
       query.depositPaid = { $ne: false }
-      query.dispatchStatus = { $in: [DISPATCH_STATUS.PENDING, DISPATCH_STATUS.UNASSIGNED] }
+      query.dispatchStatus = {
+        $in: [DISPATCH_STATUS.PENDING, DISPATCH_STATUS.UNASSIGNED, DISPATCH_STATUS.NEEDS_REDISPATCH]
+      }
+    }
+    if (quick === 'needs_redispatch') {
+      query.$and = (query.$and || []).concat([
+        {
+          $or: [
+            { status: ORDER_STATUS.NEEDS_REDISPATCH },
+            { dispatchStatus: DISPATCH_STATUS.NEEDS_REDISPATCH }
+          ]
+        }
+      ])
     }
     if (quick === 'driver_response') query.dispatchStatus = DISPATCH_STATUS.ASSIGNED
     if (quick === 'today') {
@@ -438,8 +454,8 @@ exports.getDashboard = async (req, res) => {
       {
         $group: {
           _id: null,
-          profit: { $sum: { $ifNull: ['$priceBreakdown.platformProfit', 0] } },
-          revenue: { $sum: { $ifNull: ['$amount', 0] } }
+          profit: { $sum: { $ifNull: ['$platformProfitCny', 0] } },
+          revenue: { $sum: { $ifNull: ['$customerPriceCny', { $ifNull: ['$payableAmountCny', 0] }] } }
         }
       }
     ])
@@ -819,14 +835,16 @@ exports.assignDriver = async (req, res) => {
     e.code = 404
     throw e
   }
-  if (![ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED].includes(current.status)) {
-    if (
-      ![ORDER_STATUS.DEPOSIT_PAID, ORDER_STATUS.ASSIGNED].includes(current.status)
-    ) {
-      const e = new Error('当前订单状态不可派单')
-      e.code = 400
-      throw e
-    }
+  const assignableStatuses = [
+    ORDER_STATUS.PENDING,
+    ORDER_STATUS.ASSIGNED,
+    ORDER_STATUS.DEPOSIT_PAID,
+    ORDER_STATUS.NEEDS_REDISPATCH
+  ]
+  if (!assignableStatuses.includes(current.status)) {
+    const e = new Error('当前订单状态不可派单')
+    e.code = 400
+    throw e
   }
   if (!canDispatchByDeposit(current)) {
     const e = new Error('定金未确认，不能派单')
@@ -852,11 +870,13 @@ exports.assignDriver = async (req, res) => {
         assignedDriverPhone: driverUser.phone || '',
         assignedAt: new Date(),
         dispatchStatus: DISPATCH_STATUS.ASSIGNED,
-        status:
-          current.status === ORDER_STATUS.PENDING ||
-          current.status === ORDER_STATUS.DEPOSIT_PAID
-            ? ORDER_STATUS.ASSIGNED
-            : current.status,
+        status: [
+          ORDER_STATUS.PENDING,
+          ORDER_STATUS.DEPOSIT_PAID,
+          ORDER_STATUS.NEEDS_REDISPATCH
+        ].includes(current.status)
+          ? ORDER_STATUS.ASSIGNED
+          : current.status,
         updatedAt: new Date()
       },
       $push: logPushPayload(req, logAction, logMsg)
@@ -877,6 +897,7 @@ exports.assignDriver = async (req, res) => {
   logger.info(`订单状态变化：${order._id} -> ${order.status}`)
 
   fireProfileSync(syncProfilesAfterOrderAssigned, order, 'assignDriver')
+  await resolveRedispatchNotifications(order._id)
 
   void auditLog(req, {
     action: isReassign ? '改派司机' : '派单',
@@ -1296,6 +1317,7 @@ exports.listAvailableDrivers = async (req, res) => {
             $or: [{ driverId: driver._id }, { assignedDriver: driver._id }],
             status: {
               $in: [
+                ORDER_STATUS.ASSIGNED,
                 ORDER_STATUS.ACCEPTED,
                 ORDER_STATUS.DRIVER_ACCEPTED,
                 ORDER_STATUS.READY_TO_START,

@@ -62,11 +62,43 @@ export function cancelPassengerOrder(orderId) {
   })
 }
 
+export function fetchDriverCancellationRequests(status = 'pending') {
+  return request({
+    url: '/order/cancellation-requests',
+    method: 'GET',
+    data: { status }
+  })
+}
+
+export function approveDriverCancellation(id) {
+  return request({
+    url: `/order/cancellation-requests/${encodeURIComponent(id)}/approve`,
+    method: 'POST'
+  })
+}
+
+export function rejectDriverCancellation(id) {
+  return request({
+    url: `/order/cancellation-requests/${encodeURIComponent(id)}/reject`,
+    method: 'POST'
+  })
+}
+
 /** 平台收款账户（公开接口，仅 enabled=true） */
 export function fetchPaymentAccounts() {
   return request({
     url: '/payment/accounts',
-    method: 'GET'
+    method: 'GET',
+    skipAuth: true
+  })
+}
+
+/** 公开支付配置：微信/支付宝收款码与付款说明，每次进入支付页拉取 */
+export function fetchPaymentConfig() {
+  return request({
+    url: '/payment/config',
+    method: 'GET',
+    skipAuth: true
   })
 }
 

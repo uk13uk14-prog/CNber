@@ -11,7 +11,7 @@
         </view>
         <view class="row">
           <text class="label">尾款金额</text>
-          <text class="value strong">£{{ amountNum.toFixed(2) }}</text>
+          <text class="value strong">¥{{ amountNum.toFixed(2) }}</text>
         </view>
       </view>
 
@@ -20,9 +20,11 @@
       <PaymentTransferFlow
         v-if="showForm"
         :accounts="accounts"
+        :payment-config="paymentConfig"
         :order-id="orderId"
         :order-display-no="orderDisplayNo"
         :amount="amountNum"
+        :amount-cny="amountNum"
         submit-label="提交尾款信息"
         :submitting="submitting"
         @submit="onSubmit"
@@ -36,47 +38,35 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { ref, computed } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import PaymentTransferFlow from '../components/PaymentTransferFlow.vue'
-import { fetchOrderDetail, fetchPaymentAccounts, submitOrderBalance } from '../utils/orderApi.js'
+import { fetchOrderDetail, fetchPaymentAccounts, fetchPaymentConfig, submitOrderBalance } from '../utils/orderApi.js'
+import { customerCnyFromOrder } from '../utils/currencyDisplay.js'
 
 const orderId = ref('')
 const order = ref(null)
 const accounts = ref([])
+const paymentConfig = ref(null)
 const loading = ref(true)
 const err = ref('')
 const submitting = ref(false)
 
 const totalPrice = computed(() => {
-  const o = order.value || {}
-  const n = Number(o.priceBreakdown?.totalPrice ?? o.quoteBreakdown?.totalPrice ?? o.amount ?? 0)
+  const n = Number(customerCnyFromOrder(order.value) || 0)
   return Number.isFinite(n) ? n : 0
 })
 
-const depositNum = computed(() => {
-  const o = order.value
-  const v = o?.depositAmount
-  if (v != null && v !== '') {
-    const n = Number(v)
-    if (Number.isFinite(n)) return n
-  }
-  return totalPrice.value * 0.1
-})
-
 const amountNum = computed(() => {
-  const o = order.value
-  const v = o?.balanceAmount
-  if (v != null && v !== '') {
-    const n = Number(v)
-    if (Number.isFinite(n)) return n
+  const o = order.value || {}
+  const displayRem = Number(o.displayRemainingDueCny)
+  if (Number.isFinite(displayRem) && displayRem >= 0) return displayRem
+  const total = totalPrice.value
+  const paid = Number(o.paidAmount)
+  if (total > 0 && Number.isFinite(paid) && paid >= total * 0.05) {
+    return Math.max(0, Math.round((total - paid) * 100) / 100)
   }
-  const rem = o?.remainingAmount
-  if (rem != null && rem !== '') {
-    const n = Number(rem)
-    if (Number.isFinite(n)) return n
-  }
-  return Math.max(0, totalPrice.value - depositNum.value)
+  return Math.max(0, Math.round(total * 0.9 * 100) / 100)
 })
 
 const orderDisplayNo = computed(() => {
@@ -135,8 +125,12 @@ async function loadAll() {
       err.value = '订单不存在'
       return
     }
-    const accData = await fetchPaymentAccounts()
+    const [accData, cfg] = await Promise.all([
+      fetchPaymentAccounts(),
+      fetchPaymentConfig()
+    ])
     accounts.value = Array.isArray(accData?.accounts) ? accData.accounts : []
+    paymentConfig.value = cfg || null
   } catch (e) {
     err.value = (e && e.message) || '加载失败'
   } finally {
@@ -167,8 +161,8 @@ onLoad((q) => {
   orderId.value = String((q && q.orderId) || '').trim()
 })
 
-onMounted(() => {
-  loadAll()
+onShow(() => {
+  if (orderId.value) loadAll()
 })
 </script>
 

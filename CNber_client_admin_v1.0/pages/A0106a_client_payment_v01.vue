@@ -13,7 +13,7 @@
     <!-- 支付金额展示 -->
     <view class="amount-section">
       <text class="amount-label">打赏金额</text>
-      <text class="amount">£{{ amount }}</text>
+      <text class="amount">¥{{ Number(amount).toFixed(2) }}</text>
     </view>
 
     <!-- 支付方式选择 -->
@@ -38,7 +38,7 @@
 
     <!-- 支付按钮 -->
     <button class="pay-button" @tap="handlePayment" :disabled="!selectedMethod">
-      立即支付 £{{ amount }}
+      立即支付 ¥{{ Number(amount).toFixed(2) }}
     </button>
   </view>
 </template>
@@ -73,7 +73,7 @@ function handlePayment() {
     provider: selectedMethod.value,
     orderInfo: {
       amount: amount.value.toString(),
-      description: `司机打赏 £${amount.value}`
+      description: `司机打赏 ¥${amount.value}`
     },
     success: () => {
       uni.hideLoading()

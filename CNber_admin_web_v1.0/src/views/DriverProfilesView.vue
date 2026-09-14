@@ -24,7 +24,6 @@
             <th>车型</th>
             <th>服务区域</th>
             <th>完成单</th>
-            <th>结算 GBP</th>
             <th>结算 CNY</th>
             <th>标签</th>
             <th>备注</th>
@@ -42,7 +41,6 @@
               {{ (row.serviceArea || []).slice(0, 3).join('、') || '—' }}
             </td>
             <td>{{ row.completedOrders ?? 0 }}</td>
-            <td>£{{ formatMoney(row.driverSettlementTotalGbp) }}</td>
             <td>¥{{ formatMoney(row.driverSettlementTotalCny) }}</td>
             <td>
               <span v-for="t in row.tags || []" :key="t" class="pill">{{ t }}</span>

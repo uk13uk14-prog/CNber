@@ -4,7 +4,7 @@
  * - code === 0 表示成功
  * - 其它 code 为业务错误（含 401 需重新登录）
  */
-import { BASE_URL, LOGIN_PATH } from '../config/api.js'
+import { getApiBaseUrl, LOGIN_PATH } from '../config/api.js'
 
 /** 业务成功码，与后端统一 */
 export const SUCCESS_CODE = 0
@@ -96,7 +96,8 @@ export function request(options) {
     }
   }
 
-  const fullUrl = /^https?:\/\//i.test(url) ? url : `${BASE_URL.replace(/\/$/, '')}/${String(url).replace(/^\//, '')}`
+  const baseUrl = getApiBaseUrl()
+  const fullUrl = /^https?:\/\//i.test(url) ? url : `${baseUrl.replace(/\/$/, '')}/${String(url).replace(/^\//, '')}`
 
   return new Promise((resolve, reject) => {
     uni.request({

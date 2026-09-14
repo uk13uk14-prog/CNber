@@ -18,7 +18,10 @@ const CONFIG_KEYS = {
   TERMS_OF_SERVICE: 'terms_of_service',
   COMPLAINT_POLICY: 'complaint_policy',
   MINIMUM_BOOKING_HOURS: 'minimum_booking_hours',
-  MARKETING_ENABLED: 'marketing_enabled'
+  MARKETING_ENABLED: 'marketing_enabled',
+  PAYMENT_NOTICE: 'payment_notice',
+  WECHAT_PAYMENT_MODE: 'wechat_payment_mode',
+  ALIPAY_PAYMENT_MODE: 'alipay_payment_mode'
 }
 
 const DEFAULTS = {
@@ -37,7 +40,11 @@ const DEFAULTS = {
   [CONFIG_KEYS.TERMS_OF_SERVICE]: '',
   [CONFIG_KEYS.COMPLAINT_POLICY]: '',
   [CONFIG_KEYS.MINIMUM_BOOKING_HOURS]: 24,
-  [CONFIG_KEYS.MARKETING_ENABLED]: false
+  [CONFIG_KEYS.MARKETING_ENABLED]: false,
+  [CONFIG_KEYS.PAYMENT_NOTICE]:
+    '请先完成微信或支付宝转账，付款备注填写订单号。提交付款人姓名、金额和流水号后，由后台人工核对到账。',
+  [CONFIG_KEYS.WECHAT_PAYMENT_MODE]: 'manual_qr',
+  [CONFIG_KEYS.ALIPAY_PAYMENT_MODE]: 'manual_qr'
 }
 
 const PLATFORM_KEYS = [

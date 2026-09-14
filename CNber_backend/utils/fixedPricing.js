@@ -110,7 +110,15 @@ async function buildFixedOrderQuote(serviceType, exchangeRateOptional) {
   return buildFixedQuotePatch(fixed)
 }
 
-/** 订单展示层：优先 fixed 字段，兼容旧单 */
+function firstStoredCny(...values) {
+  for (const raw of values) {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return roundMoney(n)
+  }
+  return null
+}
+
+/** 订单展示层：只读取已存 CNY，禁止 GBP×汇率猜算 */
 function resolveOrderPricingDisplay(order = {}, rateFallback) {
   const exchangeRate = normalizeRate(order.exchangeRate ?? rateFallback)
   const pricingSource = order.pricingSource || order.quoteBreakdown?.pricingSource || ''
@@ -121,10 +129,9 @@ function resolveOrderPricingDisplay(order = {}, rateFallback) {
 
   if (!isFixed) return null
 
-  const customerPriceCny = roundMoney(
-    order.customerPriceCny ??
-      order.quoteBreakdown?.customerPriceCny ??
-      0
+  const customerPriceCny = firstStoredCny(
+    order.customerPriceCny,
+    order.quoteBreakdown?.customerPriceCny
   )
   const driverPriceGbp = roundMoney(
     order.driverPriceGbp ??
@@ -132,14 +139,16 @@ function resolveOrderPricingDisplay(order = {}, rateFallback) {
       order.quoteBreakdown?.driverPriceGbp ??
       0
   )
-  const driverSettlementCny = roundMoney(
-    order.driverSettlementCny ?? driverPriceGbp * exchangeRate
+  const driverSettlementCny = firstStoredCny(
+    order.driverSettlementCny,
+    order.quoteBreakdown?.driverSettlementCny
   )
-  const platformProfitCny = roundMoney(
-    order.platformProfitCny ?? customerPriceCny - driverSettlementCny
+  const platformProfitCny = firstStoredCny(
+    order.platformProfitCny,
+    order.quoteBreakdown?.platformProfitCny
   )
   const customerPriceGbp = roundMoney(
-    order.amount ?? customerPriceCny / exchangeRate
+    order.amount ?? (customerPriceCny != null ? customerPriceCny / exchangeRate : 0)
   )
   return {
     pricingMode: 'fixed',

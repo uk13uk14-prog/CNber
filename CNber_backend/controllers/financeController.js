@@ -1,7 +1,13 @@
 const Order = require('../models/Order')
 const ORDER_STATUS = Order.ORDER_STATUS
-const { paymentSummary, roundMoney } = require('../utils/pricing')
+const { roundMoney } = require('../utils/pricing')
 const { mapToMvpStatus } = require('../utils/orderPaymentSync')
+const {
+  customerOrderAmountCny,
+  driverSettlementAmountCny,
+  paidAmountCny,
+  platformProfitAmountCny
+} = require('../utils/orderMoneyCny')
 
 function startOfToday() {
   const d = new Date()
@@ -33,20 +39,16 @@ function orderDisplayNo(order) {
 }
 
 function totalPriceOf(order) {
-  const summary = paymentSummary(order)
-  return summary.totalPrice
+  return customerOrderAmountCny(order) || 0
 }
 
 function driverPayoutOf(order) {
-  const v = order.priceBreakdown?.driverPayout
-  if (v != null && v !== '') return roundMoney(v)
-  return roundMoney(totalPriceOf(order) * 0.75)
+  return driverSettlementAmountCny(order) || 0
 }
 
 function platformProfitOf(order) {
-  const v = order.priceBreakdown?.platformProfit
-  if (v != null && v !== '') return roundMoney(v)
-  return roundMoney(totalPriceOf(order) - driverPayoutOf(order))
+  const n = platformProfitAmountCny(order)
+  return n == null ? 0 : n
 }
 
 function depositConfirmedAt(order) {
@@ -66,17 +68,23 @@ function balanceConfirmedAt(order) {
 }
 
 function depositAmountOf(order) {
-  const summary = paymentSummary(order)
-  return roundMoney(
-    order.payment?.depositAmount ?? order.depositAmount ?? summary.depositAmount
-  )
+  const paidDep = Number(order.depositPaymentInfo?.paidAmount)
+  const total = customerOrderAmountCny(order)
+  if (Number.isFinite(paidDep) && paidDep > 0 && total && paidDep >= total * 0.05) {
+    return roundMoney(paidDep)
+  }
+  if (total) return roundMoney(total * 0.1)
+  return 0
 }
 
 function balanceAmountOf(order) {
-  const summary = paymentSummary(order)
-  return roundMoney(
-    order.payment?.balanceAmount ?? order.balanceAmount ?? summary.balanceAmount
-  )
+  const paidBal = Number(order.balancePaymentInfo?.paidAmount)
+  const total = customerOrderAmountCny(order)
+  if (Number.isFinite(paidBal) && paidBal > 0 && total && paidBal >= total * 0.05) {
+    return roundMoney(paidBal)
+  }
+  if (total) return roundMoney(Math.max(0, total - paidAmountCny(order)))
+  return 0
 }
 
 function isDepositConfirmed(order) {

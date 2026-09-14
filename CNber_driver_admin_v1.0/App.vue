@@ -1,13 +1,24 @@
 <script>
+	import { startDriverTaskWatch, pauseDriverTaskWatch, stopDriverTaskWatch } from './utils/driverTaskWatch.js'
+	import { startDriverCancelDecisionWatch, stopDriverCancelDecisionWatch } from './utils/driverCancelDecisionWatch.js'
+	import { checkAppVersion } from './utils/appVersionCheck.js'
+
 	export default {
 		onLaunch: function() {
-			console.log('App Launch')
+			startDriverTaskWatch({ immediate: true })
+			startDriverCancelDecisionWatch()
+			checkAppVersion('driver')
 		},
 		onShow: function() {
-			console.log('App Show')
+			startDriverTaskWatch({ immediate: true })
+			startDriverCancelDecisionWatch()
 		},
 		onHide: function() {
-			console.log('App Hide')
+			pauseDriverTaskWatch()
+		},
+		onUnload: function() {
+			stopDriverTaskWatch()
+			stopDriverCancelDecisionWatch()
 		}
 	}
 </script>

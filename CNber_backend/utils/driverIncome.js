@@ -1,7 +1,8 @@
 const { roundMoney } = require('./pricing')
+const { driverSettlementAmountCny } = require('./orderMoneyCny')
 
 /**
- * 司机单笔收入 GBP（不用客户价 amount）
+ * 司机单笔收入 GBP（内部兼容字段，不用客户价 amount）
  * 优先：driverPriceGbp → driverSettlementGbp → driverAmount → 兼容旧字段
  */
 function resolveDriverIncomeGbp(order = {}) {
@@ -55,6 +56,42 @@ function driverIncomeGbpAggregationExpr() {
   }
 }
 
+/** 司机单笔收入 CNY：只用已存 driverSettlementCny，禁止 GBP×汇率 */
+function resolveDriverIncomeCny(order = {}) {
+  return driverSettlementAmountCny(order)
+}
+
+function driverIncomeCnyAggregationExpr() {
+  return {
+    $cond: [
+      { $gt: [{ $ifNull: ['$driverSettlementCny', 0] }, 0] },
+      '$driverSettlementCny',
+      0
+    ]
+  }
+}
+
+/** 从订单列表汇总已确认 CNY 结算；缺字段的不计收入 */
+function sumStoredDriverSettlementCny(orders = []) {
+  let sum = 0
+  let confirmed = 0
+  let missing = 0
+  for (const o of orders) {
+    const n = driverSettlementAmountCny(o)
+    if (n != null && n > 0) {
+      sum += n
+      confirmed += 1
+    } else {
+      missing += 1
+    }
+  }
+  return {
+    cny: confirmed > 0 ? roundMoney(sum) : null,
+    confirmed,
+    missing
+  }
+}
+
 const ORDER_STATUS = require('../models/Order').ORDER_STATUS
 
 function buildDriverOrderMatch(driverId, since = null) {
@@ -70,6 +107,9 @@ function buildDriverOrderMatch(driverId, since = null) {
 
 module.exports = {
   resolveDriverIncomeGbp,
+  resolveDriverIncomeCny,
   driverIncomeGbpAggregationExpr,
+  driverIncomeCnyAggregationExpr,
+  sumStoredDriverSettlementCny,
   buildDriverOrderMatch
 }

@@ -68,6 +68,7 @@ import { fetchOrderList } from '../utils/orderApi.js'
 import { clientDriverInfoNotice } from '../utils/orderStatus.js'
 import { clientV1BookingStatusLabel, clientV1WaitingHint } from '../utils/clientBookingFlow.js'
 import { pickActiveOrder, driverDisplayFromOrder, applyClientOrderRoute } from '../utils/orderFlow.js'
+import { clientPrimaryAmountLine } from '../utils/currencyDisplay.js'
 
 const driver = ref(driverDisplayFromOrder(null))
 const order = ref(null)
@@ -77,12 +78,7 @@ let pollingTimer = null
 const noticeText = computed(() => clientDriverInfoNotice(order.value?.status))
 const bookingStatusLabel = computed(() => clientV1BookingStatusLabel(order.value))
 const waitingHint = computed(() => clientV1WaitingHint(order.value))
-const amountLine = computed(() => {
-  const amount = order.value?.amount
-  if (amount == null || amount === '') return '—'
-  const n = Number(amount)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
-})
+const amountLine = computed(() => clientPrimaryAmountLine(order.value))
 
 const fetchOrders = async () => {
   const token = uni.getStorageSync('token')

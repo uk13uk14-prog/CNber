@@ -84,6 +84,7 @@ export const ROUTE_MODULE_MAP = {
   '/staff': 'staff',
   '/roles': 'roles',
   '/system-settings': 'system_settings',
+  '/payment-settings': 'system_settings',
   '/trial-dashboard': 'trial_operations',
   '/audit-logs': 'audit_logs',
   '/backup-center': 'backup_center',

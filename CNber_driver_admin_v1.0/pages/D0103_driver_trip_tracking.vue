@@ -7,7 +7,7 @@
       <view class="row"><text class="label">终点：</text>{{ order.destination }}</view>
       <view class="row"><text class="label">乘客电话：</text>{{ passengerPhone }}</view>
       <view class="row"><text class="label">当前状态：</text>{{ formatStatus(order.status) }}</view>
-      <view class="row"><text class="label">订单金额：</text>{{ formatAmount(order.amount) }}</view>
+      <view class="row"><text class="label">订单金额：</text>{{ formatAmount(order) }}</view>
       <view class="row"><text class="label">支付状态：</text>{{ formatPaymentStatus(order.paymentStatus) }}</view>
     </view>
 
@@ -20,6 +20,7 @@
 <script>
 import { request } from '../utils/request.js'
 import { formatDriverOrderStatus } from '../utils/orderStatus.js'
+import { formatCny, customerOrderAmountCny } from '../utils/driverCurrencyDisplay.js'
 
 export default {
   name: 'D0103_driver_trip_tracking',
@@ -77,10 +78,9 @@ export default {
     formatStatus(status) {
       return formatDriverOrderStatus(status)
     },
-    formatAmount(amount) {
-      if (amount == null || amount === '') return '—'
-      const n = Number(amount)
-      return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
+    formatAmount(order) {
+      const n = customerOrderAmountCny(order)
+      return n == null ? '待确认' : formatCny(n)
     },
     formatPaymentStatus(status) {
       const map = {

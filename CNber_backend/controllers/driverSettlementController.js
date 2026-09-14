@@ -7,6 +7,7 @@ const User = require('../models/User')
 const ORDER_STATUS = Order.ORDER_STATUS
 const { getGbpCnyRate, driverPayoutGbp, gbpToCny } = require('../utils/exchangeRate')
 const { roundMoney } = require('../utils/pricing')
+const { driverSettlementAmountCny } = require('../utils/orderMoneyCny')
 const {
   parsePeriodInput,
   resolveListDateRange,
@@ -141,7 +142,7 @@ exports.getDriverSettlementBatch = async (req, res) => {
   const orders = doc.orderIds?.length
     ? await Order.find({ _id: { $in: doc.orderIds } })
         .select(
-          '_id orderNo orderDateKey dailySeq pickup destination driverPriceGbp driverSettlementAmount priceBreakdown quoteBreakdown amount updatedAt'
+          '_id orderNo orderDateKey dailySeq pickup destination driverPriceGbp driverSettlementCny driverPriceCny driverSettlementAmount priceBreakdown quoteBreakdown amount updatedAt'
         )
         .lean()
     : []
@@ -153,6 +154,7 @@ exports.getDriverSettlementBatch = async (req, res) => {
     destination: o.destination,
     driverSettlementGbp:
       o.driverSettlementAmount != null ? roundMoney(o.driverSettlementAmount) : driverPayoutGbp(o),
+    payableCny: driverSettlementAmountCny(o),
     completedAt: o.updatedAt
   }))
 

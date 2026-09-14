@@ -10,7 +10,7 @@
         </view>
         <view class="row">
           <text class="label">金额：</text>
-          <text class="price">£{{ item.amount }}</text>
+          <text class="price">¥{{ Number(item.amount).toFixed(2) }}</text>
         </view>
         <view class="row">
           <text class="label">状态：</text>

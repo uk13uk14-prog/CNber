@@ -1,7 +1,80 @@
 <template>
   <view class="flow">
     <view class="banner">
-      请先完成微信/支付宝转账，再填写付款流水号。提交后由后台人工核对收款记录，确认后订单才会进入下一步。截图可选。
+      {{ noticeText }}
+    </view>
+
+    <view class="card amount-hero">
+      <text class="amount-label">订单金额</text>
+      <text class="amount-value">{{ amountText }}</text>
+      <text class="amount-sub">请选择支付方式</text>
+    </view>
+
+    <view class="pay-actions">
+      <button
+        class="pay-btn wechat"
+        :class="{ active: selectedMethod === 'wechat' }"
+        :disabled="!wechatEnabled || launching"
+        @click="onWechatPay"
+      >
+        微信支付
+      </button>
+      <button
+        class="pay-btn alipay"
+        :class="{ active: selectedMethod === 'alipay' }"
+        :disabled="!alipayEnabled || launching"
+        @click="onAlipayPay"
+      >
+        支付宝支付
+      </button>
+    </view>
+    <view v-if="!wechatEnabled && !alipayEnabled" class="muted">
+      暂无可用微信/支付宝收款方式，请联系客服。
+    </view>
+    <view v-if="lastLaunchHint" class="hint launch-hint">{{ lastLaunchHint }}</view>
+    <view v-else class="hint">
+      点击后将自动保存收款码到相册并打开对应 App。请在 App 内使用扫一扫 → 相册选择刚保存的二维码完成付款。无法自动让微信/支付宝直接识别图片。
+    </view>
+
+    <view class="fallback-toggle" @click="qrPanelOpen = !qrPanelOpen">
+      {{ qrPanelOpen ? '收起收款码' : '查看收款码' }}
+    </view>
+
+    <view v-if="qrPanelOpen" class="card qr-card">
+      <view v-if="showWechatQrPanel">
+        <view v-if="!wechatEnabled" class="qr-fail">微信支付已停用</view>
+        <view v-else-if="!wechatQr" class="qr-fail">暂无微信收款码，请联系客服</view>
+        <image
+          v-else
+          :src="wechatQr"
+          class="qr-img"
+          mode="aspectFit"
+          @click="previewQr(wechatQr)"
+          @error="onWechatQrError"
+        />
+        <text v-if="wechatQrLoadFailed" class="qr-fail">收款码加载失败，请检查网络或联系客服</text>
+        <text v-if="wechatQr" class="qr-hint">点击放大收款码，或使用下方按钮手动保存</text>
+        <button v-if="wechatQr" class="act-btn" size="mini" :disabled="launching" @click="saveWechatQr">
+          保存微信二维码
+        </button>
+      </view>
+      <view v-if="showAlipayQrPanel" :class="{ 'qr-second': showWechatQrPanel }">
+        <view v-if="!alipayEnabled" class="qr-fail">支付宝支付已停用</view>
+        <view v-else-if="!alipayQr" class="qr-fail">暂无支付宝收款码，请联系客服</view>
+        <image
+          v-else
+          :src="alipayQr"
+          class="qr-img"
+          mode="aspectFit"
+          @click="previewQr(alipayQr)"
+          @error="onAlipayQrError"
+        />
+        <text v-if="alipayQrLoadFailed" class="qr-fail">收款码加载失败，请检查网络或联系客服</text>
+        <text v-if="alipayQr" class="qr-hint">点击放大收款码，或使用下方按钮手动保存</text>
+        <button v-if="alipayQr" class="act-btn" size="mini" :disabled="launching" @click="saveAlipayQr">
+          保存支付宝二维码
+        </button>
+      </view>
     </view>
 
     <view class="card pay-info">
@@ -16,57 +89,8 @@
       <button class="act-btn copy-btn" size="mini" @click="copyRefNote">复制备注</button>
     </view>
 
-    <view class="step-title">1. 选择付款方式</view>
-    <view class="pay-actions">
-      <button
-        class="pay-btn wechat"
-        :class="{ active: selectedMethod === 'wechat' }"
-        :disabled="!wechatAccount"
-        @click="onWechatPay"
-      >
-        微信支付
-      </button>
-      <button
-        class="pay-btn alipay"
-        :class="{ active: selectedMethod === 'alipay' }"
-        :disabled="!alipayAccount"
-        @click="onAlipayPay"
-      >
-        支付宝支付
-      </button>
-    </view>
-    <view v-if="!wechatAccount && !alipayAccount" class="muted">
-      暂无可用微信/支付宝收款方式，请联系客服。
-    </view>
-    <view v-if="selectedMethod === 'wechat'" class="hint">
-      请使用微信扫码或长按识别收款码，付款备注请填写 {{ refNote }}
-    </view>
-    <view v-if="selectedMethod === 'alipay'" class="hint">
-      请在支付宝完成付款，付款备注请填写 {{ refNote }}
-    </view>
-
-    <view v-if="wechatAccount && selectedMethod === 'wechat' && wechatQr" class="card qr-card">
-      <image
-        :src="wechatQr"
-        class="qr-img"
-        mode="aspectFit"
-        @click="previewWechatQr"
-        @error="onWechatQrError"
-      />
-      <text v-if="wechatQrLoadFailed" class="qr-fail">收款码加载失败，请检查网络或联系客服</text>
-      <text class="qr-hint">点击放大收款码，或使用下方按钮保存</text>
-      <button class="act-btn" size="mini" @click="saveWechatQr">保存二维码</button>
-    </view>
-
-    <view v-if="showAlipayQr" class="card qr-card">
-      <view class="step-title">支付宝收款码</view>
-      <image :src="alipayQr" class="qr-img" mode="aspectFit" @click="previewAlipayQr" />
-      <text class="qr-hint">链接无法打开时，请扫码或长按识别，备注 {{ refNote }}</text>
-      <button class="act-btn" size="mini" @click="saveAlipayQr">保存二维码</button>
-    </view>
-
     <view class="card">
-      <view class="step-title">2. 填写付款信息</view>
+      <view class="step-title">付款完成后，请填写并提交</view>
       <view class="field">
         <text class="label">付款人姓名</text>
         <input v-model="payerName" class="pay-input" placeholder="必填" />
@@ -100,7 +124,7 @@
           {{ proofPreview ? '重新选择截图' : '上传截图（可选）' }}
         </button>
       </view>
-      <button class="submit-btn" :disabled="submitting || uploading" @click="onSubmit">
+      <button class="submit-btn" :disabled="submitting || uploading || launching" @click="onSubmit">
         {{ submitting ? '提交中…' : submitLabel }}
       </button>
     </view>
@@ -113,11 +137,16 @@ import {
   findWechatAccount,
   findAlipayAccount,
   getPaymentQr,
-  getAlipayUrl,
+  resolvePaymentAssetUrl,
   defaultTransferNote,
   orderRefNote
 } from '../utils/paymentTransfer.js'
 import { uploadPaymentProof } from '../utils/orderApi.js'
+import {
+  launchPayment,
+  saveQrImageToAlbum,
+  paymentUserMessage
+} from '../utils/payment/paymentService.js'
 
 const props = defineProps({
   accounts: { type: Array, default: () => [] },
@@ -127,7 +156,8 @@ const props = defineProps({
   amountCny: { type: Number, default: 0 },
   exchangeRate: { type: Number, default: 10 },
   submitLabel: { type: String, default: '提交付款信息' },
-  submitting: { type: Boolean, default: false }
+  submitting: { type: Boolean, default: false },
+  paymentConfig: { type: Object, default: null }
 })
 
 const emit = defineEmits(['submit'])
@@ -141,28 +171,90 @@ const note = ref('')
 const proofUrl = ref('')
 const proofPreview = ref('')
 const uploading = ref(false)
-const showAlipayQr = ref(false)
+const launching = ref(false)
+const qrPanelOpen = ref(false)
+const lastLaunchHint = ref('')
 const wechatQrLoadFailed = ref(false)
+const alipayQrLoadFailed = ref(false)
 
-const wechatAccount = computed(() => findWechatAccount(props.accounts))
-const alipayAccount = computed(() => findAlipayAccount(props.accounts))
+function accountById(id) {
+  if (!id) return null
+  return (props.accounts || []).find((a) => String(a._id) === String(id)) || null
+}
 
-const wechatQr = computed(() => getPaymentQr(wechatAccount.value))
-const alipayQr = computed(() => getPaymentQr(alipayAccount.value))
+const wechatAccount = computed(() => {
+  const fromConfig = accountById(props.paymentConfig?.wechat?.paymentAccountId)
+  return fromConfig || findWechatAccount(props.accounts)
+})
+const alipayAccount = computed(() => {
+  const fromConfig = accountById(props.paymentConfig?.alipay?.paymentAccountId)
+  return fromConfig || findAlipayAccount(props.accounts)
+})
+
+const wechatEnabled = computed(() => {
+  if (props.paymentConfig?.wechat) return props.paymentConfig.wechat.enabled !== false
+  return Boolean(wechatAccount.value)
+})
+const alipayEnabled = computed(() => {
+  if (props.paymentConfig?.alipay) return props.paymentConfig.alipay.enabled !== false
+  return Boolean(alipayAccount.value)
+})
+
+const wechatQr = computed(() => {
+  const fromConfig = props.paymentConfig?.wechat?.qrUrl
+  if (fromConfig) return resolvePaymentAssetUrl(fromConfig)
+  return getPaymentQr(wechatAccount.value)
+})
+const alipayQr = computed(() => {
+  const fromConfig = props.paymentConfig?.alipay?.qrUrl
+  if (fromConfig) return resolvePaymentAssetUrl(fromConfig)
+  return getPaymentQr(alipayAccount.value)
+})
+
+const noticeText = computed(() => {
+  const n = String(props.paymentConfig?.paymentNotice || '').trim()
+  return (
+    n ||
+    '请先完成微信/支付宝转账，再填写付款流水号。提交后由后台人工核对收款记录，确认后订单才会进入下一步。截图可选。'
+  )
+})
+
+const amountText = computed(() => {
+  const n = Number(props.amountCny || props.amount || 0)
+  return Number.isFinite(n) && n > 0 ? `¥${n.toFixed(2)}` : '—'
+})
 
 const refNote = computed(() => orderRefNote(props.orderDisplayNo))
 
 const receiverName = computed(() => {
-  const w = wechatAccount.value?.accountName
-  const a = alipayAccount.value?.accountName
-  if (selectedMethod.value === 'wechat' && w) return w
-  if (selectedMethod.value === 'alipay' && a) return a
-  return w || a || '—'
+  if (selectedMethod.value === 'wechat') {
+    return props.paymentConfig?.wechat?.accountName || wechatAccount.value?.accountName || '—'
+  }
+  if (selectedMethod.value === 'alipay') {
+    return props.paymentConfig?.alipay?.accountName || alipayAccount.value?.accountName || '—'
+  }
+  return (
+    props.paymentConfig?.wechat?.accountName ||
+    props.paymentConfig?.alipay?.accountName ||
+    wechatAccount.value?.accountName ||
+    alipayAccount.value?.accountName ||
+    '—'
+  )
 })
 
 const notePlaceholder = computed(() => {
   const no = props.orderDisplayNo || ''
   return no ? `建议填写：已通过 XX 转账，备注 CNBER-${no}` : '请填写付款渠道与订单号'
+})
+
+const showWechatQrPanel = computed(() => {
+  if (selectedMethod.value === 'alipay') return false
+  return selectedMethod.value === 'wechat' || !selectedMethod.value
+})
+
+const showAlipayQrPanel = computed(() => {
+  if (selectedMethod.value === 'wechat') return false
+  return selectedMethod.value === 'alipay' || !selectedMethod.value
 })
 
 watch(
@@ -175,15 +267,10 @@ watch(
 )
 
 watch(
-  () => props.accounts,
-  (list) => {
-    const w = findWechatAccount(list)
-    const a = findAlipayAccount(list)
-    console.log('[PaymentTransferFlow] paymentAccount wechat', w)
-    console.log('[PaymentTransferFlow] paymentAccount alipay', a)
-    console.log('[PaymentTransferFlow] wechatQr resolved', getPaymentQr(w))
-    console.log('[PaymentTransferFlow] alipayQr resolved', getPaymentQr(a))
+  () => [props.accounts, props.paymentConfig],
+  () => {
     wechatQrLoadFailed.value = false
+    alipayQrLoadFailed.value = false
   },
   { immediate: true, deep: true }
 )
@@ -192,15 +279,23 @@ watch(wechatQr, () => {
   wechatQrLoadFailed.value = false
 })
 
-function onWechatQrError(e) {
+watch(alipayQr, () => {
+  alipayQrLoadFailed.value = false
+})
+
+function onWechatQrError() {
   wechatQrLoadFailed.value = true
-  console.log('[PaymentTransferFlow] wechat QR image error', wechatQr.value, e)
 }
 
-function selectAccount(acc, method) {
-  if (!acc?._id) return
-  selectedId.value = acc._id
+function onAlipayQrError() {
+  alipayQrLoadFailed.value = true
+}
+
+function selectChannel(method) {
   selectedMethod.value = method
+  const acc = method === 'wechat' ? wechatAccount.value : alipayAccount.value
+  selectedId.value =
+    (acc && acc._id) || props.paymentConfig?.[method]?.paymentAccountId || ''
   if (!note.value.trim()) note.value = defaultTransferNote(props.orderDisplayNo, method)
 }
 
@@ -211,120 +306,88 @@ function copyRefNote() {
   })
 }
 
-function onWechatPay() {
-  const acc = wechatAccount.value
-  if (!acc) {
-    uni.showToast({ title: '微信收款未配置，请联系客服', icon: 'none' })
-    return
-  }
-  selectAccount(acc, 'wechat')
-  showAlipayQr.value = false
-  const qr = wechatQr.value
-  if (!qr) {
-    uni.showToast({ title: '微信收款码未配置，请联系客服', icon: 'none' })
-    return
-  }
-  uni.previewImage({ urls: [qr] })
-}
-
-function previewWechatQr() {
-  if (!wechatQr.value) return
-  uni.previewImage({ urls: [wechatQr.value] })
-}
-
-function previewAlipayQr() {
-  if (!alipayQr.value) return
-  uni.previewImage({ urls: [alipayQr.value] })
-}
-
-function saveImageToAlbum(url) {
-  if (!url) return
-  uni.showLoading({ title: '保存中' })
-  uni.downloadFile({
-    url,
-    success: (res) => {
-      if (res.statusCode === 200) {
-        uni.saveImageToPhotosAlbum({
-          filePath: res.tempFilePath,
-          success: () => uni.showToast({ title: '已保存到相册', icon: 'success' }),
-          fail: () => uni.showToast({ title: '保存失败，请长按图片', icon: 'none' })
-        })
-      } else {
-        uni.showToast({ title: '下载失败', icon: 'none' })
-      }
-    },
-    fail: () => uni.showToast({ title: '下载失败', icon: 'none' }),
-    complete: () => uni.hideLoading()
-  })
-}
-
-function saveWechatQr() {
-  saveImageToAlbum(wechatQr.value)
-}
-
-function saveAlipayQr() {
-  saveImageToAlbum(alipayQr.value)
-}
-
-function showAlipayQrFallback() {
-  showAlipayQr.value = true
-  if (alipayQr.value) {
-    uni.previewImage({ urls: [alipayQr.value] })
-  } else {
-    uni.showToast({ title: '支付宝链接与二维码均未配置，请联系客服', icon: 'none' })
-  }
-}
-
-function openAlipayUrl(url) {
-  const u = String(url || '').trim()
-  if (!u) {
-    showAlipayQrFallback()
-    return
-  }
-  // #ifdef H5
-  const win = window.open(u, '_blank')
-  if (!win) showAlipayQrFallback()
-  // #endif
-  // #ifdef APP-PLUS
+async function runQuickPay(method) {
+  if (launching.value) return
+  launching.value = true
+  lastLaunchHint.value = ''
   try {
-    plus.runtime.openURL(
-      u,
-      () => {
-        showAlipayQrFallback()
-      },
-      () => {}
+    const result = await launchPayment(
+      { _id: props.orderId, orderNo: props.orderDisplayNo },
+      method,
+      { paymentConfig: props.paymentConfig, orderId: props.orderId }
     )
-  } catch (e) {
-    showAlipayQrFallback()
-  }
-  // #endif
-  // #ifndef H5
-  // #ifndef APP-PLUS
-  uni.setClipboardData({
-    data: u,
-    success: () => {
-      uni.showToast({ title: '链接已复制，请在浏览器打开', icon: 'none' })
-      showAlipayQrFallback()
+    const hint = result?.hint || ''
+    lastLaunchHint.value = hint
+    if (hint) {
+      uni.showModal({
+        title: '请完成付款',
+        content: hint,
+        showCancel: false
+      })
     }
-  })
-  // #endif
-  // #endif
+  } catch (e) {
+    const msg = paymentUserMessage(e, '支付操作失败')
+    lastLaunchHint.value = e?.savedToAlbum
+      ? `收款码已保存到相册。${msg}`
+      : msg
+    uni.showModal({
+      title: '无法完成快捷支付',
+      content: lastLaunchHint.value,
+      showCancel: false
+    })
+  } finally {
+    launching.value = false
+  }
+}
+
+function onWechatPay() {
+  if (!wechatEnabled.value) {
+    uni.showToast({ title: '微信支付未启用', icon: 'none' })
+    return
+  }
+  selectChannel('wechat')
+  runQuickPay('wechat')
 }
 
 function onAlipayPay() {
-  const acc = alipayAccount.value
-  if (!acc) {
-    uni.showToast({ title: '支付宝收款未配置，请联系客服', icon: 'none' })
+  if (!alipayEnabled.value) {
+    uni.showToast({ title: '支付宝支付未启用', icon: 'none' })
     return
   }
-  selectAccount(acc, 'alipay')
-  const url = getAlipayUrl(acc)
-  if (url) {
-    showAlipayQr.value = false
-    openAlipayUrl(url)
-  } else {
-    showAlipayQrFallback()
+  selectChannel('alipay')
+  runQuickPay('alipay')
+}
+
+function previewQr(url) {
+  if (!url) return
+  uni.previewImage({ urls: [url] })
+}
+
+async function saveQrFallback(url) {
+  if (!url) {
+    uni.showToast({ title: '暂无收款码', icon: 'none' })
+    return
   }
+  uni.showLoading({ title: '保存中', mask: true })
+  try {
+    await saveQrImageToAlbum(url)
+    uni.showToast({ title: '已保存到相册', icon: 'success' })
+  } catch (e) {
+    uni.showToast({
+      title: paymentUserMessage(e, '保存失败'),
+      icon: 'none'
+    })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+function saveWechatQr() {
+  saveQrFallback(wechatQr.value)
+}
+
+function saveAlipayQr() {
+  saveQrFallback(alipayQr.value)
 }
 
 async function chooseProof() {
@@ -409,10 +472,32 @@ function onSubmit() {
   line-height: 1.5;
   margin-bottom: 24rpx;
 }
+.amount-hero {
+  text-align: center;
+  padding: 32rpx 24rpx;
+}
+.amount-label {
+  display: block;
+  font-size: 26rpx;
+  color: #64748b;
+}
+.amount-value {
+  display: block;
+  margin: 8rpx 0 12rpx;
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+.amount-sub {
+  display: block;
+  font-size: 28rpx;
+  color: #334155;
+  font-weight: 600;
+}
 .step-title {
   font-size: 30rpx;
   font-weight: 600;
-  margin: 16rpx 0 12rpx;
+  margin: 0 0 16rpx;
 }
 .card {
   background: #fff;
@@ -487,8 +572,25 @@ function onSubmit() {
   line-height: 1.5;
   margin-bottom: 16rpx;
 }
+.launch-hint {
+  color: #9a3412;
+  background: #fff7ed;
+  padding: 16rpx;
+  border-radius: 12rpx;
+}
+.fallback-toggle {
+  text-align: center;
+  color: #2563eb;
+  font-size: 26rpx;
+  padding: 8rpx 0 20rpx;
+}
 .qr-card {
   text-align: center;
+}
+.qr-second {
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #e2e8f0;
 }
 .qr-img {
   width: 360rpx;
@@ -543,14 +645,6 @@ function onSubmit() {
   padding: 20rpx 24rpx;
   overflow: hidden;
   word-break: break-all;
-}
-.input {
-  width: 100%;
-  border: 1rpx solid #cbd5e1;
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  font-size: 28rpx;
-  box-sizing: border-box;
 }
 .proof-row {
   display: flex;

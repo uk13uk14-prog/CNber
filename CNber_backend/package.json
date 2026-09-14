@@ -14,6 +14,11 @@
     "agent:mobile": "node agents/mobile_demo_agent/index.js",
     "agent:ops": "node agents/operations_agent/index.js",
     "agent:monitor": "node agents/monitoring_agent/index.js",
+    "agent:e2e": "node agents/full_mobile_e2e/index.js",
+    "agent:e2e:physical": "node agents/full_mobile_e2e/index.js",
+    "agent:e2e:login": "node agents/full_mobile_e2e/loginSmoke.js",
+    "agent:e2e:vehicle": "node agents/full_mobile_e2e/vehicleSelectSmoke.js",
+    "smoke:vehicle-picker": "node scripts/smoke_vehicle_picker_commit.js",
     "agent:all": "node agents/run_all.js"
   },
   "author": "中步",
@@ -28,5 +33,8 @@
     "mongoose": "^7.8.9",
     "morgan": "^1.10.1",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }

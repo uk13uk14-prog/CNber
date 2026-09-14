@@ -1,0 +1,4 @@
+# 将 CNber 独立 APK 放于此目录：
+#   cnber_client.apk  → Emulator 5554 (Client)
+#   cnber_driver.apk  → Emulator 5556 (Driver)
+# Mobile Agent 会自动 adb install -r 后执行验收

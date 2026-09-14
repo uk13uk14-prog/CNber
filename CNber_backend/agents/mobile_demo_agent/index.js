@@ -4,8 +4,9 @@
  */
 require('dotenv').config()
 
+const fs = require('fs')
 const path = require('path')
-const { ensureReportsDir } = require('../_shared/paths')
+const { BACKEND_ROOT, ensureReportsDir } = require('../_shared/paths')
 const { writeAgentReports } = require('../_shared/reportWriter')
 const adb = require('../_shared/adb')
 
@@ -24,7 +25,30 @@ const report = {
   device: null,
   packageName: null,
   screenshots: [],
-  steps: []
+  steps: [],
+  apkPath: null
+}
+
+function resolveApkPath() {
+  const candidates = [
+    process.env.MOBILE_AGENT_APK,
+    path.join(BACKEND_ROOT, 'runtime', 'apk', 'cnber_client.apk'),
+    path.join(BACKEND_ROOT, 'runtime', 'apk', 'client.apk')
+  ].filter(Boolean)
+  return candidates.find((p) => fs.existsSync(p)) || null
+}
+
+function skipWithReason(reason) {
+  report.skipped = true
+  report.skipReason = reason
+  report.result = 'SKIPPED'
+  report.finishedAt = new Date().toISOString()
+  console.log('Skipped:')
+  console.log(reason)
+  const { jsonPath, mdPath } = writeAgentReports('mobile_demo_report', report, buildMarkdown())
+  console.log(`\nJSON: ${jsonPath}`)
+  console.log(`Markdown: ${mdPath}`)
+  console.log('\n>>> SKIPPED\n')
 }
 
 function sleep(ms) {
@@ -154,32 +178,31 @@ async function main() {
 
   const devices = await adb.listAndroidDevices()
   if (!devices.length) {
-    report.skipped = true
-    report.skipReason = 'No Android device detected.'
-    report.result = 'SKIPPED'
-    report.finishedAt = new Date().toISOString()
-
-    console.log('Skipped:')
-    console.log('No Android device detected.')
-
-    const { jsonPath, mdPath } = writeAgentReports('mobile_demo_report', report, buildMarkdown())
-    console.log(`\nJSON: ${jsonPath}`)
-    console.log(`Markdown: ${mdPath}`)
-    console.log('\n>>> SKIPPED\n')
+    skipWithReason('No Android device detected.')
     return
   }
 
   const deviceId = devices[0].id
   report.device = devices[0]
 
-  const pkg = await adb.discoverClientPackage(deviceId)
+  let pkg = await adb.discoverClientPackage(deviceId)
+  const apkPath = resolveApkPath()
+  if (!pkg && apkPath) {
+    report.apkPath = apkPath
+    await runStep('安装 Client APK', async () => {
+      await adb.installApk(apkPath, deviceId)
+      return path.basename(apkPath)
+    })
+    pkg = await adb.discoverClientPackage(deviceId)
+  }
+
   if (!pkg) {
-    report.result = 'FAIL'
-    report.finishedAt = new Date().toISOString()
-    report.failure = '未找到 CNber Client App 包名，请设置 MOBILE_AGENT_PACKAGE'
-    writeAgentReports('mobile_demo_report', report, buildMarkdown())
-    console.error('❌ 未找到 Client App，请设置 MOBILE_AGENT_PACKAGE')
-    process.exit(1)
+    skipWithReason(
+      apkPath
+        ? 'Client App package not found after APK install. Set MOBILE_AGENT_PACKAGE.'
+        : 'No Client App installed. Place APK at runtime/apk/cnber_client.apk or set MOBILE_AGENT_APK.'
+    )
+    return
   }
   report.packageName = pkg
 

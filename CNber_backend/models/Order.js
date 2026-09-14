@@ -19,7 +19,8 @@ const ORDER_STATUS = {
   STARTED: 'started',
   ARRIVED: 'arrived',
   COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  NEEDS_REDISPATCH: 'needs_redispatch'
 }
 
 const DISPATCH_STATUS = {
@@ -29,7 +30,8 @@ const DISPATCH_STATUS = {
   ACCEPTED: 'accepted',
   REJECTED: 'rejected',
   CANCELLED: 'cancelled',
-  COMPLETED: 'completed'
+  COMPLETED: 'completed',
+  NEEDS_REDISPATCH: 'needs_redispatch'
 }
 
 const PAYMENT_STAGES = [
@@ -136,7 +138,8 @@ const OrderSchema = new mongoose.Schema({
       DISPATCH_STATUS.ACCEPTED,
       DISPATCH_STATUS.REJECTED,
       DISPATCH_STATUS.CANCELLED,
-      DISPATCH_STATUS.COMPLETED
+      DISPATCH_STATUS.COMPLETED,
+      DISPATCH_STATUS.NEEDS_REDISPATCH
     ],
     default: DISPATCH_STATUS.PENDING
   },
@@ -159,12 +162,15 @@ const OrderSchema = new mongoose.Schema({
       ORDER_STATUS.STARTED,
       ORDER_STATUS.ARRIVED,
       ORDER_STATUS.COMPLETED,
-      ORDER_STATUS.CANCELLED
+      ORDER_STATUS.CANCELLED,
+      ORDER_STATUS.NEEDS_REDISPATCH
     ],
     default: ORDER_STATUS.CREATED
   },
   pickup: { type: String, required: true, trim: true },
   destination: { type: String, required: true, trim: true },
+  /** 预约出发时间（后端解析，Europe/London） */
+  scheduledAt: { type: Date, default: null, index: true },
   /** 后台/客户端展示用：ride | pickup | dropoff | charter 等 */
   serviceType: { type: String, default: 'ride', trim: true },
   airport: { type: String, default: '', trim: true },
@@ -189,7 +195,7 @@ const OrderSchema = new mongoose.Schema({
     default: 'legacy'
   },
   amount: { type: Number, default: null },
-  /** V1 固定报价（CNY 客户价 / GBP 司机价） */
+  /** V1 固定报价：客户价 CNY；driverPriceGbp 为内部兼容字段，业务展示用 driverSettlementCny */
   pricingMode: { type: String, enum: ['legacy', 'fixed'], default: 'legacy' },
   customerPriceCny: { type: Number, default: null },
   driverPriceGbp: { type: Number, default: null },

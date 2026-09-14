@@ -81,6 +81,7 @@ import {
   driverPrimarySettlementLine,
   driverSecondarySettlementLine
 } from '../utils/driverCurrencyDisplay.js'
+import { ingestDriverOrders, startDriverTaskWatch } from '../utils/driverTaskWatch.js'
 
 export default {
   name: 'D0101_driver_order_list',
@@ -89,7 +90,6 @@ export default {
       orders: [],
       myUserId: '',
       currentFilter: 'assigned',
-      pollingTimer: null,
       filterTabs: [
         { value: 'assigned', label: '指派给我' },
         { value: 'active', label: '行程中' },
@@ -118,13 +118,14 @@ export default {
   onShow() {
     this.readMyId()
     this.fetchOrders()
-    this.startPolling()
+    startDriverTaskWatch({ immediate: false })
+    uni.$on('driver-orders-updated', this.onOrdersUpdated)
   },
   onHide() {
-    this.stopPolling()
+    uni.$off('driver-orders-updated', this.onOrdersUpdated)
   },
   onUnload() {
-    this.stopPolling()
+    uni.$off('driver-orders-updated', this.onOrdersUpdated)
   },
   methods: {
     readMyId() {
@@ -159,21 +160,13 @@ export default {
       try {
         const data = await getDriverOrders()
         this.orders = Array.isArray(data?.orders) ? data.orders : []
+        ingestDriverOrders(this.orders, { alertNew: true })
       } catch (error) {
         /* 封装内已提示 */
       }
     },
-    startPolling() {
-      this.stopPolling()
-      this.pollingTimer = setInterval(() => {
-        this.fetchOrders()
-      }, 5000)
-    },
-    stopPolling() {
-      if (this.pollingTimer) {
-        clearInterval(this.pollingTimer)
-        this.pollingTimer = null
-      }
+    onOrdersUpdated(list) {
+      this.orders = Array.isArray(list) ? list : []
     },
     formatStatus(status) {
       return formatDriverOrderStatus(status)

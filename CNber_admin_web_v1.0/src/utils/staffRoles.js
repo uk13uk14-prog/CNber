@@ -55,6 +55,7 @@ export const MENU_GROUPS = [
     title: '财务中心',
     items: [
       { label: '支付审核', to: '/payment-reviews', module: 'payment_reviews' },
+      { label: '支付设置', to: '/payment-settings', module: 'system_settings' },
       { label: '财务对账', to: '/finance', module: 'finance' },
       { label: '司机结算', to: '/driver-settlements', module: 'driver_settlements' }
     ]

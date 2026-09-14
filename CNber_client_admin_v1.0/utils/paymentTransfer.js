@@ -29,12 +29,32 @@ function isEnabledAccount(a) {
 
 /** 接口实际字段：qrCodeUrl / qrImage / wechatQrImage / alipayQrImage（无 wechatQrUrl、qrUrl） */
 export function resolvePaymentAssetUrl(urlOrPath) {
-  const u = String(urlOrPath || '').trim()
-  if (!u) return ''
-  if (/^https?:\/\//i.test(u)) return u
-  if (u.startsWith('//')) return `http:${u}`
-  if (u.startsWith('/')) return `${apiOriginFromConfig()}${u}`
-  return u
+  const raw = String(urlOrPath || '').trim()
+  if (!raw) return ''
+  let path = raw
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw)
+      const host = parsed.hostname
+      const isPrivateHost =
+        /^(localhost|127\.0\.0\.1)$/i.test(host) ||
+        /^192\.168\./.test(host) ||
+        /^10\./.test(host) ||
+        /^100\./.test(host) ||
+        /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+      if (isPrivateHost) path = parsed.pathname || ''
+      else return raw
+    } catch {
+      return raw
+    }
+  }
+  if (path.startsWith('//')) {
+    const idx = path.indexOf('/', 2)
+    path = idx >= 0 ? path.slice(idx) : ''
+  }
+  if (path.startsWith('/api/uploads/')) path = path.slice(4)
+  if (path.startsWith('/')) return `${apiOriginFromConfig()}${path}`
+  return path
 }
 
 function pickRawQr(a, pt) {
@@ -100,7 +120,8 @@ export function getPaymentQr(account) {
 export function getAlipayUrl(account) {
   if (!account) return ''
   const a = normalizeAccount(account)
-  return String(a.alipayUrl || a.paymentLink || '').trim()
+  const u = String(a.alipayUrl || a.paymentLink || '').trim()
+  return /^https?:\/\//i.test(u) ? u : ''
 }
 
 export function qrForAccount(a) {

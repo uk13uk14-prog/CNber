@@ -8,6 +8,7 @@
         <option value="pending_confirm">待确认</option>
         <option value="pending_deposit">待付订金</option>
         <option value="pending_dispatch">待派单</option>
+        <option value="needs_redispatch">待重新派单</option>
         <option value="driver_response">待司机响应</option>
         <option value="today">今日接送</option>
         <option value="exception">异常订单</option>
@@ -19,6 +20,7 @@
         <option value="quoted">已自动报价</option>
         <option value="confirmed">客户确认报价</option>
         <option value="deposit_paid">已付订金</option>
+        <option value="needs_redispatch">待重新派单</option>
         <option value="assigned">已指派</option>
         <option value="driver_accepted">司机已接单</option>
         <option value="ready_to_start">待出发</option>
@@ -136,10 +138,18 @@
                   <button
                     type="button"
                     class="btn btn-primary small"
+                    :disabled="!canAssign(o)"
+                    @click="onAssign(o)"
+                  >
+                    {{ assigningId === o._id ? '派单中…' : '确认派单' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn small"
                     :disabled="!canOpenDispatch(o)"
                     @click="openDispatchModal(o)"
                   >
-                    派单
+                    在线司机
                   </button>
                   <button
                     type="button"
@@ -421,7 +431,7 @@ function dateGroupTitle(iso) {
 function amountLabel(amount) {
   if (amount == null || amount === '') return '—'
   const n = Number(amount)
-  return Number.isFinite(n) ? `£${n.toFixed(2)}` : String(amount)
+  return Number.isFinite(n) ? `¥${n.toFixed(2)}` : String(amount)
 }
 
 function totalPrice(order) {
@@ -485,7 +495,7 @@ function driverSettlementLabel(s) {
 }
 
 function isDispatchable(order) {
-  return ['deposit_paid', 'pending', 'assigned'].includes(order.status)
+  return ['deposit_paid', 'pending', 'assigned', 'needs_redispatch'].includes(order.status)
 }
 
 function priceStatusLabel(status) {
@@ -534,6 +544,7 @@ function statusClass(status) {
     deposit_paid: 'status-green',
     paid: 'status-green',
     assigned: 'status-orange',
+    needs_redispatch: 'status-orange',
     driver_accepted: 'status-blue',
     ready_to_start: 'status-green',
     in_progress: 'status-deep-blue',
@@ -551,6 +562,7 @@ function dispatchStatusLabel(status) {
     assigned: '已派单',
     accepted: '司机已接',
     rejected: '司机拒绝',
+    needs_redispatch: '待重新派单',
     completed: '已完成',
     cancelled: '派单取消'
   }
@@ -564,6 +576,7 @@ function dispatchStatusClass(status) {
     assigned: 'status-orange',
     accepted: 'status-blue',
     rejected: 'status-purple',
+    needs_redispatch: 'status-orange',
     completed: 'status-deep-green',
     cancelled: 'status-purple'
   }
@@ -684,10 +697,18 @@ function normalizeDriverList(list) {
 
 function driverOptionLabel(driver) {
   const row = normalizeDriverForSelect(driver) || driver
-  if (row.label) return row.label
-  const phone = row.phone || phoneOf(row.userId)
-  const id = driverOptionValue(row)
-  return `${phone || id}`
+  const phone = row.phone || phoneOf(row.userId) || '—'
+  const name = row.name || row.realName || ''
+  const who = name && name !== phone ? `${name} ${phone}` : phone
+  const online =
+    row.status === 'online' || row.serviceStatus === 'online' || row.serviceStatus === 'idle'
+      ? '在线'
+      : String(row.status || '离线')
+  const service = row.serviceStatus || '—'
+  const avail = row.available === false ? '不可派' : '可派'
+  const tasks = Number(row.ongoingOrdersCount ?? 0)
+  const review = row.approvalStatus || row.reviewStatus || row.verificationStatus || '—'
+  return `${who} · ${online} · ${service} · ${avail} · 任务${Number.isFinite(tasks) ? tasks : 0} · ${review}`
 }
 
 function activeDriverIds() {
@@ -744,7 +765,13 @@ function recommendedDriversForOrder(order) {
   const busyIds = activeDriverIds()
   return drivers.value
     .filter((driver) => isDriverAvailable(driver))
-    .filter((driver) => !busyIds.has(driverOptionValue(driver)) || driverOptionValue(driver) === idOf(order.driverId))
+    .filter((driver) => {
+      const id = driverOptionValue(driver)
+      if (id === idOf(order.driverId)) return true
+      if (busyIds.has(id)) return false
+      if (Number(driver.ongoingOrdersCount) > 0) return false
+      return true
+    })
     .slice()
     .sort((a, b) => {
       const recentDiff = driverRecentOrderCount(a) - driverRecentOrderCount(b)
@@ -753,18 +780,15 @@ function recommendedDriversForOrder(order) {
     })
 }
 
-/** 推荐为空时仍展示全部可用司机，避免下拉被清空 */
+/** 手工派单：列出全部已加载司机，由客服明确选择 */
 function selectableDriversForOrder(order) {
-  const recommended = recommendedDriversForOrder(order)
-  if (recommended.length) return recommended
   const busyIds = activeDriverIds()
-  return drivers.value
-    .filter((driver) => isDriverAvailable(driver))
-    .filter(
-      (driver) =>
-        !busyIds.has(driverOptionValue(driver)) ||
-        driverOptionValue(driver) === idOf(order.driverId)
-    )
+  return drivers.value.slice().sort((a, b) => {
+    const aBusy = busyIds.has(driverOptionValue(a)) || Number(a.ongoingOrdersCount) > 0 ? 1 : 0
+    const bBusy = busyIds.has(driverOptionValue(b)) || Number(b.ongoingOrdersCount) > 0 ? 1 : 0
+    if (aBusy !== bBusy) return aBusy - bBusy
+    return String(a.phone || '').localeCompare(String(b.phone || ''))
+  })
 }
 
 function getRecommendedDriver(order) {
@@ -779,14 +803,8 @@ function recommendedDriverLabel(order) {
 
 function applyRecommendedDrivers() {
   for (const order of orders.value) {
-    const existingDriverId = idOf(order.driverId)
-    if (existingDriverId) {
-      selectedDriverIds[order._id] = existingDriverId
-      continue
-    }
-    if (selectedDriverIds[order._id]) continue
-    const driver = getRecommendedDriver(order)
-    if (driver) selectedDriverIds[order._id] = driverOptionValue(driver)
+    const existingDriverId = idOf(order.driverId) || idOf(order.assignedDriver)
+    selectedDriverIds[order._id] = existingDriverId || ''
   }
 }
 
@@ -808,8 +826,9 @@ function canAssign(order) {
 }
 
 function canOpenDispatch(order) {
+  const stage = adminOrderUiStage(order)
   return (
-    adminOrderUiStage(order) === 'ready_dispatch' &&
+    (stage === 'ready_dispatch' || stage === 'needs_redispatch') &&
     hasDeposit(order) &&
     isDispatchable(order) &&
     assigningId.value !== order._id
@@ -836,7 +855,7 @@ function canOneClickAssign(order) {
 }
 
 async function onQuote(order) {
-  const input = window.prompt('请输入报价金额（GBP）', order.amount || '')
+  const input = window.prompt('请输入客户价（人民币 CNY）', order.customerPriceCny || '')
   if (input == null) return
   const amount = Number(input)
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -998,20 +1017,24 @@ async function onOneClickAssign(order) {
 
 async function loadDrivers() {
   try {
-    let rows = normalizeDriverList(extractDriverRows(await fetchAvailableDrivers()))
-    if (!rows.length) {
-      const fd = await fetchDriversForDispatch()
-      rows = normalizeDriverList(extractDriverRows(fd))
+    const [available, forDispatch, approved] = await Promise.all([
+      fetchAvailableDrivers().catch(() => ({})),
+      fetchDriversForDispatch().catch(() => ({})),
+      fetchDrivers({ page: 1, pageSize: 100, status: 'approved' }).catch(() => ({}))
+    ])
+    const merged = new Map()
+    for (const row of [
+      ...normalizeDriverList(extractDriverRows(available)),
+      ...normalizeDriverList(extractDriverRows(forDispatch)),
+      ...normalizeDriverList(extractDriverRows(approved))
+    ]) {
+      const id = driverOptionValue(row)
+      if (!id) continue
+      const prev = merged.get(id)
+      merged.set(id, prev ? { ...prev, ...row } : row)
     }
-    if (!rows.length) {
-      const data = await fetchDrivers({ page: 1, pageSize: 100, status: 'approved' })
-      rows = normalizeDriverList(extractDriverRows(data))
-    }
-    drivers.value = rows
+    drivers.value = Array.from(merged.values())
     applyRecommendedDrivers()
-    console.log('[OrdersView] availableDrivers', rows)
-    console.log('[OrdersView] recommendedDrivers', rows.filter((d) => isDriverAvailable(d)))
-    console.log('[OrdersView] selectedDriverId', { ...selectedDriverIds })
   } catch (e) {
     error.value = e.message || '加载司机失败'
     drivers.value = []

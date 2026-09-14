@@ -1,0 +1,16 @@
+{
+  "driver": {
+    "versionName": "1.0.0-beta.1",
+    "versionCode": 10001,
+    "apkFile": "driver/CNber-Driver-v1.0.0-beta.1.apk",
+    "forceUpdate": false,
+    "releaseNotes": "CNber 司机端内部测试版 1.0.0-beta.1"
+  },
+  "client": {
+    "versionName": "1.0.0-beta.1",
+    "versionCode": 10001,
+    "apkFile": "client/CNber-Client-v1.0.0-beta.1.apk",
+    "forceUpdate": false,
+    "releaseNotes": "CNber 乘客端内部测试版 1.0.0-beta.1"
+  }
+}
